@@ -83,7 +83,7 @@ argParser :: Indent -> Parser Arg
 argParser indent = IdArg <$> idParser indent
 
 defArgParser :: Indent -> Parser [Arg]
-defArgParser indent = multiParenParser (argParser indent) <* char ':'
+defArgParser indent = multiParenParser (argParser indent) <* ws <* char ':'
 
 namedDefParser :: Indent -> Parser Expr
 namedDefParser indent = do
@@ -108,12 +108,11 @@ exprCallParser indent = do
 -- Matches syntax of the form (anything, anything, ...)
 multiParenParser :: Parser a -> Parser [a]
 multiParenParser innerParser =
-    ws *> char '(' *>
-    sepBy innerParser delimParser
-    <* char ')'
+    char '(' *> delimWs *>
+    sepBy (delimWs *> innerParser <* delimWs) (char ',')
+    <* delimWs <* char ')'
   where
-    delimParser = ws *> char ',' *> delimWs *> pure ()
-    delimWs = many $ oneOf " \t\n"
+    delimWs = many $ oneOf "\t \n"
 
 defParser :: Indent -> Parser Expr
 defParser indent = do
@@ -259,6 +258,3 @@ bodyParser base = do
 
 rootBodyParser :: Parser [Expr]
 rootBodyParser = sepBy (exprParser "" <* eol) eol <* eof
---rootBodyParser = sepBy (exprParser "" <* eol) (many $ try eol) <* eof
---sepBy innerParser delimParser
---rootBodyParser = (many $ exprParser "" <* (many1 $ try eol)) <* eof
