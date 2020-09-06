@@ -8,11 +8,19 @@ import Data.Char
 -- from foo import bar
 -- from foo.bar.it import Baz
 
-data ImportStatement
-  = ImportBasic String
-  | ImportFrom String String
+type Id = String
 
-data Statement = ImportStatement
+data CondBlock = CondBlock Expr [Expr]
+  deriving (Show, Eq)
+
+{-
+data Stmt
+  = StmtImportBasic String
+  | StmtImportFrom String String
+  | StmtAssignment Id Expr
+  | StmtExpr Expr
+  deriving (Show, Eq)
+-}
 
 data InfixOp
   = InfixAdd
@@ -30,53 +38,118 @@ data InfixOp
   | InfixLogicOr
   deriving (Show, Eq)
 
+data Arg = IdArg Id
+  deriving (Show, Eq)
+
 data Expr
-  = ExprId String
+  = ExprId Id
   | ExprInt Int
-  | ExprInfix Expr InfixOp Expr deriving (Show, Eq)
+  | ExprIfElse CondBlock [CondBlock] [Expr]
+  | ExprInfix Expr InfixOp Expr
+  | ExprAssignment Id Expr
+  | ExprDef [Arg] [Expr]
+  | ExprCall Expr [Expr]
+  deriving (Show, Eq)
 
-whitespace :: Parser String
-whitespace = many $ char ' '
+ws :: Parser String
+ws = many $ char ' '
 
-whitespace1 :: Parser String
-whitespace1 = many1 $ char ' '
+ws1 :: Parser String
+ws1 = many1 $ char ' '
 
-indent :: Parser Int
-indent = length <$> many (string "    " <|> string "\t")
+commentEater :: Parser ()
+commentEater = char '#' *> many (noneOf "\n") *> pure ()
+
+-- TODO: Support CRLF and ;
+eol :: Parser ()
+eol = try reol-- <|> eof
+  where
+    reol = ws *> optional commentEater *> char '\n' *> pure ()
 
 moduleParser :: Parser String
 moduleParser = many1 $ alphaNum <|> char '.'
 
-importBasicParser :: Parser ImportStatement
-importBasicParser = ImportBasic <$> (string "import" *> whitespace1 *> moduleParser)
+assignmentParser :: Indent -> Parser Expr
+assignmentParser indent = do
+  var  <- idParser indent
+  _    <- ws
+  _    <- char '='
+  _    <- ws
+  expr <- exprParser indent
+  pure $ ExprAssignment var expr
 
-importFromParser :: Parser ImportStatement
-importFromParser = do
-  _     <- string "from"
-  place <- moduleParser
-  _     <- string "import"
-  thing <- moduleParser
-  pure $ ImportFrom place thing
+-- TODO: Support pattern matching
+argParser :: Indent -> Parser Arg
+argParser indent = IdArg <$> idParser indent
 
--- TODO: See below
---  f(args...)Function call
---  x[index:index]Slicing
---  x[index]Subscription
---  x.attributeAttribute reference
---  **Exponentiation
---  ~xBitwise not
---  +x, -xPositive, negative
---  *, /, %Multiplication, division, remainder
---  +, -Addition, subtraction
---  <<, >>Bitwise shifts
---  &Bitwise AND
---  ^Bitwise XOR
---  |Bitwise OR
---  in, not in, is, is not, <, <=,  >,  >=, <>, !=, ==Comparisons, membership, identity
---  not xBoolean NOT
---  andBoolean AND
---  orBoolean OR
---  lambdaLambda expression
+defArgParser :: Indent -> Parser [Arg]
+defArgParser indent = multiParenParser (argParser indent) <* char ':'
+
+namedDefParser :: Indent -> Parser Expr
+namedDefParser indent = do
+  _    <- string "def"
+  _    <- ws1
+  name <- idParser indent
+  args <- defArgParser indent
+  _    <- eol
+  body <- bodyParser indent
+  pure $ ExprAssignment name $ ExprDef args body
+
+-- ExprCall Expr [Expr]
+
+-- Supports f() and f()()
+exprCallParser :: Indent -> Parser Expr
+exprCallParser indent = do
+  fun <- exprParser' indent
+  firstArgLists <- multiParenParser $ exprParser indent
+  otherArgLists <- many $ multiParenParser $ exprParser indent
+  pure $ foldl ExprCall (ExprCall fun firstArgLists) otherArgLists
+
+-- Matches syntax of the form (anything, anything, ...)
+multiParenParser :: Parser a -> Parser [a]
+multiParenParser innerParser =
+    ws *> char '(' *>
+    sepBy innerParser delimParser
+    <* char ')'
+  where
+    delimParser = ws *> char ',' *> delimWs *> pure ()
+    delimWs = many $ oneOf " \t\n"
+
+defParser :: Indent -> Parser Expr
+defParser indent = do
+  _    <- string "def"
+  args <- defArgParser indent
+  _    <- eol
+  body <- bodyParser indent
+  pure $ ExprDef args body
+
+-- TODO: Support this `if foo: print('reeee')`
+condBlockParser :: Indent -> String -> Parser CondBlock
+condBlockParser indent initialKeyword = do
+  _ <- string initialKeyword
+  _ <- ws1
+  cond <- exprParser indent
+  _ <- ws
+  _ <- char ':'
+  _ <- eol
+  body <- bodyParser indent
+  pure $ CondBlock cond body
+
+ifParser :: Indent -> Parser Expr
+ifParser indent = do
+    fi   <- condBlockParser indent "if"
+    file <- elifsParser
+    esle <- elseParser
+    pure $ ExprIfElse fi file esle
+  where
+    elifsParser :: Parser [CondBlock]
+    elifsParser = many $ try $ condBlockParser indent "elif"
+
+    elseParser :: Parser [Expr]
+    elseParser = elseBoiler *> bodyParser indent
+
+    elseBoiler :: Parser ()
+    elseBoiler = string "else" *> ws *> char ':' *> (many1 $ try eol) *> pure ()
 
 -- Pretty epic
 infixOpParser :: Parser InfixOp
@@ -102,33 +175,90 @@ infixOpParser = choice $ op <$> arr
         ("or", InfixLogicOr)
       ]
 
-infixParser :: Parser Expr
-infixParser = do
-  first  <- exprParser'
-  _      <- whitespace
+infixParser :: Indent -> Parser Expr
+infixParser indent = do
+  first  <- exprParser' indent
+  _      <- ws
   op     <- infixOpParser
-  _      <- whitespace
-  second <- exprParser
+  _      <- ws
+  second <- exprParser indent
   pure $ ExprInfix first op second
 
-idParser :: Parser Expr
-idParser = do
+idParser :: Indent -> Parser Id
+idParser _ = do
   x  <- char '_' <|> satisfy isAlpha
   xs <- many $ (char '_' <|> alphaNum)
-  pure $ ExprId (x:xs)
+  pure $ x:xs
 
-intParser :: Parser Expr
-intParser = ExprInt <$> read <$> many1 digit
+exprIdParser :: Indent -> Parser Expr
+exprIdParser indent = ExprId <$> idParser indent
+
+intParser :: Indent -> Parser Expr
+intParser _ = ExprInt <$> read <$> many1 digit
 
 parenEater :: Parser Expr -> Parser Expr
 parenEater innerParser =
-  char '(' *> whitespace *> innerParser <* whitespace <* char ')'
+  char '(' *> ws *> innerParser <* ws <* char ')'
 
-exprParser' :: Parser Expr
-exprParser' = try (parenEater exprParser) <|> content
-  where content = try idParser <|> intParser
+exprParser' :: Indent -> Parser Expr
+exprParser' indent = try (parenEater $ exprParser indent) <|> content
+  where content = choice $ try <$> ($ indent) <$> [
+            exprIdParser,
+            intParser
+          ]
 
-exprParser :: Parser Expr
-exprParser = content
+exprParser :: Indent -> Parser Expr
+exprParser indent = choice $ try <$> ($ indent) <$> [
+    ifParser,
+    defParser,
+    namedDefParser,
+    infixParser,
+    assignmentParser,
+    exprCallParser,
+    exprParser'
+  ]
+
+type Indent = String
+
+-- FIXME: Support multiple eols after a statement
+-- Hot
+{-
+bodyParser :: Indent -> Parser [Expr]
+bodyParser base = do
+    nIndent <- firstIndent
+    first   <- exprParser nIndent
+    _       <- many1 $ try eol
+    rest    <- extraStatements nIndent
+    pure (first:rest)
   where
-    content = try infixParser <|> exprParser'
+    extraStatements :: Indent -> Parser [Expr]
+    extraStatements indent =
+      many $ string indent *> exprParser indent <* eol
+
+    firstIndent = do
+      headIndent <- string base
+      tailIndent <- ws1
+      pure $ headIndent <> tailIndent
+-}
+bodyParser :: Indent -> Parser [Expr]
+bodyParser base = do
+    nIndent <- firstIndent
+    first   <- exprParser nIndent
+    _       <- many1 $ try eol
+    rest    <- extraStatements nIndent
+    pure (first:rest)
+  where
+    extraStatements :: Indent -> Parser [Expr]
+    extraStatements indent =
+      many $ string indent *> exprParser indent <* eol
+
+    firstIndent = do
+      headIndent <- string base
+      tailIndent <- ws1
+      pure $ headIndent <> tailIndent
+
+rootBodyParser :: Parser [Expr]
+rootBodyParser = sepBy (exprParser "" <* eol) eol <* eof
+--rootBodyParser = sepBy (exprParser "" <* eol) (many $ try eol) <* eof
+--sepBy innerParser delimParser
+--rootBodyParser = (many $ exprParser "" <* (many1 $ try eol)) <* eof

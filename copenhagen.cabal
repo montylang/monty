@@ -16,8 +16,7 @@ license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
-    README.md
-    ChangeLog.md
+    README.org
 
 source-repository head
   type: git

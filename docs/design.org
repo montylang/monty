@@ -1,0 +1,154 @@
+* Design
+** Classes
+    #+BEGIN_SRC python
+      type Functor:
+        def map(val) # def map(functor: Functor, f: Function)
+        def join(val)
+        def bind(val)
+
+      type Monad(Applicative)
+
+      class Maybe(Functor):
+        None:
+        Just(value):
+
+      def map(None, f):
+        return None
+
+      def map(Just(value), f):
+        return Just(f(value))
+
+      def justMaybe(Just(value)):
+        return value
+
+      def justMaybe(None):
+        return 0
+
+      def justMaybe(variable):
+        return 0
+
+      def join(m):
+        return m.bind(id)
+        return bind(m, id)
+
+      #-----------
+
+      a = Just(3)
+
+      b = match a:
+        if Nil:         0
+        if Just(value): value
+
+      def valOrZero(maybe):
+        return match maybe:
+          Nil: 0
+          Just(value): value
+
+      Just(3).valOrZero()
+
+    #+END_SRC
+** Traversable
+*** Pure imperative
+    #+BEGIN_SRC python
+      a = [1, 2, 3]
+
+      acc = []
+      for elem in a:
+      acc.append(elem + 1)
+    #+END_SRC
+    
+** Functor
+    #+BEGIN_SRC python
+      a = [1, 2, 3]
+
+      a.map(val => val + 1)
+       .filter((o): o == 2)
+       .reduce((acc, it): acc + it)
+    #+END_SRC
+
+    #+BEGIN_SRC python
+      for elem in [1, 2, 3]: # Any functor
+        elem + 1	
+
+      [1, 2, 3].map((elem): elem + 1)
+
+      # Slightly more complicated ----------
+
+      for elem in [1, 2, 3]: # Any functor
+        a = elem + 1	
+        a
+
+      # this
+      [1, 2, 3].map(def (elem):
+                    a = elem + 1
+                    return a)
+
+      # or this
+      [1, 2, 3].map((elem):
+                    a = elem + 1
+                    a)
+    #+END_SRC
+
+** Pythonic
+    #+BEGIN_SRC python
+      a = ...
+      acc = [i + 1 for i in a]
+    #+END_SRC
+
+*** Python functional
+    #+BEGIN_SRC python
+      a = ...
+      acc = list(map(lambda x: x + 1, a))
+    #+END_SRC
+
+*** New
+    #+BEGIN_SRC python
+      acc = [i + b for i in monad for b in othermonad]
+      acc = [i + b for i in None for b in Some(3)]
+    #+END_SRC
+
+** Do/Bind
+    #+BEGIN_SRC python
+      value.bind(o -> o + 1).bind(a -> a + 2)
+
+      Maybe a
+      foo = unwrap:
+      a = foo
+      c = ree
+      wrap a + c
+
+      def bindSet(foo, ree):
+      a = foo
+      c = ree
+      return a + c
+    #+END_SRC
+
+** Functions
+   `return` must be the last statement in the function? Hmm.. Nah.
+   
+   #+BEGIN_SRC python
+     def foo(a, b):
+       message = "hello"
+
+       if True:
+         c = a + 3
+         d = b - 5
+         return c + d
+
+       # Stripped out with the --no-debug flag
+       # No IO monad. Doesn't affect the return type of function
+       debug(message)
+       # Wraps return type in IO monad. Can affect functionality
+       print(message)
+
+       return 3
+
+     # With debug this works with print.... not necessarily
+     foo(2, 3) + 4
+
+     # With print, you have to unwrap the IO monad:
+     def main():
+       return unwrap:
+         val = foo(2, 3)
+         wrap val + 4
+   #+END_SRC

@@ -7,8 +7,7 @@ maintainer:          "example@example.com"
 copyright:           "2020 Author name here"
 
 extra-source-files:
-- README.md
-- ChangeLog.md
+- README.org
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package

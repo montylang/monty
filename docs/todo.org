@@ -1,0 +1,32 @@
+* TODOs
+** Basic Syntax
+  - [ ] String literals
+  - [ ] Arrays
+  - [ ] Dicts
+  - [ ] Tuples
+  - [ ] Type def
+  - [ ] Unaries (not '-')
+  - [ ] Lambdas
+  - [ ] Pass
+  - [ ] Wrap/Unwrap
+  - [-] Infix operators
+    - [X] Simple maths
+    - [ ] is/is not
+    - [ ] Binary operations
+  - [X] Function def
+  - [X] Imports
+  - [X] Assignment
+  - [X] Ints
+** Control Flow
+  - [ ] For
+  - [-] Function calls
+    - [X] Basic
+    - [ ] Sugar syntax
+  - [X] if/elif/else
+  - [X] While
+
+** Advanced
+  - [ ] Infix precedence
+  - [ ] Pattern matching
+  - [ ] Types actually mean something....
+
