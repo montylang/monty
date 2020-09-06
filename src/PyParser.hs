@@ -117,6 +117,7 @@ multiParenParser innerParser =
 defParser :: Indent -> Parser Expr
 defParser indent = do
   _    <- string "def"
+  _    <- ws
   args <- defArgParser indent
   _    <- eol
   body <- bodyParser indent

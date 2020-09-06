@@ -56,7 +56,6 @@ main = hspec $ do
       (testParser defArgParser "( \t a,  b ,c ) :") `shouldBe`
         (Right $ [IdArg "a", IdArg "b", IdArg "c"])
 
-  {-
   describe "Body parser" $ do
     it "Basic" $ do
       (testParser bodyParser $ unlines [" a = 3"]) `shouldBe`
@@ -71,6 +70,7 @@ main = hspec $ do
                   ExprAssignment "a" (ExprInt 3),
                   ExprAssignment "a" (ExprInt 3)])
 
+  {-
   -- OK Marvin, I like that
   describe "Root body parser" $ do
     it "Basic" $ do
@@ -88,6 +88,7 @@ main = hspec $ do
                    []
                    [ExprInt 2]
                   ])
+  -}
 
   describe "If parser" $ do
     it "If elif else" $ do
@@ -112,7 +113,6 @@ main = hspec $ do
          (CondBlock (ExprInt 3) [ExprInt 4])
          []
          [ExprInt 5])
-  -}
 
   describe "Def" $ do
     it "Anonymous def" $ do
@@ -128,7 +128,6 @@ main = hspec $ do
       (testParser exprParser $ unlines ["def foo():", "  4"]) `shouldBe`
         (Right $ ExprAssignment "foo" $ ExprDef [] [ExprInt 4])
 
-  {-
   describe "Calling functions" $ do
     it "Named function call" $ do
       (testParser exprParser $ "foo(x)") `shouldBe`
@@ -146,4 +145,3 @@ main = hspec $ do
     it "Curried function call" $ do
       (testParser exprCallParser $ "foo()()") `shouldBe`
         (Right $ ExprCall (ExprCall (ExprId "foo") []) [])
--}
