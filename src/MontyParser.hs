@@ -1,10 +1,8 @@
-module PyParser where
+module MontyParser where
 
 import Text.Parsec
 import Text.Parsec.String
 import Data.Char
-import Data.List
-import Debug.Trace
 
 type Id = String
 type Indent = String
@@ -54,7 +52,6 @@ commentEater = char '#' *> many (noneOf "\n") *> pure ()
 singleEol :: Parser ()
 singleEol = ws *> optional commentEater *> char '\n' *> pure ()
 
--- TODO: Maybe just define this as an EOL, consume them all!!
 eol1 :: Parser()
 eol1 = singleEol <* (many $ try singleEol)
 
@@ -64,9 +61,7 @@ moduleParser = many1 $ alphaNum <|> char '.'
 assignmentParser :: Indent -> Parser Expr
 assignmentParser indent = do
   var  <- idParser indent
-  _    <- ws
-  _    <- char '='
-  _    <- ws
+  _    <- ws <* char '=' <* ws
   expr <- exprParser indent
   pure $ ExprAssignment var expr
 
@@ -79,23 +74,23 @@ defArgParser indent = multiParenParser (argParser indent) <* ws <* char ':'
 
 namedDefParser :: Indent -> Parser Expr
 namedDefParser indent = do
-  _    <- string "def"
-  _    <- ws1
-  name <- idParser indent
-  args <- defArgParser indent
-  _    <- eol1
+  name <- string "def" *> ws1 *> idParser indent
+  args <- defArgParser indent <* eol1
   body <- bodyParser indent
   pure $ ExprAssignment name $ ExprDef args body
-
--- ExprCall Expr [Expr]
 
 -- Supports f() and f()()
 exprCallParser :: Indent -> Parser Expr
 exprCallParser indent = do
-  fun <- exprParser' indent
+  fun           <- exprParser' indent
   firstArgLists <- multiParenParser $ exprParser indent
   otherArgLists <- many $ multiParenParser $ exprParser indent
   pure $ foldl ExprCall (ExprCall fun firstArgLists) otherArgLists
+
+-- Eats surrounding parens of an expr, for disambiguation
+parenEater :: Parser Expr -> Parser Expr
+parenEater innerParser =
+    char '(' *> ws *> innerParser <* ws <* char ')'
 
 -- Matches syntax of the form (anything, anything, ...)
 multiParenParser :: Parser a -> Parser [a]
@@ -108,23 +103,17 @@ multiParenParser innerParser =
 
 defParser :: Indent -> Parser Expr
 defParser indent = do
-  _    <- string "def"
-  _    <- ws
-  args <- defArgParser indent
-  _    <- eol1
-  body <- trace "made to body parser" $ bodyParser indent
-  pure $ trace "finished body parser" $ ExprDef args body
+  _    <- try $ string "def" <* ws
+  args <- defArgParser indent <* eol1
+  body <- bodyParser indent
+  pure $ ExprDef args body
 
 -- TODO: Support this `if foo: print('reeee')`
 condBlockParser :: String -> Indent -> Parser CondBlock
 condBlockParser initialKeyword indent = do
   _    <- try (string initialKeyword <* ws1)
-  cond <- exprParser indent
-  _    <- ws
-  _    <- char ':'
-  _    <- eol1
-  body <- bodyParser indent
-  _    <- eol1
+  cond <- exprParser indent <* ws <* char ':' <* eol1
+  body <- bodyParser indent <* eol1
   pure $ CondBlock cond body
 
 ifParser :: Indent -> Parser Expr
@@ -138,10 +127,9 @@ ifParser indent = do
     elifsParser = many (try $ condBlockParser "elif" indent)
 
     elseParser :: Parser [Expr]
-    elseParser = elseBoiler *> bodyParser indent
-
-    elseBoiler :: Parser ()
-    elseBoiler = string indent *> string "else" *> ws *> char ':' *> eol1 *> pure ()
+    elseParser =
+      string indent *> string "else" *> ws *> char ':' *> eol1 *>
+      bodyParser indent
 
 infixOpParser :: Parser InfixOp
 infixOpParser = choice $ op <$> arr
@@ -167,13 +155,10 @@ infixOpParser = choice $ op <$> arr
       ]
 
 infixParser :: Indent -> Parser Expr
-infixParser indent = do
-  first  <- exprParser' indent
-  _      <- ws
-  op     <- infixOpParser
-  _      <- ws
-  second <- exprParser indent
-  pure $ ExprInfix first op second
+infixParser indent = ExprInfix <$>
+  exprParser' indent <* ws <*>
+  infixOpParser <* ws <*>
+  exprParser indent
 
 idParser :: Indent -> Parser Id
 idParser _ = do
@@ -185,15 +170,11 @@ exprIdParser :: Indent -> Parser Expr
 exprIdParser indent = ExprId <$> idParser indent
 
 intParser :: Indent -> Parser Expr
-intParser _ = ExprInt <$> read <$> many1 digit
-
-parenEater :: Parser Expr -> Parser Expr
-parenEater innerParser =
-  char '(' *> ws *> innerParser <* ws <* char ')'
+intParser _ = ExprInt . read <$> many1 digit
 
 exprParser' :: Indent -> Parser Expr
 exprParser' indent = try (parenEater $ exprParser indent) <|> content
-  where content = choice $ try <$> ($ indent) <$> [
+  where content = choice $ try . ($ indent) <$> [
             exprIdParser,
             intParser
           ]
@@ -220,13 +201,5 @@ bodyParser base = do
     stmt :: Indent -> Parser Expr
     stmt nextIndent = eol1 *> string nextIndent *> exprParser nextIndent
 
--- FIXME: Make this less waste
 rootBodyParser :: Parser [Expr]
-rootBodyParser = do
-    _     <- many $ try singleEol
-    first <- exprParser "" <* lookAhead singleEol
-    rest  <- many $ try $ stmt
-    pure $ first:rest
-  where
-    stmt :: Parser Expr
-    stmt = eol1 *> string "" *> exprParser ""
+rootBodyParser = many $ (try $ exprParser "") <* eol1

@@ -5,7 +5,7 @@ import Text.Parsec
 import Text.Parsec.String
 import Data.Char
 
-import PyParser
+import MontyParser
 
 lineSep :: String
 lineSep = (\_ -> '-') <$> [1..80]

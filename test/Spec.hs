@@ -3,18 +3,18 @@ import Text.Parsec
 import Text.Parsec.String
 import Data.Either
 
-import PyParser
+import MontyParser
 
 testParser :: (Indent -> Parser a) -> String -> Either ParseError a
-testParser p input = parse (p "" <* (try $ many $ try eol) <* eof) "" input
+testParser p input = parse (p "" <* (try $ many $ try singleEol) <* eof) "" input
 
 main :: IO ()
 main = hspec $ do
-  describe "Eol parser" $ do
+  describe "SingleEol parser" $ do
     it "Parses EOLs" $ do
-      parse (eol <* eof) "" "  \n" `shouldBe` (Right ()) 
-      parse (eol <* eof) "" "  # \n" `shouldBe` (Right ()) 
-      parse (eol <* eof) "" "  #  sntaoehusnthoea \n" `shouldBe` (Right ()) 
+      parse (singleEol <* eof) "" "  \n" `shouldBe` (Right ()) 
+      parse (singleEol <* eof) "" "  # \n" `shouldBe` (Right ()) 
+      parse (singleEol <* eof) "" "  #  sntaoehusnthoea \n" `shouldBe` (Right ()) 
 
   describe "Id parser" $ do
     it "Parses ids" $ do
