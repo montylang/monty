@@ -51,12 +51,12 @@ commentEater :: Parser ()
 commentEater = char '#' *> many (noneOf "\n") *> pure ()
 
 -- TODO: Support CRLF and ;
-eol :: Parser ()
-eol = ws *> optional commentEater *> char '\n' *> pure ()
+singleEol :: Parser ()
+singleEol = ws *> optional commentEater *> char '\n' *> pure ()
 
 -- TODO: Maybe just define this as an EOL, consume them all!!
 eol1 :: Parser()
-eol1 = eol <* (many $ try eol)
+eol1 = singleEol <* (many $ try singleEol)
 
 moduleParser :: Parser String
 moduleParser = many1 $ alphaNum <|> char '.'
@@ -83,7 +83,7 @@ namedDefParser indent = do
   _    <- ws1
   name <- idParser indent
   args <- defArgParser indent
-  _    <- eol
+  _    <- eol1
   body <- bodyParser indent
   pure $ ExprAssignment name $ ExprDef args body
 
@@ -111,7 +111,7 @@ defParser indent = do
   _    <- string "def"
   _    <- ws
   args <- defArgParser indent
-  _    <- eol
+  _    <- eol1
   body <- trace "made to body parser" $ bodyParser indent
   pure $ trace "finished body parser" $ ExprDef args body
 
@@ -141,7 +141,7 @@ ifParser indent = do
     elseParser = elseBoiler *> bodyParser indent
 
     elseBoiler :: Parser ()
-    elseBoiler = string indent *> string "else" *> ws *> char ':' *> eol *> pure ()
+    elseBoiler = string indent *> string "else" *> ws *> char ':' *> eol1 *> pure ()
 
 infixOpParser :: Parser InfixOp
 infixOpParser = choice $ op <$> arr
@@ -213,7 +213,7 @@ exprParser indent = choice [
 bodyParser :: Indent -> Parser [Expr]
 bodyParser base = do
     nextIndent <- (<>) <$> string base <*> ws1
-    first      <- exprParser nextIndent <* lookAhead eol
+    first      <- exprParser nextIndent <* lookAhead singleEol
     rest       <- many $ try $ stmt nextIndent
     pure $ first:rest
   where
@@ -223,8 +223,9 @@ bodyParser base = do
 -- FIXME: Make this less waste
 rootBodyParser :: Parser [Expr]
 rootBodyParser = do
-    first      <- exprParser "" <* lookAhead eol
-    rest       <- many $ try $ stmt
+    _     <- many $ try singleEol
+    first <- exprParser "" <* lookAhead singleEol
+    rest  <- many $ try $ stmt
     pure $ first:rest
   where
     stmt :: Parser Expr
