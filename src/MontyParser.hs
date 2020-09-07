@@ -11,18 +11,18 @@ data CondBlock = CondBlock Expr [Expr]
   deriving (Show, Eq)
 
 data InfixOp
-  = InfixAdd
-  | InfixSub
-  | InfixMul
+  = InfixAdd  -- Semiring add(a, b): semiring
+  | InfixSub  -- Ring
+  | InfixMul  -- Semiring
   | InfixDiv
-  | InfixMod
-  | InfixEq
-  | InfixNotEq
-  | InfixGreater
+  | InfixMod  -- Semiring
+  | InfixEq       -- Equal equal(a, b): bool
+  | InfixNotEq    -- Equal
+  | InfixGreater  -- Ord : ord(a, b) == GT
   | InfixLess
   | InfixLessEqual
   | InfixGreaterEqual
-  | InfixLogicAnd
+  | InfixLogicAnd -- Logic: lor(a, b): bool
   | InfixLogicOr
   deriving (Show, Eq)
 
@@ -32,11 +32,13 @@ data Arg = IdArg Id
 data Expr
   = ExprId Id
   | ExprInt Int
+  | ExprString String
   | ExprIfElse CondBlock [CondBlock] [Expr]
   | ExprInfix Expr InfixOp Expr
   | ExprAssignment Id Expr
   | ExprDef [Arg] [Expr]
   | ExprCall Expr [Expr]
+  | ExprReturn Expr
   deriving (Show, Eq)
 
 ws :: Parser String
@@ -108,6 +110,9 @@ defParser indent = do
   body <- bodyParser indent
   pure $ ExprDef args body
 
+returnParser :: Indent -> Parser Expr
+returnParser indent = ExprReturn <$> (string "return" *> ws1 *> exprParser indent)
+
 -- TODO: Support this `if foo: print('reeee')`
 condBlockParser :: String -> Indent -> Parser CondBlock
 condBlockParser initialKeyword indent = do
@@ -157,7 +162,7 @@ infixOpParser = choice $ op <$> arr
 infixParser :: Indent -> Parser Expr
 infixParser indent = ExprInfix <$>
   exprParser' indent <* ws <*>
-  infixOpParser <* ws <*>
+  infixOpParser      <* ws <*>
   exprParser indent
 
 idParser :: Indent -> Parser Id
@@ -172,11 +177,19 @@ exprIdParser indent = ExprId <$> idParser indent
 intParser :: Indent -> Parser Expr
 intParser _ = ExprInt . read <$> many1 digit
 
+stringParser :: Indent -> Parser Expr
+stringParser _ = do
+  startQuote <- oneOf "\"'"
+  inner      <- many $ noneOf [startQuote]
+  _          <- char startQuote
+  pure $ ExprString inner
+
 exprParser' :: Indent -> Parser Expr
 exprParser' indent = try (parenEater $ exprParser indent) <|> content
   where content = choice $ try . ($ indent) <$> [
             exprIdParser,
-            intParser
+            intParser,
+            stringParser
           ]
 
 exprParser :: Indent -> Parser Expr
@@ -187,6 +200,7 @@ exprParser indent = choice [
     try $ infixParser indent,
     try $ assignmentParser indent,
     try $ exprCallParser indent,
+    try $ returnParser indent,
     exprParser' indent
   ]
 
@@ -202,4 +216,4 @@ bodyParser base = do
     stmt nextIndent = eol1 *> string nextIndent *> exprParser nextIndent
 
 rootBodyParser :: Parser [Expr]
-rootBodyParser = many $ (try $ exprParser "") <* eol1
+rootBodyParser = sepBy (try $ exprParser "") eol1

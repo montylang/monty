@@ -25,13 +25,17 @@ source-repository head
 library
   exposed-modules:
       MontyParser
+      MontyRunner
   other-modules:
       Paths_copenhagen
   hs-source-dirs:
       src
   build-depends:
       base >=4.7 && <5
+    , hashable
+    , mtl
     , parsec
+    , unordered-containers
   default-language: Haskell2010
 
 executable copenhagen-exe
@@ -44,7 +48,10 @@ executable copenhagen-exe
   build-depends:
       base >=4.7 && <5
     , copenhagen
+    , hashable
+    , mtl
     , parsec
+    , unordered-containers
   default-language: Haskell2010
 
 test-suite copenhagen-test
@@ -58,6 +65,9 @@ test-suite copenhagen-test
   build-depends:
       base >=4.7 && <5
     , copenhagen
+    , hashable
     , hspec
+    , mtl
     , parsec
+    , unordered-containers
   default-language: Haskell2010

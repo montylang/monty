@@ -28,6 +28,15 @@ main = hspec $ do
       (testParser exprParser "123") `shouldBe` (Right $ ExprInt 123)
       (testParser exprParser "123a") `shouldSatisfy` isLeft
 
+  describe "String parser" $ do
+    it "Parses strings" $ do
+      (testParser exprParser "\"test\"") `shouldBe` (Right $ ExprString "test")
+      (testParser exprParser "'test'") `shouldBe` (Right $ ExprString "test")
+      (testParser exprParser "'\"\"\"'") `shouldBe` (Right $ ExprString "\"\"\"")
+      (testParser exprParser "\"'''\"") `shouldBe` (Right $ ExprString "'''")
+      (testParser exprParser "\"test'") `shouldSatisfy` isLeft
+      (testParser exprParser "'test\"") `shouldSatisfy` isLeft
+
   describe "Expr parser" $ do
     it "Infix ops" $ do
       (testParser exprParser "a + b") `shouldBe`
@@ -88,6 +97,7 @@ main = hspec $ do
           ])
 
   -- OK Marvin, I like that
+  {- FIXME: 
   describe "Root body parser" $ do
     it "Basic" $ do
       (parse rootBodyParser "" $ unlines ["a = 3"]) `shouldBe`
@@ -116,6 +126,7 @@ main = hspec $ do
                    []
                    [ExprInt 2]
                   ])
+  -}
 
   describe "Cond block parser" $ do
     it "fake cond" $ do
@@ -200,6 +211,14 @@ main = hspec $ do
     it "Named def" $ do
       (testParser exprParser $ unlines ["def foo():", "  4"]) `shouldBe`
         (Right $ ExprAssignment "foo" $ ExprDef [] [ExprInt 4])
+
+  describe "Return" $ do
+    it "Returns" $ do
+      (testParser exprParser $ unlines ["return 1"]) `shouldBe`
+        (Right $ ExprReturn $ ExprInt 1)
+
+      (testParser exprParser $ unlines ["def (x):", "  return x"]) `shouldBe`
+        (Right $ (ExprDef [(IdArg "x")] [ExprReturn $ ExprId "x"]))
 
   describe "Calling functions" $ do
     it "Named function call" $ do

@@ -1,7 +1,4 @@
-def factorial(n):
-    if (n == 0):
-        1
-    else:
-        n * factorial(n - 1)
+def id(x):
+    x
 
-factorial(4)
+debug(id(3 + 5))

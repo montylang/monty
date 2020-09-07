@@ -152,3 +152,31 @@
          val = foo(2, 3)
          wrap val + 4
    #+END_SRC
+
+** Scope
+   Scoping is lexical
+
+   This is fine, functions can be in any order (including anonymouses and lambdas):
+   #+BEGIN_SRC python
+     def foo(x):
+        return 3 + baz(x)
+
+     def baz(val):
+        return val * 2
+   #+END_SRC
+
+   This is bad, must declare variables before their reference:
+   #+BEGIN_SRC python
+     def foo(x):
+        return 3 + y
+
+     y = 3
+   #+END_SRC
+
+   This is also fine:
+   #+BEGIN_SRC python
+     y = foo(3)
+
+     def foo(x):
+        return 3 + y
+   #+END_SRC
