@@ -6,7 +6,7 @@ import Data.Either
 import PyParser
 
 testParser :: (Indent -> Parser a) -> String -> Either ParseError a
-testParser p input = parse (p "" <* eof) "" input
+testParser p input = parse (p "" <* (try $ many $ try eol) <* eof) "" input
 
 main :: IO ()
 main = hspec $ do
@@ -58,6 +58,9 @@ main = hspec $ do
 
   describe "Body parser" $ do
     it "Basic" $ do
+      (testParser bodyParser $ " a = 3\n") `shouldBe`
+        (Right $ [ExprAssignment "a" (ExprInt 3)])
+
       (testParser bodyParser $ unlines [" a = 3"]) `shouldBe`
         (Right $ [ExprAssignment "a" (ExprInt 3)])
 
@@ -65,12 +68,25 @@ main = hspec $ do
       (testParser bodyParser $ unlines ["  a = 3", "  a = 3"]) `shouldBe`
         (Right $ [ExprAssignment "a" (ExprInt 3), ExprAssignment "a" (ExprInt 3)])
 
+      (testParser bodyParser $ unlines ["  a = 3", "", "", "  a = 3"]) `shouldBe`
+        (Right $ [ExprAssignment "a" (ExprInt 3), ExprAssignment "a" (ExprInt 3)])
+
       (testParser bodyParser $ unlines ["  a = 3", "  a = 3", "  a = 3"]) `shouldBe`
         (Right $ [ExprAssignment "a" (ExprInt 3),
                   ExprAssignment "a" (ExprInt 3),
                   ExprAssignment "a" (ExprInt 3)])
 
-  {-
+    it "Inner def" $ do
+      (testParser bodyParser $ unlines [
+          "  def (x):",
+          "    7",
+          "  a = 5"
+        ]) `shouldBe`
+        (Right [
+            (ExprDef [(IdArg "x")] [ExprInt 7]),
+            (ExprAssignment "a" (ExprInt 5))
+          ])
+
   -- OK Marvin, I like that
   describe "Root body parser" $ do
     it "Basic" $ do
@@ -81,6 +97,18 @@ main = hspec $ do
         (Right $ [ExprAssignment "a" (ExprInt 3),
                   ExprAssignment "b" (ExprInt 4)])
 
+    it "Exprs & defs" $ do
+      (parse rootBodyParser "" $ unlines [
+            "1",
+            "def f(x):",
+            "  x",
+            "2"
+          ]) `shouldBe`
+        (Right $ [
+           ExprInt 1,
+           ExprAssignment "f" (ExprDef [IdArg "x"] [ExprId "x"]),
+           ExprInt 2
+         ])
       (parse rootBodyParser "" $ unlines ["if 3:", "  1", "else:", "  2"]) `shouldBe`
         (Right $ [
                    ExprIfElse
@@ -88,15 +116,44 @@ main = hspec $ do
                    []
                    [ExprInt 2]
                   ])
-  -}
+
+  describe "Cond block parser" $ do
+    it "fake cond" $ do
+      (testParser (condBlockParser "fake") $ unlines [
+            "fake 3 :  # ain't real! ",
+            "  4",
+            "  5"
+          ]) `shouldBe`
+        (Right $ CondBlock (ExprInt 3) [ExprInt 4, ExprInt 5])
 
   describe "If parser" $ do
-    it "If elif else" $ do
-      (testParser exprParser $ unlines ["if 3:", "  4", "elif 5:", "  6", "else:", "  7"]) `shouldBe`
+    it "If else" $ do
+      (testParser exprParser $ unlines [
+            "if 3:",
+            "  4",
+            "else:",
+            "  5"
+          ]) `shouldBe`
         (Right $ ExprIfElse
          (CondBlock (ExprInt 3) [ExprInt 4])
+         []
+         [ExprInt 5])
+
+    it "If elif else" $ do
+      (testParser exprParser $ unlines [
+            "if 3:",
+            "  4",
+            "  5",
+            "elif 5:",
+            "  6",
+            "else:",
+            "  7",
+            "  8"
+          ]) `shouldBe`
+        (Right $ ExprIfElse
+         (CondBlock (ExprInt 3) [ExprInt 4, ExprInt 5])
          [CondBlock (ExprInt 5) [ExprInt 6]]
-         [ExprInt 7])
+         [ExprInt 7, ExprInt 8])
 
     it "If elif elif else" $ do
       (testParser exprParser $ unlines
@@ -107,13 +164,29 @@ main = hspec $ do
           CondBlock (ExprInt 7) [ExprInt 8]]
          [ExprInt 9])
 
-    it "If else" $ do
-      (testParser exprParser $ unlines ["if 3:", "  4", "else:", "  5"]) `shouldBe`
-        (Right $ ExprIfElse
-         (CondBlock (ExprInt 3) [ExprInt 4])
-         []
-         [ExprInt 5])
-
+    it "Nested if/else" $ do
+      (testParser exprParser $ unlines [
+          "if 1:",
+          "  if 2:",
+          "    3",
+          "  else:",
+          "    4",
+          "else:",
+          "  5"]
+        ) `shouldBe`
+        (Right $ (ExprIfElse
+           (CondBlock
+             (ExprInt 1)
+             [ExprIfElse
+               (CondBlock (ExprInt 2) [ExprInt 3])
+               []
+               [ExprInt 4]
+             ]
+           )
+           []
+           [ExprInt 5])
+         )
+ 
   describe "Def" $ do
     it "Anonymous def" $ do
       (testParser exprParser $ unlines ["def (a, b)  : ", "  4"]) `shouldBe`

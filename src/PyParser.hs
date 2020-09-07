@@ -3,24 +3,14 @@ module PyParser where
 import Text.Parsec
 import Text.Parsec.String
 import Data.Char
-
--- import foo
--- from foo import bar
--- from foo.bar.it import Baz
+import Data.List
+import Debug.Trace
 
 type Id = String
+type Indent = String
 
 data CondBlock = CondBlock Expr [Expr]
   deriving (Show, Eq)
-
-{-
-data Stmt
-  = StmtImportBasic String
-  | StmtImportFrom String String
-  | StmtAssignment Id Expr
-  | StmtExpr Expr
-  deriving (Show, Eq)
--}
 
 data InfixOp
   = InfixAdd
@@ -62,9 +52,11 @@ commentEater = char '#' *> many (noneOf "\n") *> pure ()
 
 -- TODO: Support CRLF and ;
 eol :: Parser ()
-eol = try reol-- <|> eof
-  where
-    reol = ws *> optional commentEater *> char '\n' *> pure ()
+eol = ws *> optional commentEater *> char '\n' *> pure ()
+
+-- TODO: Maybe just define this as an EOL, consume them all!!
+eol1 :: Parser()
+eol1 = eol <* (many $ try eol)
 
 moduleParser :: Parser String
 moduleParser = many1 $ alphaNum <|> char '.'
@@ -120,38 +112,37 @@ defParser indent = do
   _    <- ws
   args <- defArgParser indent
   _    <- eol
-  body <- bodyParser indent
-  pure $ ExprDef args body
+  body <- trace "made to body parser" $ bodyParser indent
+  pure $ trace "finished body parser" $ ExprDef args body
 
 -- TODO: Support this `if foo: print('reeee')`
-condBlockParser :: Indent -> String -> Parser CondBlock
-condBlockParser indent initialKeyword = do
-  _ <- string initialKeyword
-  _ <- ws1
+condBlockParser :: String -> Indent -> Parser CondBlock
+condBlockParser initialKeyword indent = do
+  _    <- try (string initialKeyword <* ws1)
   cond <- exprParser indent
-  _ <- ws
-  _ <- char ':'
-  _ <- eol
+  _    <- ws
+  _    <- char ':'
+  _    <- eol1
   body <- bodyParser indent
+  _    <- eol1
   pure $ CondBlock cond body
 
 ifParser :: Indent -> Parser Expr
 ifParser indent = do
-    fi   <- condBlockParser indent "if"
+    fi   <- condBlockParser "if" indent 
     file <- elifsParser
     esle <- elseParser
     pure $ ExprIfElse fi file esle
   where
     elifsParser :: Parser [CondBlock]
-    elifsParser = many $ try $ condBlockParser indent "elif"
+    elifsParser = many (try $ condBlockParser "elif" indent)
 
     elseParser :: Parser [Expr]
     elseParser = elseBoiler *> bodyParser indent
 
     elseBoiler :: Parser ()
-    elseBoiler = string "else" *> ws *> char ':' *> (many1 $ try eol) *> pure ()
+    elseBoiler = string indent *> string "else" *> ws *> char ':' *> eol *> pure ()
 
--- Pretty epic
 infixOpParser :: Parser InfixOp
 infixOpParser = choice $ op <$> arr
   where
@@ -208,54 +199,33 @@ exprParser' indent = try (parenEater $ exprParser indent) <|> content
           ]
 
 exprParser :: Indent -> Parser Expr
-exprParser indent = choice $ try <$> ($ indent) <$> [
-    ifParser,
-    defParser,
-    namedDefParser,
-    infixParser,
-    assignmentParser,
-    exprCallParser,
-    exprParser'
+exprParser indent = choice [
+    ifParser indent,
+    try $ defParser indent,
+    try $ namedDefParser indent,
+    try $ infixParser indent,
+    try $ assignmentParser indent,
+    try $ exprCallParser indent,
+    exprParser' indent
   ]
 
-type Indent = String
-
--- FIXME: Support multiple eols after a statement
--- Hot
-{-
+-- Pretty epic
 bodyParser :: Indent -> Parser [Expr]
 bodyParser base = do
-    nIndent <- firstIndent
-    first   <- exprParser nIndent
-    _       <- many1 $ try eol
-    rest    <- extraStatements nIndent
-    pure (first:rest)
+    nextIndent <- (<>) <$> string base <*> ws1
+    first      <- exprParser nextIndent <* lookAhead eol
+    rest       <- many $ try $ stmt nextIndent
+    pure $ first:rest
   where
-    extraStatements :: Indent -> Parser [Expr]
-    extraStatements indent =
-      many $ string indent *> exprParser indent <* eol
+    stmt :: Indent -> Parser Expr
+    stmt nextIndent = eol1 *> string nextIndent *> exprParser nextIndent
 
-    firstIndent = do
-      headIndent <- string base
-      tailIndent <- ws1
-      pure $ headIndent <> tailIndent
--}
-bodyParser :: Indent -> Parser [Expr]
-bodyParser base = do
-    nIndent <- firstIndent
-    first   <- exprParser nIndent
-    _       <- many1 $ try eol
-    rest    <- extraStatements nIndent
-    pure (first:rest)
-  where
-    extraStatements :: Indent -> Parser [Expr]
-    extraStatements indent =
-      many $ string indent *> exprParser indent <* eol
-
-    firstIndent = do
-      headIndent <- string base
-      tailIndent <- ws1
-      pure $ headIndent <> tailIndent
-
+-- FIXME: Make this less waste
 rootBodyParser :: Parser [Expr]
-rootBodyParser = sepBy (exprParser "" <* eol) eol <* eof
+rootBodyParser = do
+    first      <- exprParser "" <* lookAhead eol
+    rest       <- many $ try $ stmt
+    pure $ first:rest
+  where
+    stmt :: Parser Expr
+    stmt = eol1 *> string "" *> exprParser ""
