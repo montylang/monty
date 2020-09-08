@@ -29,7 +29,9 @@ instance Hashable ScopeKey where
   -- hashWithSalt salt (FuncSigKey name types) =
   --   hashWithSalt salt (intercalate "," ([name] ++ (show <$> types)))
 
-type Scope = HM.HashMap ScopeKey Value
+type ScopeBlock = HM.HashMap ScopeKey Value
+type Scope      = [ScopeBlock]
+
 type Scoper a = StateT Scope IO a
 
 data Value
@@ -37,34 +39,48 @@ data Value
   | VString String
   | VBoolean Bool
   | VFunction [Arg] [Expr] -- Parametric
+  | VScoped Value Scope
   | VList     -- Parametric
   | VTuple    -- Parametric
   | VDict     -- Parametric
   | VClass    -- Parametric
   deriving (Show)
 
+-- TODO: Don't allow overriding of values in top scope
+addToScope :: String -> Value -> Scope -> Scope
+addToScope key value (topScope:lowerScopes) = newTop:lowerScopes
+  where
+    newTop = HM.insert (VariableKey key) value topScope
+addToScope _ _ [] = undefined
+
+-- Returns the value for the given key, and the scope block where it is defined
+findInScope :: String -> Scope -> Maybe (Value, Scope)
+findInScope _ [] = Nothing
+findInScope key (top:lower) =
+  case HM.lookup (VariableKey key) top of
+    Nothing    -> findInScope key lower
+    Just value -> Just (value, top:lower)
+
+pushScopeBlock :: ScopeBlock -> Scope -> Scope
+pushScopeBlock block scope = block:scope
+
+popScopeBlock :: Scope -> Scope
+popScopeBlock [] = []
+popScopeBlock (_:bottom) = bottom
+
 infixEval :: Value -> InfixOp -> Value -> Value
 infixEval (VInt first) InfixAdd (VInt second) = VInt $ first + second
 infixEval (VInt first) InfixMul (VInt second) = VInt $ first * second
 
-ecart :: String -> a -> Scoper a
-ecart msg rest = lift $ putStrLn msg *> pure rest
-
-showAScope :: String -> Scope -> Scoper ()
-showAScope prefix scope = do
-  _ <- lift $ putStrLn (prefix <> ": " <> (intercalate ", " ((\(VariableKey a) -> a) <$> HM.keys scope)))
-  pure ()
-
-showScope :: String -> Scoper ()
-showScope prefix = do
-  s <- get
-  showAScope prefix s
-
 eval :: Expr -> Scoper Value
 eval (ExprId name) = do
-  -- showScope $ "id (" <> name <> ")"
-  value <- gets (\s -> HM.lookup (VariableKey name) s)
-  pure $ fromMaybe (trace (name <> " is not in scope") undefined) value -- TODO: Have a better message
+    value <- gets (\s -> findInScope name s)
+    pure $ fromMaybe (trace (name <> " is not in scope") undefined) (toVScoped <$> value)
+  where
+    toVScoped :: (Value, Scope) -> Value
+    -- Only return associated scopes for functions
+    toVScoped (VFunction args body, scope) = VScoped (VFunction args body) scope
+    toVScoped (value, _) = value
 
 eval (ExprInt a) = pure $ VInt a
 eval (ExprString a) = pure $ VString a
@@ -77,7 +93,7 @@ eval (ExprDef args body) = pure $ VFunction args body
 
 eval (ExprAssignment name value) = do
   evaledValue <- eval value
-  modify (\s -> HM.insert (VariableKey name) evaledValue s)
+  modify (\s -> addToScope name evaledValue s)
   pure evaledValue
 
 eval (ExprCall (ExprId "debug") [param]) = do
@@ -92,10 +108,19 @@ eval (ExprCall funExpr args) = do
     pure result
   where
     runFun :: Value -> [Value] -> Scoper Value
+    -- TODO: Push a new scope, with the args. Pop afterwards
     runFun (VFunction fargs body) params | (length args) == (length params) = do
-      s <- get
-      put $ HM.union (HM.fromList $ zip (convertArg <$> fargs) params) s
-      runBody body
+      modify (\s -> pushScopeBlock (HM.fromList $ zip (convertArg <$> fargs) params) s)
+      retVal <- runBody body
+      modify (\s -> popScopeBlock s)
+      pure retVal
+    runFun (VScoped (VFunction fargs body) fscope) params | (length args) == (length params) = do
+      oldScope <- get
+      put fscope
+      modify (\s -> pushScopeBlock (HM.fromList $ zip (convertArg <$> fargs) params) s)
+      retVal <- runBody body
+      put oldScope
+      pure retVal
     -- FIXME: complete hack
     runFun _ _ = trace ("Error: Bad function call on line TODO") undefined
 
@@ -120,13 +145,10 @@ eval other = trace ("Debug: " <> show other) $ pure $ VString "Catch all. Much b
 mapArgsToTypes :: [Arg] -> [TypeClass]
 mapArgsToTypes args = (\_ -> TAny) <$> args
 
-mergeScoper :: Scope -> Scoper ()
-mergeScoper newValues = modify (\s -> HM.union s newValues)
-
 runs :: [Expr] -> Scoper ()
 runs exprs = do
   _ <- sequence $ eval <$> exprs
   pure ()
 
 run :: [Expr] -> IO ()
-run exprs = evalStateT (runs exprs) HM.empty
+run exprs = evalStateT (runs exprs) [HM.empty]
