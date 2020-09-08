@@ -70,7 +70,10 @@ popScopeBlock (_:bottom) = bottom
 
 infixEval :: Value -> InfixOp -> Value -> Value
 infixEval (VInt first) InfixAdd (VInt second) = VInt $ first + second
+infixEval (VInt first) InfixSub (VInt second) = VInt $ first - second
 infixEval (VInt first) InfixMul (VInt second) = VInt $ first * second
+infixEval (VInt first) InfixEq (VInt second) = VBoolean $ first == second
+infixEval _ other _ = trace ("Unimplemented infix: " <> show other) undefined
 
 eval :: Expr -> Scoper Value
 eval (ExprId name) = do
@@ -88,6 +91,24 @@ eval (ExprInfix first op second) = do
   f <- eval first
   s <- eval second
   pure $ infixEval f op s
+
+eval (ExprIfElse ifCond elifConds elseBody) = do
+     selectedBody <- pickBody (ifCond:elifConds)
+     evalBody selectedBody
+  where
+    pickBody :: [CondBlock] -> Scoper [Expr]
+    pickBody [] = pure elseBody
+    pickBody ((CondBlock condition condBody):xs) = do
+      condVal <- eval condition
+      case condVal of
+        VBoolean True  -> pure condBody
+        VBoolean False -> pickBody xs
+        _              -> undefined
+
+    evalBody :: [Expr] -> Scoper Value
+    evalBody exprs = do
+      vals <- sequence $ eval <$> exprs
+      pure $ last vals
 
 eval (ExprDef args body) = pure $ VFunction args body
 
