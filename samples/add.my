@@ -1,4 +1,5 @@
 def id(x):
+    z = 69
     return notReallyId(x)
 
 z = 3
@@ -6,5 +7,4 @@ z = 3
 def notReallyId(y):
     return y + z
 
-#debug(id(3 + 5))
 debug(id(3))

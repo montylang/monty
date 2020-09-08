@@ -6,8 +6,7 @@ import Data.List (intercalate)
 import Data.Maybe
 import qualified Data.HashMap.Strict as HM
 import Data.Hashable
-import Control.Monad.State.Lazy
-import System.Exit
+import Control.Monad.State.Strict
 
 import MontyParser
 
@@ -16,6 +15,8 @@ data TypeClass
   | TInt
   | TString
   deriving (Show, Eq)
+
+-- TODO: Scope blocks - List of scopes
 
 data ScopeKey
   = VariableKey String
@@ -35,7 +36,7 @@ data Value
   = VInt Int
   | VString String
   | VBoolean Bool
-  | VFunction [Arg] [Expr] Scope -- Parametric
+  | VFunction [Arg] [Expr] -- Parametric
   | VList     -- Parametric
   | VTuple    -- Parametric
   | VDict     -- Parametric
@@ -46,6 +47,9 @@ infixEval :: Value -> InfixOp -> Value -> Value
 infixEval (VInt first) InfixAdd (VInt second) = VInt $ first + second
 infixEval (VInt first) InfixMul (VInt second) = VInt $ first * second
 
+ecart :: String -> a -> Scoper a
+ecart msg rest = lift $ putStrLn msg *> pure rest
+
 showAScope :: String -> Scope -> Scoper ()
 showAScope prefix scope = do
   _ <- lift $ putStrLn (prefix <> ": " <> (intercalate ", " ((\(VariableKey a) -> a) <$> HM.keys scope)))
@@ -55,17 +59,6 @@ showScope :: String -> Scoper ()
 showScope prefix = do
   s <- get
   showAScope prefix s
-
-showFScope :: String -> Scoper ()
-showFScope prefix = do
-    s <- get
-    _ <- lift $ (putStrLn $ (prefix <> ": \n" <> (intercalate "\n" $ display <$> (HM.toList s)) <> "\n"))
-    pure ()
-  where
-    display :: (ScopeKey, Value) -> String
-    display ((VariableKey name), (VFunction _ _ fscope)) = 
-      "Func (" <> name <> "): " <> (intercalate ", " ((\(VariableKey a) -> a) <$> HM.keys fscope))
-    display ((VariableKey name), _) = "Value: " <> name 
 
 eval :: Expr -> Scoper Value
 eval (ExprId name) = do
@@ -80,14 +73,9 @@ eval (ExprInfix first op second) = do
   s <- eval second
   pure $ infixEval f op s
 
-eval (ExprDef args body) = do
-  showScope "def"
-  scope <- get
-  showFScope "???"
-  pure $ VFunction args body scope
+eval (ExprDef args body) = pure $ VFunction args body
 
 eval (ExprAssignment name value) = do
-  showScope ("ass (" <> name <> ")")
   evaledValue <- eval value
   modify (\s -> HM.insert (VariableKey name) evaledValue s)
   pure evaledValue
@@ -100,19 +88,13 @@ eval (ExprCall (ExprId "debug") [param]) = do
 eval (ExprCall funExpr args) = do
     fun        <- eval funExpr
     evaledArgs <- sequence $ eval <$> args
-    oldState   <- get
-    _          <- put HM.empty
     result     <- runFun fun evaledArgs
-    _          <- put oldState
     pure result
   where
     runFun :: Value -> [Value] -> Scoper Value
-    runFun (VFunction fargs body parentScope) params | (length args) == (length params) = do
-      --loadFunctionsIntoScope body
-      showScope "load fun"
-      showAScope "parent" parentScope
-      put $ HM.union (HM.fromList $ zip (convertArg <$> fargs) params) parentScope
-      showScope "load rest"
+    runFun (VFunction fargs body) params | (length args) == (length params) = do
+      s <- get
+      put $ HM.union (HM.fromList $ zip (convertArg <$> fargs) params) s
       runBody body
     -- FIXME: complete hack
     runFun _ _ = trace ("Error: Bad function call on line TODO") undefined
@@ -140,35 +122,9 @@ mapArgsToTypes args = (\_ -> TAny) <$> args
 
 mergeScoper :: Scope -> Scoper ()
 mergeScoper newValues = modify (\s -> HM.union s newValues)
-  --   _ <- newScoper
-  --   newScope <- get
-  --   _        <- modify (\s -> (whatever newScope) <$> s)
-  --   pure ()
-  -- where 
-  --   newScoper :: Scoper ()
-  --   newScoper = modify (\s -> HM.union s newValues)
-
-  --   whatever :: Scope -> Value -> Value
-  --   whatever scope (VFunction args body _) = VFunction args body scope
-  --   whatever _ other = other
-
-loadFunctionsIntoScope :: [Expr] -> Scoper ()
-loadFunctionsIntoScope exprs = mergeScoper newScopeEntries
-  where
-    newScopeEntries :: Scope
-    newScopeEntries = HM.fromList [x | Just x <- (tuplify <$> exprs)] -- Decently epic
-
-    tuplify :: Expr -> Maybe (ScopeKey, Value)
-    tuplify (ExprAssignment name (ExprDef args body)) =
-      -- Technically not optimal as the args and body will be overwritten with the exact same content
-      -- but it's such a small issue that chances are nobody will ever notice again
-      --Just ((FuncSigKey name $ mapArgsToTypes args), (VFunction args body HM.empty)) 
-      Just ((VariableKey name), (VFunction args body HM.empty))
-    tuplify _ = Nothing
 
 runs :: [Expr] -> Scoper ()
 runs exprs = do
-  loadFunctionsIntoScope exprs
   _ <- sequence $ eval <$> exprs
   pure ()
 
