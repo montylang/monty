@@ -11,14 +11,6 @@ import MontyParser
 lineSep :: String
 lineSep = (\_ -> '-') <$> [1..80]
 
-runFromFile :: String -> IO ()
-runFromFile path = do
-  parsed <- parseFromFile rootBodyParser path
-  case parsed of
-    Left a  -> putStrLn $ show a
-    Right a -> run a
-  pure ()
-
 main :: IO ()
 main = do
   args   <- getArgs

@@ -216,4 +216,13 @@ bodyParser base = do
     stmt nextIndent = eol1 *> string nextIndent *> exprParser nextIndent
 
 rootBodyParser :: Parser [Expr]
-rootBodyParser = sepBy (try $ exprParser "") eol1
+rootBodyParser = do
+    _ <- many $ try singleEol
+    first <- exprParser "" <* lookAhead singleEol
+    rest  <- many $ try $ stmt
+    _ <- (many $ try singleEol) <* eof
+    _ <- eof
+    pure $ first:rest
+  where
+    stmt :: Parser Expr
+    stmt = eol1 *> exprParser ""

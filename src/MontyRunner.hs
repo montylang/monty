@@ -115,11 +115,11 @@ eval (ExprCall funExpr args) = do
       modify (\s -> popScopeBlock s)
       pure retVal
     runFun (VScoped (VFunction fargs body) fscope) params | (length args) == (length params) = do
-      oldScope <- get
+      currentScope <- get
       put fscope
       modify (\s -> pushScopeBlock (HM.fromList $ zip (convertArg <$> fargs) params) s)
       retVal <- runBody body
-      put oldScope
+      put currentScope
       pure retVal
     -- FIXME: complete hack
     runFun _ _ = trace ("Error: Bad function call on line TODO") undefined
