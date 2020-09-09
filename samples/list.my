@@ -1,0 +1,26 @@
+class List:
+  Nil()
+  Cons(head, tail)
+
+def map(Nil(), f):
+  return Nil()
+
+def map(Cons(head, tail), f):
+  return Cons(f(head), map(tail, f))
+
+def foldLeft(acc, Nil(), f):
+  return acc
+
+def foldLeft(acc, Cons(head, tail), f):
+  newAcc = f(acc, head)
+  return foldLeft(newAcc, tail, f)
+
+def add1(x):
+  return x + 1
+
+debug(map(Cons(3, Cons(2, Nil())), add1))
+
+def sum2(a, b):
+  return a + b
+
+debug(foldLeft(0, Cons(3, Cons(2, Nil())), sum2))
