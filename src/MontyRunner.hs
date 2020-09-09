@@ -7,6 +7,7 @@ import Data.Maybe
 import qualified Data.HashMap.Strict as HM
 import Data.Hashable
 import Control.Monad.State.Strict
+import System.Exit
 
 import MontyParser
 
@@ -75,10 +76,18 @@ infixEval (VInt first) InfixMul (VInt second) = VInt $ first * second
 infixEval (VInt first) InfixEq (VInt second) = VBoolean $ first == second
 infixEval _ other _ = trace ("Unimplemented infix: " <> show other) undefined
 
+runtimeError :: String -> Scoper Value
+runtimeError message = do
+  _ <- lift $ die message
+  -- Will never get reached, but hey, it fixes compiler errors
+  undefined
+
 eval :: Expr -> Scoper Value
 eval (ExprId name) = do
     value <- gets (\s -> findInScope name s)
-    pure $ fromMaybe (trace (name <> " is not in scope") undefined) (toVScoped <$> value)
+    case toVScoped <$> value of
+      Just val -> pure val
+      Nothing  -> runtimeError (name <> " is not in scope")
   where
     toVScoped :: (Value, Scope) -> Value
     -- Only return associated scopes for functions
@@ -119,7 +128,7 @@ eval (ExprAssignment name value) = do
 
 eval (ExprCall (ExprId "debug") [param]) = do
   evaled <- eval param
-  _ <- lift $ (putStrLn $ show evaled)
+  lift $ putStrLn $ show evaled
   pure evaled
 
 eval (ExprCall funExpr args) = do
@@ -143,7 +152,7 @@ eval (ExprCall funExpr args) = do
       put currentScope
       pure retVal
     -- FIXME: complete hack
-    runFun _ _ = trace ("Error: Bad function call on line TODO") undefined
+    runFun _ _ = runtimeError "Error: Bad function call on line TODO"
 
     runBody :: [Expr] -> Scoper Value
     runBody exprs = do
@@ -161,7 +170,7 @@ eval (ExprCall funExpr args) = do
     convertArg :: Arg -> ScopeKey
     convertArg (IdArg name) = VariableKey name
 
-eval other = trace ("Debug: " <> show other) $ pure $ VString "Catch all. Much bad."
+eval other = runtimeError ("Error (unimplemented expr eval): " <> show other)
 
 mapArgsToTypes :: [Arg] -> [TypeClass]
 mapArgsToTypes args = (\_ -> TAny) <$> args
