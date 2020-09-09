@@ -203,6 +203,7 @@ stringParser _ = do
   _          <- char startQuote
   pure $ ExprString inner
 
+-- TODO: Only allow in root scopes
 classParser :: Indent -> Parser Expr
 classParser indent = do
   _ <- try $ string "class" <* ws1

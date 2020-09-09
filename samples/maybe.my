@@ -12,3 +12,4 @@ def add1(x):
   return x + 1
 
 debug(map(Just(2), add1))
+debug(map(None(), add1))
