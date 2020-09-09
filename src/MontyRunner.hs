@@ -41,10 +41,10 @@ data Value
   | VBoolean Bool
   | VFunction [Arg] [Expr] -- Parametric
   | VScoped Value Scope
+  | VClass String [Value] -- Parametric
   | VList     -- Parametric
-  | VTuple    -- Parametric
   | VDict     -- Parametric
-  | VClass    -- Parametric
+  | VTuple    -- Parametric
   deriving (Show)
 
 -- TODO: Don't allow overriding of values in top scope
@@ -94,6 +94,12 @@ eval (ExprId name) = do
     toVScoped (VFunction args body, scope) = VScoped (VFunction args body) scope
     toVScoped (value, _) = value
 
+-- ExprClass Id [TypeCons]
+-- Why is classname even in this????? Who knows.....
+--eval (ExprClass _ constructors) = do
+  --modify (\s -> addToScope name evaledValue s)
+  -- TODO:
+
 eval (ExprInt a) = pure $ VInt a
 eval (ExprString a) = pure $ VString a
 eval (ExprInfix first op second) = do
@@ -138,6 +144,7 @@ eval (ExprCall funExpr args) = do
     pure result
   where
     runFun :: Value -> [Value] -> Scoper Value
+
     runFun (VScoped func fscope) params = do
       callingScope <- get
       put fscope

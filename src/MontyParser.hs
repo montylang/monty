@@ -3,6 +3,7 @@ module MontyParser where
 import Text.Parsec
 import Text.Parsec.String
 import Data.Char
+import Debug.Trace
 
 type Id = String
 type Indent = String
@@ -26,7 +27,9 @@ data InfixOp
   | InfixLogicOr
   deriving (Show, Eq)
 
-data Arg = IdArg Id
+data Arg
+  = IdArg Id
+  | PatternArg Id [Arg]
   deriving (Show, Eq)
 
 data Expr
@@ -39,6 +42,10 @@ data Expr
   | ExprDef [Arg] [Expr]
   | ExprCall Expr [Expr]
   | ExprReturn Expr
+  | ExprClass Id [TypeCons]
+  deriving (Show, Eq)
+
+data TypeCons = TypeCons Id [Arg]
   deriving (Show, Eq)
 
 ws :: Parser String
@@ -54,7 +61,7 @@ commentEater = char '#' *> many (noneOf "\n") *> pure ()
 singleEol :: Parser ()
 singleEol = ws *> optional commentEater *> char '\n' *> pure ()
 
-eol1 :: Parser()
+eol1 :: Parser ()
 eol1 = singleEol <* (many $ try singleEol)
 
 moduleParser :: Parser String
@@ -69,15 +76,27 @@ assignmentParser indent = do
 
 -- TODO: Support pattern matching
 argParser :: Indent -> Parser Arg
-argParser indent = IdArg <$> idParser indent
+argParser indent = choice $ try <$> [
+    patternArgParser,
+    idArgParser
+  ]
+  where
+    idArgParser :: Parser Arg
+    idArgParser = IdArg <$> idParser indent
+
+    patternArgParser :: Parser Arg
+    patternArgParser = do
+      name <- idParser indent <* ws
+      args <- defArgParser indent
+      pure $ PatternArg name args
 
 defArgParser :: Indent -> Parser [Arg]
-defArgParser indent = multiParenParser (argParser indent) <* ws <* char ':'
+defArgParser indent = multiParenParser (argParser indent) <* ws
 
 namedDefParser :: Indent -> Parser Expr
 namedDefParser indent = do
   name <- string "def" *> ws1 *> idParser indent
-  args <- defArgParser indent <* eol1
+  args <- defArgParser indent  <* char ':' <* eol1
   body <- bodyParser indent
   pure $ ExprAssignment name $ ExprDef args body
 
@@ -106,7 +125,7 @@ multiParenParser innerParser =
 defParser :: Indent -> Parser Expr
 defParser indent = do
   _    <- try $ string "def" <* ws
-  args <- defArgParser indent <* eol1
+  args <- defArgParser indent <* char ':' <* eol1
   body <- bodyParser indent
   pure $ ExprDef args body
 
@@ -184,6 +203,21 @@ stringParser _ = do
   _          <- char startQuote
   pure $ ExprString inner
 
+classParser :: Indent -> Parser Expr
+classParser indent = do
+  _ <- try $ string "class" <* ws1
+  name <- idParser indent
+  _ <- ws <* char ':' <* eol1
+  defs <- blockParser indent jaja
+  pure $ ExprClass name defs
+
+  where
+    jaja :: Indent -> Parser TypeCons
+    jaja ind = do
+      name <- idParser ind <* ws
+      args <- defArgParser ind
+      pure $ TypeCons name args
+
 exprParser' :: Indent -> Parser Expr
 exprParser' indent = try (parenEater $ exprParser indent) <|> content
   where content = choice $ try . ($ indent) <$> [
@@ -195,6 +229,7 @@ exprParser' indent = try (parenEater $ exprParser indent) <|> content
 exprParser :: Indent -> Parser Expr
 exprParser indent = choice [
     ifParser indent,
+    classParser indent,
     try $ defParser indent,
     try $ namedDefParser indent,
     try $ infixParser indent,
@@ -205,15 +240,17 @@ exprParser indent = choice [
   ]
 
 -- Pretty epic
-bodyParser :: Indent -> Parser [Expr]
-bodyParser base = do
+blockParser :: Indent -> (Indent -> Parser a) -> Parser [a]
+blockParser base parser = do
     nextIndent <- (<>) <$> string base <*> ws1
-    first      <- exprParser nextIndent <* lookAhead singleEol
+    first      <- parser nextIndent <* lookAhead singleEol
     rest       <- many $ try $ stmt nextIndent
     pure $ first:rest
   where
-    stmt :: Indent -> Parser Expr
-    stmt nextIndent = eol1 *> string nextIndent *> exprParser nextIndent
+    stmt nextIndent = eol1 *> string nextIndent *> parser nextIndent
+
+bodyParser :: Indent -> Parser [Expr]
+bodyParser base = blockParser base exprParser
 
 rootBodyParser :: Parser [Expr]
 rootBodyParser = do
@@ -221,7 +258,6 @@ rootBodyParser = do
     first <- exprParser "" <* lookAhead singleEol
     rest  <- many $ try $ stmt
     _ <- (many $ try singleEol) <* eof
-    _ <- eof
     pure $ first:rest
   where
     stmt :: Parser Expr

@@ -62,8 +62,12 @@ main = hspec $ do
 
   describe "Arg Parser" $ do
     it "Arg parsing" $ do
-      (testParser defArgParser "( \t a,  b ,c ) :") `shouldBe`
+      (testParser defArgParser "( \t a,  b ,c )") `shouldBe`
         (Right $ [IdArg "a", IdArg "b", IdArg "c"])
+
+    it "Pattern matching" $ do
+      (testParser defArgParser "(Just(a), None())") `shouldBe`
+        (Right $ [PatternArg "Just" [IdArg "a"], PatternArg "None" []])
 
   describe "Body parser" $ do
     it "Basic" $ do
@@ -97,7 +101,6 @@ main = hspec $ do
           ])
 
   -- OK Marvin, I like that
-  {- FIXME: 
   describe "Root body parser" $ do
     it "Basic" $ do
       (parse rootBodyParser "" $ unlines ["a = 3"]) `shouldBe`
@@ -126,7 +129,6 @@ main = hspec $ do
                    []
                    [ExprInt 2]
                   ])
-  -}
 
   describe "Cond block parser" $ do
     it "fake cond" $ do
@@ -237,3 +239,15 @@ main = hspec $ do
     it "Curried function call" $ do
       (testParser exprCallParser $ "foo()()") `shouldBe`
         (Right $ ExprCall (ExprCall (ExprId "foo") []) [])
+
+  describe "Classes but really just data" $ do
+    it "Constructs" $ do
+      (testParser exprParser $ unlines [
+            "class Maybe:",
+            "  None()",
+            "  Just(you)"
+          ]) `shouldBe`
+        (Right $ ExprClass "Maybe" [
+              TypeCons "None" [],
+              TypeCons "Just" [IdArg "you"]
+            ])

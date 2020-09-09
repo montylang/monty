@@ -9,7 +9,7 @@ import MontyRunner
 import MontyParser
 
 lineSep :: String
-lineSep = (\_ -> '-') <$> [1..80]
+lineSep = '-' <$ [1..80]
 
 main :: IO ()
 main = do

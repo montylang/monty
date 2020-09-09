@@ -1,0 +1,14 @@
+class Maybe:
+  None()
+  Just(value)
+
+def map(None(), f):
+  return None()
+
+def map(Just(value), f):
+  return Just(f(value))
+
+def add1(x):
+  return x + 1
+
+debug(map(Just(2), add1))

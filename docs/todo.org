@@ -1,7 +1,7 @@
 * TODOs
 ** Basic Syntax
-  - [ ] String literals
-  - [ ] Arrays
+  - [X] String literals
+  - [ ] List
   - [ ] Dicts
   - [ ] Tuples
   - [ ] Type def
@@ -19,9 +19,9 @@
   - [X] Ints
 ** Control Flow
   - [ ] For
-  - [-] Function calls
+  - [X] Function calls
     - [X] Basic
-    - [ ] Sugar syntax
+    - [X] Sugar syntax
   - [X] if/elif/else
   - [X] While
 
@@ -29,4 +29,3 @@
   - [ ] Infix precedence
   - [ ] Pattern matching
   - [ ] Types actually mean something....
-
