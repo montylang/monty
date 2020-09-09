@@ -76,7 +76,7 @@ infixEval (VInt first) InfixMul (VInt second) = VInt $ first * second
 infixEval (VInt first) InfixEq (VInt second) = VBoolean $ first == second
 infixEval _ other _ = trace ("Unimplemented infix: " <> show other) undefined
 
-runtimeError :: String -> Scoper Value
+runtimeError :: String -> Scoper a
 runtimeError message = do
   _ <- lift $ die message
   -- Will never get reached, but hey, it fixes compiler errors
@@ -112,7 +112,7 @@ eval (ExprIfElse ifCond elifConds elseBody) = do
       case condVal of
         VBoolean True  -> pure condBody
         VBoolean False -> pickBody xs
-        _              -> undefined
+        _              -> runtimeError "Condition is not a boolean"
 
     evalBody :: [Expr] -> Scoper Value
     evalBody exprs = do
@@ -138,21 +138,21 @@ eval (ExprCall funExpr args) = do
     pure result
   where
     runFun :: Value -> [Value] -> Scoper Value
-    -- TODO: Push a new scope, with the args. Pop afterwards
-    runFun (VFunction fargs body) params | (length args) == (length params) = do
+    runFun (VScoped func fscope) params = do
+      callingScope <- get
+      put fscope
+      retVal <- runScopedFun func params
+      put callingScope
+      pure retVal
+    runFun expr params = runScopedFun expr params
+
+    runScopedFun :: Value -> [Value] -> Scoper Value
+    runScopedFun (VFunction fargs body) params | (length args) == (length params) = do
       modify (\s -> pushScopeBlock (HM.fromList $ zip (convertArg <$> fargs) params) s)
       retVal <- runBody body
       modify (\s -> popScopeBlock s)
       pure retVal
-    runFun (VScoped (VFunction fargs body) fscope) params | (length args) == (length params) = do
-      currentScope <- get
-      put fscope
-      modify (\s -> pushScopeBlock (HM.fromList $ zip (convertArg <$> fargs) params) s)
-      retVal <- runBody body
-      put currentScope
-      pure retVal
-    -- FIXME: complete hack
-    runFun _ _ = runtimeError "Error: Bad function call on line TODO"
+    runScopedFun _ _ = runtimeError "Error: Bad function call on line TODO"
 
     runBody :: [Expr] -> Scoper Value
     runBody exprs = do
