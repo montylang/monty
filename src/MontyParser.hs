@@ -45,6 +45,11 @@ data Expr
   | ExprReturn Expr
   | ExprClass Id [TypeCons]
   | ExprList [Expr]
+  | ExprType Id [TypeHeader]
+  deriving (Show, Eq)
+
+-- TODO: [TypeAnnotation]
+data TypeHeader = TypeHeader Id [Id]
   deriving (Show, Eq)
 
 data TypeCons = TypeCons Id [Arg]
@@ -105,7 +110,7 @@ defArgParser indent = multiParenParser '(' ')' (argParser indent) <* ws
 namedDefParser :: Indent -> Parser Expr
 namedDefParser indent = do
   name <- string "def" *> ws1 *> idParser indent
-  args <- defArgParser indent  <* char ':' <* eol1
+  args <- defArgParser indent <* char ':' <* eol1
   body <- bodyParser indent
   pure $ ExprAssignment name $ ExprDef args body
 
@@ -224,6 +229,8 @@ classParser :: Indent -> Parser Expr
 classParser indent = do
   _ <- try $ string "class" <* ws1
   name <- idParser indent
+  -- TODO: Actually use this
+  _ <- optional $ try $ multiParenParser '(' ')' (idParser indent)
   _ <- ws <* char ':' <* eol1
   defs <- blockParser indent jaja
   pure $ ExprClass name defs
@@ -237,6 +244,20 @@ classParser indent = do
 
 listParser :: Indent -> Parser Expr
 listParser indent = ExprList <$> multiParenParser '[' ']' (exprParser indent)
+
+typeParser :: Indent -> Parser Expr
+typeParser indent = do
+    -- TODO: Allow "type Monad(Applicative, Functor)"
+    _    <- try $ string "type" <* ws1
+    name <- idParser indent <* ws <* char ':' <* eol1
+    body <- blockParser indent typeBodyParser
+    pure $ ExprType name body
+  where
+    typeBodyParser :: Indent -> Parser TypeHeader
+    typeBodyParser ind = do
+      name <- string "def" *> ws1 *> idParser ind
+      args <- multiParenParser '(' ')' (idParser ind)
+      pure $ TypeHeader name args
 
 exprParser' :: Indent -> Parser Expr
 exprParser' indent = try (parenEater $ exprParser indent) <|> content
@@ -256,6 +277,7 @@ exprParser indent = choice [
     try $ assignmentParser indent,
     try $ exprCallParser indent,
     try $ returnParser indent,
+    try $ typeParser indent,
     listParser indent,
     consParser indent,
     exprParser' indent

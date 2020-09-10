@@ -1,4 +1,7 @@
-class List:
+type Functor:
+  def map(self, function)
+
+class List(Functor):
   Nil()
   Cons(head, tail)
 

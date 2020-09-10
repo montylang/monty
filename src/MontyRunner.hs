@@ -139,6 +139,9 @@ eval (ExprList (x:xs)) = do
   tailEvaled <- eval $ ExprList xs
   pure $ VTypeInstance "Cons" [headEvaled, tailEvaled]
 
+-- TODO: Implement nicely ... once type annotations work
+eval (ExprType _ _) = pure $ VInt 0
+
 eval (ExprDef args body) = pure $ VFunction [FunctionCase args body]
 
 eval (ExprAssignment name value) = do
