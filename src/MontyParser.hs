@@ -25,6 +25,7 @@ data InfixOp
   | InfixGreaterEqual
   | InfixLogicAnd -- Logic: lor(a, b): bool
   | InfixLogicOr
+  | InfixCons
   deriving (Show, Eq)
 
 data Arg
@@ -43,6 +44,7 @@ data Expr
   | ExprCall Expr [Expr]
   | ExprReturn Expr
   | ExprClass Id [TypeCons]
+  | ExprList [Expr]
   deriving (Show, Eq)
 
 data TypeCons = TypeCons Id [Arg]
@@ -77,6 +79,7 @@ assignmentParser indent = do
 -- TODO: Support pattern matching
 argParser :: Indent -> Parser Arg
 argParser indent = choice $ try <$> [
+    consArgParser, -- Order matters
     patternArgParser,
     idArgParser
   ]
@@ -90,8 +93,14 @@ argParser indent = choice $ try <$> [
       args <- defArgParser indent
       pure $ PatternArg name args
 
+    consArgParser :: Parser Arg
+    consArgParser = do
+      headArg <- try $ idArgParser <* ws <* char '|' <* ws
+      tailArg <- try idArgParser <|> try consArgParser
+      pure $ PatternArg "Cons" [headArg, tailArg]
+
 defArgParser :: Indent -> Parser [Arg]
-defArgParser indent = multiParenParser (argParser indent) <* ws
+defArgParser indent = multiParenParser '(' ')' (argParser indent) <* ws
 
 namedDefParser :: Indent -> Parser Expr
 namedDefParser indent = do
@@ -100,12 +109,18 @@ namedDefParser indent = do
   body <- bodyParser indent
   pure $ ExprAssignment name $ ExprDef args body
 
+consParser :: Indent -> Parser Expr
+consParser indent = do
+  headExpr <- try $ exprParser' indent <* ws <* char '|' <* ws
+  tailExpr <- exprParser indent
+  pure $ ExprCall (ExprId "Cons") [headExpr, tailExpr]
+
 -- Supports f() and f()()
 exprCallParser :: Indent -> Parser Expr
 exprCallParser indent = do
   fun           <- exprParser' indent
-  firstArgLists <- multiParenParser $ exprParser indent
-  otherArgLists <- many $ multiParenParser $ exprParser indent
+  firstArgLists <- multiParenParser '(' ')' $ exprParser indent
+  otherArgLists <- many $ multiParenParser '(' ')' $ exprParser indent
   pure $ foldl ExprCall (ExprCall fun firstArgLists) otherArgLists
 
 -- Eats surrounding parens of an expr, for disambiguation
@@ -114,11 +129,11 @@ parenEater innerParser =
     char '(' *> ws *> innerParser <* ws <* char ')'
 
 -- Matches syntax of the form (anything, anything, ...)
-multiParenParser :: Parser a -> Parser [a]
-multiParenParser innerParser =
-    char '(' *> delimWs *>
+multiParenParser :: Char -> Char -> Parser a -> Parser [a]
+multiParenParser open close innerParser =
+    char open *> delimWs *>
     sepBy (delimWs *> innerParser <* delimWs) (char ',')
-    <* delimWs <* char ')'
+    <* delimWs <* char close
   where
     delimWs = many $ oneOf "\t \n"
 
@@ -154,6 +169,7 @@ ifParser indent = do
     elseParser =
       string indent *> string "else" *> ws *> char ':' *> eol1 *>
       bodyParser indent
+
 
 infixOpParser :: Parser InfixOp
 infixOpParser = choice $ op <$> arr
@@ -219,6 +235,9 @@ classParser indent = do
       args <- defArgParser ind
       pure $ TypeCons name args
 
+listParser :: Indent -> Parser Expr
+listParser indent = ExprList <$> multiParenParser '[' ']' (exprParser indent)
+
 exprParser' :: Indent -> Parser Expr
 exprParser' indent = try (parenEater $ exprParser indent) <|> content
   where content = choice $ try . ($ indent) <$> [
@@ -237,6 +256,8 @@ exprParser indent = choice [
     try $ assignmentParser indent,
     try $ exprCallParser indent,
     try $ returnParser indent,
+    listParser indent,
+    consParser indent,
     exprParser' indent
   ]
 

@@ -133,6 +133,12 @@ eval (ExprIfElse ifCond elifConds elseBody) = do
       vals <- sequence $ eval <$> exprs
       pure $ last vals
 
+eval (ExprList []) = pure $ VTypeInstance "Nil" []
+eval (ExprList (x:xs)) = do
+  headEvaled <- eval x
+  tailEvaled <- eval $ ExprList xs
+  pure $ VTypeInstance "Cons" [headEvaled, tailEvaled]
+
 eval (ExprDef args body) = pure $ VFunction [FunctionCase args body]
 
 eval (ExprAssignment name value) = do
@@ -203,6 +209,7 @@ eval (ExprCall funExpr args) = do
     pickFun cases params = do
       case find (funCaseMatchesParams params) cases of
         Just funCase -> pure funCase 
+        -- FIXME: Better error message
         Nothing      -> runtimeError $ "No function defined for " <> show params
 
     funCaseMatchesParams :: [Value] -> FunctionCase -> Bool

@@ -9,8 +9,8 @@
       type Monad(Applicative)
 
       class Maybe(Functor):
-        None:
-        Just(value):
+        None
+        Just(value)
 
       def map(None, f):
         return None
