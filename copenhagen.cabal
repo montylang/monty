@@ -1,8 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.2.
+-- This file has been generated from package.yaml by hpack version 0.33.0.
 --
 -- see: https://github.com/sol/hpack
+--
+-- hash: 2562d9be2f92946f0e488077db983a3cb4da4b825e8013e7663f74cd0eb7f770
 
 name:           copenhagen
 version:        0.1.0.0

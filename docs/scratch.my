@@ -1,0 +1,128 @@
+type Functor[T, V]:
+  def map(Functor[T], (T) -> V) -> Functor[V]
+
+type Monad[T, V]:
+  def bind(Monad[T], T -> Monad[V]) -> Monad[V]
+
+type Emptable[]:
+  def empty() -> Emptable
+
+type Monoid[T]:
+  def concat(Monoid[T], Monoid[T]) -> Monoid[T]
+
+class List[T]:
+  Nil()
+  Cons(head: T, tail: List[T])
+
+instance List[T] of Monad:
+  def bind(foo):
+    pass
+
+instance List of Functor:
+  def map(a, t):
+    return foo()
+
+instance Maybe of Functor:
+  def map(a, t):
+    return foo()
+
+def empty[Maybe]() -> Maybe:
+  return Nothing
+
+def map(head|tail, f):
+  return (f(head)) | (map(tail, f))
+
+def map(a: Maybe, f):
+  return f(a)
+
+def foldLeft(acc, Nil(), f):
+  return acc
+
+def foldLeft(acc, head|tail, f):
+  newAcc = f(acc, head)
+  return foldLeft(newAcc, tail, f)
+
+def add1(x: Int):
+  return x + 1
+
+def sum2(a, b):
+  return a + b
+
+debug(map(3 | 2 | Nil(), add1))
+debug(foldLeft(0, 4 | 3 | 7 | [], sum2))
+debug(foldLeft(0, [3, 2, 1, 0], sum2))
+
+def loveOneAnother(first: Functor[Int], second: Functor[String]) -> Functor[(Int, String)]:
+  return zip(first, second)
+
+loveOneAnother(Just(3), Just("hello"))
+loveOneAnother([3], ["hello"])
+
+class Parser:
+  Foo(a)
+  Bar(a)
+  ...
+
+def empty() -> List[T]:
+  return Nil
+
+def empty() -> Maybe[T]:
+  return None
+
+def hello():
+  x = empty()
+  return x
+
+  foldl (\acc it -> acc + it) mempty ["a", "b", "c"]
+  debug(mempty())
+
+
+
+
+
+class Direction:
+  Left
+  Right
+
+type Controller[T, V]:
+  def move(c: T)
+
+class PlayerController:
+  Player(keyboard)
+
+instance Controller for PlayerController, Something:
+  def move(c):
+    return Right
+
+instance Controller for AIController:
+  def move(c):
+    return Left
+
+
+foo = AIController
+
+foo.move()
+ 
+type Functor[T]:
+  def map[V](Functor[T], (T) -> V) -> Functor[V]
+
+class Maybe:
+  None
+  Just(val)
+
+instance Functor for Maybe:
+  def map(Just(val), f):
+    return Just(f(val))
+
+  def map(_, f):
+    return None
+
+instance Functor for List:
+  def map(a, f):
+    return sntoeuhaonhetu
+
+type Functor:
+  dep map(self, f)
+
+
+[1, "two", Just(3)].map(_ + 1)
