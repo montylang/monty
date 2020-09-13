@@ -1,12 +1,53 @@
+type Functor:
+  def map(self, function)
+
+type Monad:
+  def bind(self, function)
+
+type Applicative:
+  def apply(self, inputMaybe)
+
+type Foldable:
+  def foldl(self, initial, folder)
+  def len(self)
+
 class Maybe:
   None()
   Just(value)
 
-def map(None(), f):
-  return None()
+instance Maybe of Functor:
+  def map(Just(value), f):
+    return Just(f(value))
 
-def map(Just(value), f):
-  return Just(f(value))
+  def map(None(), _):
+   return None()
+
+instance Maybe of Applicative:
+  def apply(Just(f), inputMaybe):
+    return map(inputMaybe, f)
+
+  def apply(None(), inputMaybe):
+    return None()
+
+instance Maybe of Monad:
+  def bind(Just(value), f):
+    return f(value)
+
+  def bind(None(), _):
+    return None()
+
+instance Maybe of Foldable:
+  def foldl(Just(value), initial, folder):
+    return folder(initial, value)
+
+  def foldl(None(), initial, _):
+    return initial
+
+  def len(Just(_)):
+    return 1
+
+  def len(_):
+    return 0
 
 def add1(x):
   return x + 1

@@ -46,6 +46,7 @@ data Expr
   | ExprClass Id [TypeCons]
   | ExprList [Expr]
   | ExprType Id [TypeHeader]
+  | ExprInstanceOf Id Id [Expr]
   deriving (Show, Eq)
 
 -- TODO: [TypeAnnotation]
@@ -242,12 +243,16 @@ classParser indent = do
       args <- defArgParser ind
       pure $ TypeCons name args
 
-listParser :: Indent -> Parser Expr
-listParser indent = ExprList <$> multiParenParser '[' ']' (exprParser indent)
+instanceParser :: Indent -> Parser Expr
+instanceParser indent = do
+    name        <- try $ string "instance" *> ws1 *> idParser indent
+    _           <- ws1 <* string "of" <* ws1
+    typeClass   <- idParser indent <* ws <* char ':' <* eol1
+    definitions <- blockParser indent namedDefParser
+    pure $ ExprInstanceOf name typeClass definitions
 
 typeParser :: Indent -> Parser Expr
 typeParser indent = do
-    -- TODO: Allow "type Monad(Applicative, Functor)"
     _    <- try $ string "type" <* ws1
     name <- idParser indent <* ws <* char ':' <* eol1
     body <- blockParser indent typeBodyParser
@@ -258,6 +263,9 @@ typeParser indent = do
       name <- string "def" *> ws1 *> idParser ind
       args <- multiParenParser '(' ')' (idParser ind)
       pure $ TypeHeader name args
+
+listParser :: Indent -> Parser Expr
+listParser indent = ExprList <$> multiParenParser '[' ']' (exprParser indent)
 
 exprParser' :: Indent -> Parser Expr
 exprParser' indent = try (parenEater $ exprParser indent) <|> content
@@ -278,6 +286,7 @@ exprParser indent = choice [
     try $ exprCallParser indent,
     try $ returnParser indent,
     try $ typeParser indent,
+    try $ instanceParser indent,
     listParser indent,
     consParser indent,
     exprParser' indent

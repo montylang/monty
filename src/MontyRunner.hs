@@ -2,20 +2,12 @@ module MontyRunner where
 
 import Prelude
 import Debug.Trace
-import Data.List (intercalate, find)
-import Data.Maybe
+import Data.List (find)
 import qualified Data.HashMap.Strict as HM
-import Data.Hashable
 import Control.Monad.State.Strict
 import System.Exit
 
 import MontyParser
-
-data TypeClass
-  = TAny
-  | TInt
-  | TString
-  deriving (Show, Eq)
 
 type ScopeBlock = HM.HashMap Id Value
 type Scope      = [ScopeBlock]
@@ -32,6 +24,9 @@ data Value
   | VFunction [FunctionCase] -- Parametric
   | VTypeCons Id [Id]
   | VTypeInstance Id [Value] -- Id = Type name
+  -- Name, [Arg]
+  -- Arg must contain _one_ instance of the word "self", for pattern matching
+  | VTypeDef Id [Id]
   | VScoped Value Scope
   | VClass String [Value] -- Parametric
   | VList     -- Parametric
@@ -108,6 +103,12 @@ eval (ExprClass _ constructors) = do
     convert (TypeCons name args) =
       (name, VTypeCons name (argToId <$> args))
 
+-- TODO: Implement nicely ... once type annotations work
+eval (ExprType typeName headers) = pure $ VInt 0
+
+eval (ExprInstanceOf className typeName constructors) = do
+  undefined
+
 eval (ExprInt a) = pure $ VInt a
 eval (ExprString a) = pure $ VString a
 eval (ExprInfix first op second) = do
@@ -138,9 +139,6 @@ eval (ExprList (x:xs)) = do
   headEvaled <- eval x
   tailEvaled <- eval $ ExprList xs
   pure $ VTypeInstance "Cons" [headEvaled, tailEvaled]
-
--- TODO: Implement nicely ... once type annotations work
-eval (ExprType _ _) = pure $ VInt 0
 
 eval (ExprDef args body) = pure $ VFunction [FunctionCase args body]
 
@@ -257,9 +255,6 @@ eval (ExprCall funExpr args) = do
       runtimeError $ "Bad call to pattern matched function " <> show funExpr
 
 eval other = runtimeError ("Error (unimplemented expr eval): " <> show other)
-
-mapArgsToTypes :: [Arg] -> [TypeClass]
-mapArgsToTypes args = (\_ -> TAny) <$> args
 
 runs :: [Expr] -> Scoper ()
 runs exprs = do

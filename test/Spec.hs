@@ -251,3 +251,14 @@ main = hspec $ do
               TypeCons "None" [],
               TypeCons "Just" [IdArg "you"]
             ])
+
+  describe "Instances but really just instances" $ do
+    it "Instances" $ do
+      (testParser instanceParser $ unlines [
+            "instance Maybe of Functor:",
+            "  def bar():",
+            "    return 0"
+          ]) `shouldBe`
+        (Right $ ExprInstanceOf "Maybe" "Functor" [
+              ExprAssignment "bar" (ExprDef [] [ExprReturn (ExprInt 0)])
+            ])
