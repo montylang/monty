@@ -45,12 +45,12 @@ data Expr
   | ExprReturn Expr
   | ExprClass Id [TypeCons]
   | ExprList [Expr]
-  | ExprType Id [TypeHeader]
+  | ExprType Id [DefSignature]
   | ExprInstanceOf Id Id [Expr]
   deriving (Show, Eq)
 
--- TODO: [TypeAnnotation]
-data TypeHeader = TypeHeader Id [Id]
+-- DefSignature TypeName FunctionName [Arg]
+data DefSignature = DefSignature Id Id [Id]
   deriving (Show, Eq)
 
 data TypeCons = TypeCons Id [Arg]
@@ -255,14 +255,14 @@ typeParser :: Indent -> Parser Expr
 typeParser indent = do
     _    <- try $ string "type" <* ws1
     name <- idParser indent <* ws <* char ':' <* eol1
-    body <- blockParser indent typeBodyParser
+    body <- blockParser indent $ typeBodyParser name
     pure $ ExprType name body
   where
-    typeBodyParser :: Indent -> Parser TypeHeader
-    typeBodyParser ind = do
+    typeBodyParser :: Id -> Indent -> Parser DefSignature
+    typeBodyParser typeName ind = do
       name <- string "def" *> ws1 *> idParser ind
       args <- multiParenParser '(' ')' (idParser ind)
-      pure $ TypeHeader name args
+      pure $ DefSignature typeName name args
 
 listParser :: Indent -> Parser Expr
 listParser indent = ExprList <$> multiParenParser '[' ']' (exprParser indent)

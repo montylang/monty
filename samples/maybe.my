@@ -22,6 +22,9 @@ instance Maybe of Functor:
   def map(None(), _):
    return None()
 
+def map(a, b):
+  return 3
+
 instance Maybe of Applicative:
   def apply(Just(f), inputMaybe):
     return map(inputMaybe, f)

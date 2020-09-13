@@ -3,6 +3,7 @@ module MontyRunner where
 import Prelude
 import Debug.Trace
 import Data.List (find)
+import Data.Maybe
 import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
 import System.Exit
@@ -21,17 +22,18 @@ data Value
   = VInt Int
   | VString String
   | VBoolean Bool
-  | VFunction [FunctionCase] -- Parametric
+  | VFunction [FunctionCase]
   | VTypeCons Id [Id]
   | VTypeInstance Id [Value] -- Id = Type name
   -- Name, [Arg]
   -- Arg must contain _one_ instance of the word "self", for pattern matching
-  | VTypeDef Id [Id]
+  | VTypeDef Id [DefSignature]
+  | VTypeFunction Id Id [Id] [FunctionCase]
   | VScoped Value Scope
-  | VClass String [Value] -- Parametric
-  | VList     -- Parametric
-  | VDict     -- Parametric
-  | VTuple    -- Parametric
+  | VClass
+  | VList    
+  | VDict    
+  | VTuple   
   deriving (Show, Eq)
 
 argToId :: Arg -> Id
@@ -95,7 +97,8 @@ eval (ExprId name) = do
     toVScoped (VFunction cases, scope) = VScoped (VFunction cases) scope
     toVScoped (value, _) = value
 
-eval (ExprClass _ constructors) = do
+eval (ExprClass className constructors) = do
+    modify (addToScope className VClass)
     modify (\s -> unionTopScope (HM.fromList (convert <$> constructors)) s)
     pure $ VInt 0 -- TODO: Return... something other than an int :)
   where
@@ -103,11 +106,37 @@ eval (ExprClass _ constructors) = do
     convert (TypeCons name args) =
       (name, VTypeCons name (argToId <$> args))
 
--- TODO: Implement nicely ... once type annotations work
-eval (ExprType typeName headers) = pure $ VInt 0
+eval (ExprType typeName headers) = do
+    modify (addToScope typeName typeDef)
+    modify (\s -> foldl addFuncToScope s headers)
+    pure $ VInt 0
+  where
+    typeDef = VTypeDef typeName headers
 
-eval (ExprInstanceOf className typeName constructors) = do
-  undefined
+    addFuncToScope :: Scope -> DefSignature -> Scope
+    addFuncToScope scope (DefSignature tName functionName args) =
+      addToScope functionName (VTypeFunction tName functionName args []) scope
+
+-- TODO: Ban redefining instances for classes
+eval (ExprInstanceOf className typeName implementations) = do
+    classDef <- gets $ findInScope className
+    funcDefs <- gets $ (\s -> functionDefs =<< findInScope typeName s)
+
+    scoperAssert (isVClass classDef) $
+      "Attempted to use undefined class: " <> className
+    scoperAssert (isJust funcDefs) $
+      "Attempted to use undefined type: " <> typeName
+
+    -- TODO:!!! Tack on those juice functions defs
+    undefined
+  where
+    isVClass (Just (VClass, _)) = True
+    isVClass _                  = False
+    
+    --(Value, Scope)
+    functionDefs :: (Value, Scope) -> Maybe [DefSignature]
+    functionDefs (VTypeDef _ sigs, _) = Just sigs
+    functionDefs _                    = Nothing
 
 eval (ExprInt a) = pure $ VInt a
 eval (ExprString a) = pure $ VString a
@@ -151,7 +180,7 @@ eval (ExprAssignment name value) = do
       (Just _)                 -> runtimeError $ "Cannot mutate " <> name
       _                        -> pure evaledValue
     
-    modify (\s -> addToScope name newValue s)
+    modify (addToScope name newValue)
     pure evaledValue
   where
     appendFunctionCase :: [FunctionCase] -> Value -> Scoper Value
@@ -243,7 +272,7 @@ eval (ExprCall funExpr args) = do
       pure ()
 
     addArg :: (Arg, Value) -> Scoper ()
-    addArg ((IdArg name), v) = modify (\s -> addToScope name v s)
+    addArg ((IdArg name), v) = modify (addToScope name v)
     addArg ((PatternArg pname pargs), (VTypeInstance tname tvals)) = do
       scoperAssert (pname == tname)
         $ "Mismatched pattern match: " <> pname <> "," <> tname
