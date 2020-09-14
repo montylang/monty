@@ -1,11 +1,11 @@
 module.exports = {
   title: 'Monty',
   tagline: 'Function programming for python developers',
-  url: 'https://mulan-szechuan-sauce.github.io/monty',
-  baseUrl: '/',
+  url: 'https://mulan-szechuan-sauce.github.io',
+  baseUrl: '/monty/',
   onBrokenLinks: 'throw',
   favicon: 'img/favicon.ico',
-  organizationName: 'Mulan-Szechuan-Sauce', // Usually your GitHub org/user name.
+  organizationName: 'mulan-szechuan-sauce', // Usually your GitHub org/user name.
   projectName: 'monty', // Usually your repo name.
   themeConfig: {
     navbar: {
