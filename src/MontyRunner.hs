@@ -28,6 +28,7 @@ data Value
   -- Name, [Arg]
   -- Arg must contain _one_ instance of the word "self", for pattern matching
   | VTypeDef Id [DefSignature]
+  -- Type ID, func Id, args, case
   | VTypeFunction Id Id [Id] [FunctionCase]
   | VScoped Value Scope
   | VClass
@@ -120,23 +121,45 @@ eval (ExprType typeName headers) = do
 -- TODO: Ban redefining instances for classes
 eval (ExprInstanceOf className typeName implementations) = do
     classDef <- gets $ findInScope className
-    funcDefs <- gets $ (\s -> functionDefs =<< findInScope typeName s)
+    typeDef  <- gets $ findInScope typeName
+    funcDefs <- functionDefs typeDef
 
     scoperAssert (isVClass classDef) $
       "Attempted to use undefined class: " <> className
-    scoperAssert (isJust funcDefs) $
-      "Attempted to use undefined type: " <> typeName
-
-    -- TODO:!!! Tack on those juice functions defs
-    undefined
+    
+    _ <- sequence $ (addImplementation funcDefs) <$> implementations
+    
+    pure $ VInt 0 -- TODO: you know what you've done
   where
     isVClass (Just (VClass, _)) = True
     isVClass _                  = False
     
-    --(Value, Scope)
-    functionDefs :: (Value, Scope) -> Maybe [DefSignature]
-    functionDefs (VTypeDef _ sigs, _) = Just sigs
-    functionDefs _                    = Nothing
+    functionDefs :: Maybe (Value, Scope) -> Scoper [DefSignature]
+    functionDefs (Just (VTypeDef _ sigs, _)) = pure sigs
+    functionDefs _ = runtimeError $ "Type " <> typeName <> " not found"
+
+    defSigToId :: DefSignature -> Id
+    defSigToId (DefSignature _ fname _) = fname
+    
+    addImplementation :: [DefSignature] -> Expr -> Scoper ()
+    addImplementation avaliable (ExprAssignment name (ExprDef args bod)) = do
+      scoperAssert (elem name (defSigToId <$> avaliable)) $
+        name <> " is not part of type " <> typeName
+      maybeStub <- gets $ findInScope name
+      stub      <- getStubOrDie maybeStub
+      modify (addToScope name (addToStub (FunctionCase args bod) stub))
+      pure ()
+    addImplementation _ _  = runtimeError "Every root expr in an implementation must be a def"
+
+    getStubOrDie :: Maybe (Value, Scope) -> Scoper Value
+    getStubOrDie (Just (val, _)) = pure val
+    getStubOrDie Nothing = runtimeError "Ain't in scope biatch"
+
+    -- TODO: Much duplication. Make it not so
+    addToStub :: FunctionCase -> Value -> Value
+    addToStub newCase (VTypeFunction tname fname args cases) =
+      VTypeFunction tname fname args (cases ++ [newCase])
+    addToStub _ _ = trace "Rat pies" undefined
 
 eval (ExprInt a) = pure $ VInt a
 eval (ExprString a) = pure $ VString a
@@ -226,14 +249,18 @@ eval (ExprCall funExpr args) = do
     runFun expr params = runScopedFun expr params
 
     runScopedFun :: Value -> [Value] -> Scoper Value
-    runScopedFun (VFunction cases) params = do
+    runScopedFun (VFunction cases) params = evaluateCases cases params
+    runScopedFun (VTypeFunction _ _ _ cases) params = evaluateCases cases params
+    runScopedFun _ _ = runtimeError "Error: Bad function call on line TODO"
+
+    evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
+    evaluateCases cases params = do
       (FunctionCase fargs body) <- pickFun cases params
       modify (\s -> pushScopeBlock HM.empty s)
       bazinga fargs params
       retVal <- runBody body
       modify (\s -> popScopeBlock s)
       pure retVal
-    runScopedFun _ _ = runtimeError "Error: Bad function call on line TODO"
 
     pickFun :: [FunctionCase] -> [Value] -> Scoper FunctionCase
     pickFun cases params = do

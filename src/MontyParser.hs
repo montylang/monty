@@ -82,7 +82,6 @@ assignmentParser indent = do
   expr <- exprParser indent
   pure $ ExprAssignment var expr
 
--- TODO: Support pattern matching
 argParser :: Indent -> Parser Arg
 argParser indent = choice $ try <$> [
     consArgParser, -- Order matters
@@ -230,17 +229,15 @@ classParser :: Indent -> Parser Expr
 classParser indent = do
   _ <- try $ string "class" <* ws1
   name <- idParser indent
-  -- TODO: Actually use this
-  _ <- optional $ try $ multiParenParser '(' ')' (idParser indent)
   _ <- ws <* char ':' <* eol1
-  defs <- blockParser indent jaja
+  defs <- blockParser indent typeConsParser
   pure $ ExprClass name defs
 
   where
-    jaja :: Indent -> Parser TypeCons
-    jaja ind = do
+    typeConsParser :: Indent -> Parser TypeCons
+    typeConsParser ind = do
       name <- idParser ind <* ws
-      args <- defArgParser ind
+      args <- (try $ defArgParser ind) <|> pure []
       pure $ TypeCons name args
 
 instanceParser :: Indent -> Parser Expr
