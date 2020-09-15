@@ -2,7 +2,7 @@ module MontyRunner where
 
 import Prelude
 import Debug.Trace
-import Data.List (find)
+import Data.List (find, intercalate)
 import Data.Maybe
 import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
@@ -32,10 +32,27 @@ data Value
   | VTypeFunction Id Id [Id] [FunctionCase]
   | VScoped Value Scope
   | VClass
-  | VList    
+  | VList [Value]
   | VDict    
   | VTuple   
   deriving (Show, Eq)
+
+typeOfValue :: Value -> String
+typeOfValue (VInt _)                = "Int"
+typeOfValue (VString _)             = "String"
+typeOfValue (VBoolean _)            = "Bool"
+typeOfValue (VFunction _)           = "Function" -- TODO: Become a signature
+typeOfValue (VTypeCons _ _)         = "TypeCons"
+typeOfValue (VTypeDef _ _)          = "TypeDef"
+typeOfValue (VTypeFunction _ _ _ _) = "Function" -- TODO: Become a signature
+typeOfValue (VScoped val _)         = typeOfValue val
+typeOfValue (VClass)                = "Class"
+typeOfValue (VList [])              = "List()"
+typeOfValue (VList (x:_))           = "List(" <> typeOfValue x <> ")"
+typeOfValue (VDict)                 = "Dict"
+typeOfValue (VTuple)                = "Tuple"
+typeOfValue (VTypeInstance typeName values) =
+  typeName <> "(" <> intercalate "," (typeOfValue <$> values) <> ")"
 
 argToId :: Arg -> Id
 argToId (IdArg name) = name
@@ -186,11 +203,18 @@ eval (ExprIfElse ifCond elifConds elseBody) = do
       vals <- sequence $ eval <$> exprs
       pure $ last vals
 
-eval (ExprList []) = pure $ VTypeInstance "Nil" []
+eval (ExprList []) = pure $ VList []
 eval (ExprList (x:xs)) = do
-  headEvaled <- eval x
-  tailEvaled <- eval $ ExprList xs
-  pure $ VTypeInstance "Cons" [headEvaled, tailEvaled]
+    headEvaled <- eval x
+    tailEvaled <- sequence $ enforceType (typeOfValue headEvaled) <$> xs
+    pure $ VList (headEvaled:tailEvaled)
+  where
+    enforceType :: String -> Expr -> Scoper Value
+    enforceType typeStr expr = do
+      evaled <- eval expr
+      if (typeOfValue evaled) == typeStr
+        then pure evaled
+        else runtimeError "List must be of the same type"
 
 eval (ExprDef args body) = pure $ VFunction [FunctionCase args body]
 
@@ -257,7 +281,7 @@ eval (ExprCall funExpr args) = do
     evaluateCases cases params = do
       (FunctionCase fargs body) <- pickFun cases params
       modify (\s -> pushScopeBlock HM.empty s)
-      bazinga fargs params
+      addArgsToScope fargs params
       retVal <- runBody body
       modify (\s -> popScopeBlock s)
       pure retVal
@@ -292,8 +316,8 @@ eval (ExprCall funExpr args) = do
       let (beginning, [ExprReturn returnExpr]) = splitAt ((length exprs) - 1) exprs in
         (beginning, returnExpr)
 
-    bazinga :: [Arg] -> [Value] -> Scoper ()
-    bazinga fargs values = do
+    addArgsToScope :: [Arg] -> [Value] -> Scoper ()
+    addArgsToScope fargs values = do
       scoperAssert (length fargs == length values) "Mismatched argument length"
       _ <- sequence $ addArg <$> (zip fargs values)
       pure ()
