@@ -19,28 +19,28 @@ instance Maybe of Functor:
   def map(Just(value), f):
     return Just(f(value))
 
-  def map(None(), _):
-   return None()
+  def map(None, _):
+    return None
 
 instance Maybe of Applicative:
   def apply(Just(f), inputMaybe):
     return map(inputMaybe, f)
 
-  def apply(None(), inputMaybe):
-    return None()
+  def apply(None, inputMaybe):
+    return None
 
 instance Maybe of Monad:
   def bind(Just(value), f):
     return f(value)
 
-  def bind(None(), _):
-    return None()
+  def bind(None, _):
+    return None
 
 instance Maybe of Foldable:
   def foldl(Just(value), initial, folder):
     return folder(initial, value)
 
-  def foldl(None(), initial, _):
+  def foldl(None, initial, _):
     return initial
 
   def len(Just(_)):
@@ -59,6 +59,6 @@ def add1If3(x):
     Just(x)
 
 debug(map(Just(2), add1))
-debug(map(None(), add1))
+debug(map(None, add1))
 debug(bind(Just(3), add1If3))
 debug(bind(Just(3), add1If3))

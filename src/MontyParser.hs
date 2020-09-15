@@ -3,10 +3,11 @@ module MontyParser where
 import Text.Parsec
 import Text.Parsec.String
 import Data.Char
-import Debug.Trace
+import Data.Hashable
+
+type Indent = String
 
 type Id = String
-type Indent = String
 
 data CondBlock = CondBlock Expr [Expr]
   deriving (Show, Eq)
@@ -77,7 +78,7 @@ moduleParser = many1 $ alphaNum <|> char '.'
 
 assignmentParser :: Indent -> Parser Expr
 assignmentParser indent = do
-  var  <- idParser indent
+  var  <- varIdParser indent
   _    <- ws <* char '=' <* ws
   expr <- exprParser indent
   pure $ ExprAssignment var expr
@@ -90,12 +91,12 @@ argParser indent = choice $ try <$> [
   ]
   where
     idArgParser :: Parser Arg
-    idArgParser = IdArg <$> idParser indent
+    idArgParser = IdArg <$> varIdParser indent
 
     patternArgParser :: Parser Arg
     patternArgParser = do
-      name <- idParser indent <* ws
-      args <- defArgParser indent
+      name <- typeIdParser indent <* ws
+      args <- try (defArgParser indent) <|> pure []
       pure $ PatternArg name args
 
     consArgParser :: Parser Arg
@@ -109,7 +110,7 @@ defArgParser indent = multiParenParser '(' ')' (argParser indent) <* ws
 
 namedDefParser :: Indent -> Parser Expr
 namedDefParser indent = do
-  name <- string "def" *> ws1 *> idParser indent
+  name <- string "def" *> ws1 *> varIdParser indent
   args <- defArgParser indent <* char ':' <* eol1
   body <- bodyParser indent
   pure $ ExprAssignment name $ ExprDef args body
@@ -127,6 +128,12 @@ exprCallParser indent = do
   firstArgLists <- multiParenParser '(' ')' $ exprParser indent
   otherArgLists <- many $ multiParenParser '(' ')' $ exprParser indent
   pure $ foldl ExprCall (ExprCall fun firstArgLists) otherArgLists
+
+-- Bit of a hack but so is this entire language so whatever
+emptyTypeCallParser :: Indent -> Parser Expr
+emptyTypeCallParser indent = do
+  fun <- typeIdParser indent
+  pure $ ExprCall (ExprId fun) []
 
 -- Eats surrounding parens of an expr, for disambiguation
 parenEater :: Parser Expr -> Parser Expr
@@ -205,14 +212,23 @@ infixParser indent = ExprInfix <$>
   infixOpParser      <* ws <*>
   exprParser indent
 
-idParser :: Indent -> Parser Id
-idParser _ = do
-  x  <- char '_' <|> satisfy isAlpha
+varIdParser :: Indent -> Parser Id
+varIdParser _ = do
+  x  <- char '_' <|> satisfy isLower
   xs <- many $ (char '_' <|> alphaNum)
   pure $ x:xs
 
+typeIdParser :: Indent -> Parser Id
+typeIdParser _ = do
+  firstChar <- satisfy isUpper
+  rest      <- many $ (char '_' <|> alphaNum)
+  pure $ firstChar:rest
+
+anyIdParser :: Indent -> Parser Id
+anyIdParser indent = try (varIdParser indent) <|> typeIdParser indent
+
 exprIdParser :: Indent -> Parser Expr
-exprIdParser indent = ExprId <$> idParser indent
+exprIdParser indent = ExprId <$> anyIdParser indent
 
 intParser :: Indent -> Parser Expr
 intParser _ = ExprInt . read <$> many1 digit
@@ -228,7 +244,7 @@ stringParser _ = do
 classParser :: Indent -> Parser Expr
 classParser indent = do
   _ <- try $ string "class" <* ws1
-  name <- idParser indent
+  name <- typeIdParser indent
   _ <- ws <* char ':' <* eol1
   defs <- blockParser indent typeConsParser
   pure $ ExprClass name defs
@@ -236,29 +252,29 @@ classParser indent = do
   where
     typeConsParser :: Indent -> Parser TypeCons
     typeConsParser ind = do
-      name <- idParser ind <* ws
+      name <- typeIdParser ind <* ws
       args <- (try $ defArgParser ind) <|> pure []
       pure $ TypeCons name args
 
 instanceParser :: Indent -> Parser Expr
 instanceParser indent = do
-    name        <- try $ string "instance" *> ws1 *> idParser indent
+    name        <- try $ string "instance" *> ws1 *> typeIdParser indent
     _           <- ws1 <* string "of" <* ws1
-    typeClass   <- idParser indent <* ws <* char ':' <* eol1
+    typeClass   <- typeIdParser indent <* ws <* char ':' <* eol1
     definitions <- blockParser indent namedDefParser
     pure $ ExprInstanceOf name typeClass definitions
 
 typeParser :: Indent -> Parser Expr
 typeParser indent = do
     _    <- try $ string "type" <* ws1
-    name <- idParser indent <* ws <* char ':' <* eol1
+    name <- typeIdParser indent <* ws <* char ':' <* eol1
     body <- blockParser indent $ typeBodyParser name
     pure $ ExprType name body
   where
     typeBodyParser :: Id -> Indent -> Parser DefSignature
     typeBodyParser typeName ind = do
-      name <- string "def" *> ws1 *> idParser ind
-      args <- multiParenParser '(' ')' (idParser ind)
+      name <- string "def" *> ws1 *> varIdParser ind
+      args <- multiParenParser '(' ')' (varIdParser ind)
       pure $ DefSignature typeName name args
 
 listParser :: Indent -> Parser Expr
@@ -281,6 +297,7 @@ exprParser indent = choice [
     try $ infixParser indent,
     try $ assignmentParser indent,
     try $ exprCallParser indent,
+    try $ emptyTypeCallParser indent,
     try $ returnParser indent,
     try $ typeParser indent,
     try $ instanceParser indent,

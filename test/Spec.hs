@@ -18,10 +18,10 @@ main = hspec $ do
 
   describe "Id parser" $ do
     it "Parses ids" $ do
-      (testParser idParser "abc") `shouldBe` (Right $ "abc")
-      (testParser idParser "_abc") `shouldBe` (Right $ "_abc")
-      (testParser idParser "_abc123") `shouldBe` (Right $ "_abc123")
-      (testParser idParser "1abc") `shouldSatisfy` isLeft
+      (testParser varIdParser "abc") `shouldBe` (Right $ "abc")
+      (testParser varIdParser "_abc") `shouldBe` (Right $ "_abc")
+      (testParser varIdParser "_abc123") `shouldBe` (Right $ "_abc123")
+      (testParser varIdParser "1abc") `shouldSatisfy` isLeft
 
   describe "Int parser" $ do
     it "Parses ints" $ do
