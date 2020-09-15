@@ -1,6 +1,6 @@
 module.exports = {
   title: 'Monty',
-  tagline: 'Function programming for python developers',
+  tagline: 'Functional programming for python developers',
   url: 'https://mulan-szechuan-sauce.github.io',
   baseUrl: '/monty/',
   onBrokenLinks: 'throw',
@@ -87,7 +87,7 @@ module.exports = {
           sidebarPath: require.resolve('./sidebars.js'),
           // Please change this to your repo.
           editUrl:
-            'https://github.com/Mulan-Szechuan-Sauce/monty/tree/master/',
+            'https://github.com/Mulan-Szechuan-Sauce/monty/tree/master/docs/',
         },
         blog: {
           showReadingTime: true,

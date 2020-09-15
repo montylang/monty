@@ -12,12 +12,6 @@
   overflow: hidden;
 }
 
-@media screen and (max-width: 966px) {
-  .heroBanner {
-    padding: 2rem;
-  }
-}
-
 .buttons {
   display: flex;
   align-items: center;
@@ -27,4 +21,33 @@
 .alignHeaderContent {
   display: flex;
   justify-content: space-around;
+  flex-direction: column;
+}
+
+@media only screen and (min-device-width: 769px) {
+  .alignHeaderContent {
+    flex-direction: row;
+
+    position: relative;
+    top: 25%;
+  }
+}
+
+@media only screen and (max-device-width: 768px) {
+  .spacer {
+    padding-bottom: 10px;
+  }
+}
+
+.customHero {
+  background-color: var(--ifm-hero-background-color);
+  color: var(--ifm-hero-text-color);
+  padding: 4rem 2rem;
+  height: 100%;
+}
+
+@media screen and (max-width: 966px) {
+  .customHero {
+    padding: 2rem;
+  }
 }

@@ -11,8 +11,39 @@ import TabItem from '@theme/TabItem';
 import CodeBlock from '@theme/CodeBlock';
 
 const example1 = `\
-def foo():
-  return test
+result = unwrap:
+  a = Just(3)
+  b = Just(7)
+  wrap(a + b)
+
+result # Just(10)
+`;
+
+const example2 = `\
+class Maybe:
+  None
+  Just(value)
+
+def foo(Just(x)):
+  return x+1
+
+def foo(None):
+  return -1
+
+foo(Just(3)) # returns 4
+foo(None) # returns -1
+`;
+
+const example3 = `\
+type Functor:
+  def map(self, function)
+
+instance Maybe of Functor:
+  def map(Just(value), f):
+    return Just(f(value))
+
+  def map(None, _):
+    return None
 `;
 
 function Code({ lang, content }) {
@@ -33,9 +64,9 @@ function Home() {
     <Layout
       title={`${siteConfig.title}`}
       description="Monty programming language <head />">
-      <header style={{height: '80%'}} className={clsx('hero hero--primary', styles.heroBanner)}>
+      <header className={clsx('hero--primary', styles.heroBanner, styles.customHero)}>
         <div className={clsx('container', styles.alignHeaderContent)}>
-          <div>
+          <div className={clsx(styles.spacer)}>
             <h1 className="hero__title">{siteConfig.title}</h1>
             <p className="hero__subtitle">{siteConfig.tagline}</p>
             <div className={styles.buttons}>
@@ -50,17 +81,21 @@ function Home() {
             </div>
           </div>
           <Tabs
-            defaultValue="apple"
+            defaultValue="monads"
             values={[
-                {label: 'Apple', value: 'apple'},
-                {label: 'Orange', value: 'orange'},
-                {label: 'Banana', value: 'banana'},
+                {label: 'Monads', value: 'monads'},
+                {label: 'Pattern Matching', value: 'patternMatching'},
+                {label: 'Type Classes', value: 'typeClasses'},
             ]}>
-            <TabItem value="apple">
+            <TabItem value="monads">
               <Code lang='python' content={example1} />
             </TabItem>
-            <TabItem value="orange">This is an orange 🍊</TabItem>
-            <TabItem value="banana">This is a banana 🍌</TabItem>
+            <TabItem value="patternMatching">
+              <Code lang='python' content={example2} />
+            </TabItem>
+            <TabItem value="typeClasses">
+              <Code lang='python' content={example3} />
+            </TabItem>
           </Tabs>
         </div>
       </header>
