@@ -58,11 +58,19 @@ def add1If3(x):
   else:
     Just(x)
 
+class Tryple:
+  One(val)
+  Two(val)
+  Three(val)
+
 def doubleDuty(Just(Just(x))):
   return x
 
 def doubleDuty(Just(None)):
   return "Middle child"
+
+def doubleDuty(Just(whatevermydude)):
+  return "whatever"
 
 def doubleDuty(o):
   return "BAAAD"
@@ -72,3 +80,4 @@ debug(map(None, add1))
 debug(bind(Just(3), add1If3))
 debug(bind(Just(3), add1If3))
 debug(doubleDuty(Just(Just(7))))
+debug(doubleDuty(Just(None)))

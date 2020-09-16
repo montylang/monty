@@ -17,13 +17,13 @@ pickFun cases params = do
 
 funCaseMatchesParams :: [Value] -> FunctionCase -> Bool
 funCaseMatchesParams params (FunctionCase fargs _) =
-  all argMatchesParams $ zip fargs params
+  all (uncurry argMatchesParams) $ zip fargs params
 
-argMatchesParams :: (Arg, Value) -> Bool
-argMatchesParams ((IdArg _), _) = True
-argMatchesParams ((PatternArg pname _), (VTypeInstance tname _)) =
-  pname == tname
-argMatchesParams _ = False
+argMatchesParams :: Arg -> Value -> Bool
+argMatchesParams (IdArg _) _ = True
+argMatchesParams (PatternArg pname pargs) (VTypeInstance tname tvals) =
+  pname == tname && (all (uncurry argMatchesParams) (zip pargs tvals))
+argMatchesParams _ _ = False
 
 splitReturn :: [Expr] -> ([Expr], Expr)
 splitReturn exprs =
@@ -43,7 +43,6 @@ addArg ((PatternArg pname pargs), (VTypeInstance tname tvals)) = do
     $ "Mismatched pattern match: " <> pname <> "," <> tname
   scoperAssert (length pargs == length tvals)
     $ "Mismatched argument length for pattern match of " <> pname
-  -- TODO: Recursively pattern match
   _ <- sequence $ addArg <$> (zip pargs tvals)
   pure ()
 addArg _ =

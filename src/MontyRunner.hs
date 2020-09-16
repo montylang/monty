@@ -84,7 +84,6 @@ eval (ExprInstanceOf className typeName implementations) = do
     getStubOrDie (Just (val, _)) = pure val
     getStubOrDie Nothing = runtimeError "Ain't in scope biatch"
 
-    -- TODO: Much duplication. Make it not so
     addToStub :: FunctionCase -> Value -> Value
     addToStub newCase (VTypeFunction tname fname args cases) =
       VTypeFunction tname fname args (cases ++ [newCase])
@@ -157,8 +156,8 @@ eval (ExprAssignment name value) = do
     argFits :: Arg -> Arg -> Bool
     argFits _ (IdArg _) = False
     argFits (IdArg _) (PatternArg _ _) = True
-    argFits (PatternArg newName _) (PatternArg existingName _) =
-      newName /= existingName
+    argFits (PatternArg newName newArgs) (PatternArg existingName existingArgs) =
+      newName /= existingName || all (uncurry argFits) (zip newArgs existingArgs)
 
 eval (ExprCall (ExprId "debug") [param]) = do
   evaled <- eval param
@@ -183,7 +182,7 @@ eval (ExprCall funExpr args) = do
     runScopedFun :: Value -> [Value] -> Scoper Value
     runScopedFun (VFunction cases) params = evaluateCases cases params
     runScopedFun (VTypeFunction _ _ _ cases) params = evaluateCases cases params
-    runScopedFun _ _ = runtimeError "Error: Bad function call on line TODO"
+    runScopedFun _ _ = runtimeError "Error: Bad function call"
     
     evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
     evaluateCases cases params = runWithTempScope $ do
