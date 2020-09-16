@@ -5,8 +5,8 @@ import Text.Parsec
 import Text.Parsec.String
 import Data.Char
 
-import MontyRunner
-import MontyParser
+import MontyRunner (run)
+import MontyParser (rootBodyParser)
 
 lineSep :: String
 lineSep = '-' <$ [1..80]

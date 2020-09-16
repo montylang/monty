@@ -2,89 +2,13 @@ module MontyRunner where
 
 import Prelude
 import Debug.Trace
-import Data.List (find, intercalate)
-import Data.Maybe
 import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
-import System.Exit
 
-import MontyParser
-
-type ScopeBlock = HM.HashMap Id Value
-type Scope      = [ScopeBlock]
-
-type Scoper a = StateT Scope IO a
-
-data FunctionCase = FunctionCase [Arg] [Expr]
-  deriving (Show, Eq)
-
-data Value
-  = VInt Int
-  | VString String
-  | VBoolean Bool
-  | VFunction [FunctionCase]
-  | VTypeCons Id [Id]
-  | VTypeInstance Id [Value] -- Id = Type name
-  -- Name, [Arg]
-  -- Arg must contain _one_ instance of the word "self", for pattern matching
-  | VTypeDef Id [DefSignature]
-  -- Type ID, func Id, args, case
-  | VTypeFunction Id Id [Id] [FunctionCase]
-  | VScoped Value Scope
-  | VClass
-  | VList [Value]
-  | VDict    
-  | VTuple   
-  deriving (Show, Eq)
-
-typeOfValue :: Value -> String
-typeOfValue (VInt _)                = "Int"
-typeOfValue (VString _)             = "String"
-typeOfValue (VBoolean _)            = "Bool"
-typeOfValue (VFunction _)           = "Function" -- TODO: Become a signature
-typeOfValue (VTypeCons _ _)         = "TypeCons"
-typeOfValue (VTypeDef _ _)          = "TypeDef"
-typeOfValue (VTypeFunction _ _ _ _) = "Function" -- TODO: Become a signature
-typeOfValue (VScoped val _)         = typeOfValue val
-typeOfValue (VClass)                = "Class"
-typeOfValue (VList [])              = "List()"
-typeOfValue (VList (x:_))           = "List(" <> typeOfValue x <> ")"
-typeOfValue (VDict)                 = "Dict"
-typeOfValue (VTuple)                = "Tuple"
-typeOfValue (VTypeInstance typeName values) =
-  typeName <> "(" <> intercalate "," (typeOfValue <$> values) <> ")"
-
-argToId :: Arg -> Id
-argToId (IdArg name) = name
-argToId _ = trace "you bad boi, you" undefined
-
--- TODO: Don't allow overriding of values in top scope
-addToScope :: String -> Value -> Scope -> Scope
-addToScope key value (topScope:lowerScopes) = newTop:lowerScopes
-  where
-    newTop = HM.insert key value topScope
-addToScope _ _ [] = undefined
-
-unionTopScope :: ScopeBlock -> Scope -> Scope
--- TODO: Error on name collisions
-unionTopScope new (topScopeBlock:bottomBlocks) =
-  (HM.union new topScopeBlock):bottomBlocks
-unionTopScope _ [] = undefined
-
--- Returns the value for the given key, and the scope block where it is defined
-findInScope :: String -> Scope -> Maybe (Value, Scope)
-findInScope _ [] = Nothing
-findInScope key (top:lower) =
-  case HM.lookup key top of
-    Nothing    -> findInScope key lower
-    Just value -> Just (value, top:lower)
-
-pushScopeBlock :: ScopeBlock -> Scope -> Scope
-pushScopeBlock block scope = block:scope
-
-popScopeBlock :: Scope -> Scope
-popScopeBlock [] = []
-popScopeBlock (_:bottom) = bottom
+import ParserTypes
+import RunnerTypes
+import CallableUtils
+import RunnerUtils
 
 infixEval :: Value -> InfixOp -> Value -> Value
 infixEval (VInt first) InfixAdd (VInt second) = VInt $ first + second
@@ -92,16 +16,6 @@ infixEval (VInt first) InfixSub (VInt second) = VInt $ first - second
 infixEval (VInt first) InfixMul (VInt second) = VInt $ first * second
 infixEval (VInt first) InfixEq (VInt second) = VBoolean $ first == second
 infixEval _ other _ = trace ("Unimplemented infix: " <> show other) undefined
-
-runtimeError :: String -> Scoper a
-runtimeError message = do
-  _ <- lift $ die message
-  -- Will never get reached, but hey, it fixes compiler errors
-  undefined
-
-scoperAssert :: Bool -> String -> Scoper ()
-scoperAssert False message = runtimeError message
-scoperAssert True _ = pure ()
 
 eval :: Expr -> Scoper Value
 eval (ExprId name) = do
@@ -259,7 +173,6 @@ eval (ExprCall funExpr args) = do
     pure result
   where
     runFun :: Value -> [Value] -> Scoper Value
-
     runFun (VScoped func fscope) params = do
       callingScope <- get
       put fscope
@@ -271,12 +184,12 @@ eval (ExprCall funExpr args) = do
         then pure $ VTypeInstance name params
         else runtimeError ("Bad type cons call to " <> name)
     runFun expr params = runScopedFun expr params
-
+    
     runScopedFun :: Value -> [Value] -> Scoper Value
     runScopedFun (VFunction cases) params = evaluateCases cases params
     runScopedFun (VTypeFunction _ _ _ cases) params = evaluateCases cases params
     runScopedFun _ _ = runtimeError "Error: Bad function call on line TODO"
-
+    
     evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
     evaluateCases cases params = do
       (FunctionCase fargs body) <- pickFun cases params
@@ -285,54 +198,13 @@ eval (ExprCall funExpr args) = do
       retVal <- runBody body
       modify (\s -> popScopeBlock s)
       pure retVal
-
-    pickFun :: [FunctionCase] -> [Value] -> Scoper FunctionCase
-    pickFun cases params = do
-      case find (funCaseMatchesParams params) cases of
-        Just funCase -> pure funCase 
-        -- FIXME: Better error message
-        Nothing      -> runtimeError $ "No function defined for " <> show params
-
-    funCaseMatchesParams :: [Value] -> FunctionCase -> Bool
-    funCaseMatchesParams params (FunctionCase fargs _) =
-      all argMatchesParams $ zip fargs params
-
-    argMatchesParams :: (Arg, Value) -> Bool
-    argMatchesParams ((IdArg _), _) = True
-    argMatchesParams ((PatternArg pname _), (VTypeInstance tname _)) =
-      pname == tname
-    argMatchesParams _ = False
-
+    
     runBody :: [Expr] -> Scoper Value
     runBody exprs = do
-        -- showScope "run body"
         _ <- sequence $ eval <$> beginning
         eval returnExpr
       where 
         (beginning, returnExpr) = splitReturn exprs
-
-    splitReturn :: [Expr] -> ([Expr], Expr)
-    splitReturn exprs =
-      let (beginning, [ExprReturn returnExpr]) = splitAt ((length exprs) - 1) exprs in
-        (beginning, returnExpr)
-
-    addArgsToScope :: [Arg] -> [Value] -> Scoper ()
-    addArgsToScope fargs values = do
-      scoperAssert (length fargs == length values) "Mismatched argument length"
-      _ <- sequence $ addArg <$> (zip fargs values)
-      pure ()
-
-    addArg :: (Arg, Value) -> Scoper ()
-    addArg ((IdArg name), v) = modify (addToScope name v)
-    addArg ((PatternArg pname pargs), (VTypeInstance tname tvals)) = do
-      scoperAssert (pname == tname)
-        $ "Mismatched pattern match: " <> pname <> "," <> tname
-      scoperAssert (length pargs == length tvals)
-        $ "Mismatched argument length for pattern match of " <> pname
-      modify (\s -> unionTopScope (HM.fromList (zip (argToId <$> pargs) tvals)) s)
-      pure ()
-    addArg _ =
-      runtimeError $ "Bad call to pattern matched function " <> show funExpr
 
 eval other = runtimeError ("Error (unimplemented expr eval): " <> show other)
 
