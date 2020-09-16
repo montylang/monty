@@ -57,6 +57,9 @@ argParser indent = choice $ try <$> [
 defArgParser :: Indent -> Parser [Arg]
 defArgParser indent = multiParenParser '(' ')' (argParser indent) <* ws
 
+typeConsArgParser :: Indent -> Parser [Id]
+typeConsArgParser indent = multiParenParser '(' ')' (varIdParser indent) <* ws
+
 namedDefParser :: Indent -> Parser Expr
 namedDefParser indent = do
   name <- string "def" *> ws1 *> varIdParser indent
@@ -202,7 +205,7 @@ classParser indent = do
     typeConsParser :: Indent -> Parser TypeCons
     typeConsParser ind = do
       name <- typeIdParser ind <* ws
-      args <- (try $ defArgParser ind) <|> pure []
+      args <- (try $ typeConsArgParser ind) <|> pure []
       pure $ TypeCons name args
 
 instanceParser :: Indent -> Parser Expr

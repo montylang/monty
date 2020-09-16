@@ -1,0 +1,6 @@
+def foo():
+  return 3
+
+hello = map
+
+#debug(hello([1, 2], add1))

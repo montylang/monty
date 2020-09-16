@@ -2,8 +2,7 @@ module CallableUtils where
 
 import Prelude
 import Data.List (find)
-import qualified Data.HashMap.Strict as HM
-import Control.Monad.State.Strict
+import Debug.Trace (trace)
 
 import RunnerUtils
 import RunnerTypes
@@ -38,13 +37,14 @@ addArgsToScope fargs values = do
   pure ()
 
 addArg :: (Arg, Value) -> Scoper ()
-addArg ((IdArg name), v) = modify (addToScope name v)
+addArg ((IdArg name), v) = trace name $ addToScope name v
 addArg ((PatternArg pname pargs), (VTypeInstance tname tvals)) = do
   scoperAssert (pname == tname)
     $ "Mismatched pattern match: " <> pname <> "," <> tname
   scoperAssert (length pargs == length tvals)
     $ "Mismatched argument length for pattern match of " <> pname
-  modify (\s -> unionTopScope (HM.fromList (zip (argToId <$> pargs) tvals)) s)
+  -- TODO: Recursively pattern match
+  _ <- sequence $ addArg <$> (zip pargs tvals)
   pure ()
 addArg _ =
   runtimeError $ "Bad call to pattern matched function"

@@ -49,5 +49,5 @@ data Expr
 data DefSignature = DefSignature Id Id [Id]
   deriving (Show, Eq)
 
-data TypeCons = TypeCons Id [Arg]
+data TypeCons = TypeCons Id [Id]
   deriving (Show, Eq)

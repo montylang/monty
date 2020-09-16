@@ -31,38 +31,66 @@ typeOfValue (VTuple)                = "Tuple"
 typeOfValue (VTypeInstance typeName values) =
   typeName <> "(" <> intercalate "," (typeOfValue <$> values) <> ")"
 
-argToId :: Arg -> Id
-argToId (IdArg name) = name
-argToId _ = trace "you bad boi, you" undefined
-
 -- TODO: Don't allow overriding of values in top scope
-addToScope :: String -> Value -> Scope -> Scope
-addToScope key value (topScope:lowerScopes) = newTop:lowerScopes
+addToScope :: String -> Value -> Scoper ()
+addToScope key value = modify addToScope'
   where
-    newTop = HM.insert key value topScope
-addToScope _ _ [] = undefined
+    addToScope' (topScope:lowerScopes) = newTop:lowerScopes
+      where newTop = HM.insert key value topScope
+    addToScope' [] = undefined
 
-unionTopScope :: ScopeBlock -> Scope -> Scope
--- TODO: Error on name collisions
-unionTopScope new (topScopeBlock:bottomBlocks) =
-  (HM.union new topScopeBlock):bottomBlocks
-unionTopScope _ [] = undefined
+unionTopScope :: [(Id, Value)] -> Scoper ()
+unionTopScope = modify . unionTopScope' . HM.fromList
+  where
+    unionTopScope' new (topScopeBlock:bottomBlocks) =
+      (HM.union new topScopeBlock):bottomBlocks
+    unionTopScope' _ [] = undefined
 
 -- Returns the value for the given key, and the scope block where it is defined
-findInScope :: String -> Scope -> Maybe (Value, Scope)
-findInScope _ [] = Nothing
-findInScope key (top:lower) =
-  case HM.lookup key top of
-    Nothing    -> findInScope key lower
-    Just value -> Just (value, top:lower)
+findInScope :: String -> Scoper (Maybe (Value, Scope))
+findInScope = gets . findInScope'
+  where
+    findInScope' _ [] = Nothing
+    findInScope' key (top:lower) =
+      case HM.lookup key top of
+        Nothing    -> findInScope' key lower
+        Just value -> Just (value, top:lower)
 
-pushScopeBlock :: ScopeBlock -> Scope -> Scope
-pushScopeBlock block scope = block:scope
+findInTopScope :: String -> Scoper (Maybe Value)
+findInTopScope = gets . findInScope'
+  where
+    findInScope' key (top:_) = HM.lookup key top
+    findInScope' _ _         = Nothing
 
-popScopeBlock :: Scope -> Scope
-popScopeBlock [] = []
-popScopeBlock (_:bottom) = bottom
+pushScopeBlock :: ScopeBlock -> Scoper ()
+pushScopeBlock block = do
+  scope <- get
+  put (block:scope)
+
+pushEmptyScopeBlock :: Scoper ()
+pushEmptyScopeBlock = pushScopeBlock HM.empty
+
+popScopeBlock :: Scoper ()
+popScopeBlock = do
+  scopes <- get
+  case scopes of 
+    []     -> pure ()
+    (_:xs) -> put xs
 
 scoperAssert :: Bool -> String -> Scoper ()
 scoperAssert False message = runtimeError message
 scoperAssert True _ = pure ()
+
+runScopeWithSetup :: Scoper () -> Scoper Value -> Scoper Value
+runScopeWithSetup scopeSetup body = do
+  previousScope <- get
+  scopeSetup
+  retVal <- body
+  put previousScope
+  pure retVal
+
+runWithScope :: Scope -> Scoper Value -> Scoper Value
+runWithScope = runScopeWithSetup . put
+
+runWithTempScope :: Scoper Value -> Scoper Value
+runWithTempScope = runScopeWithSetup pushEmptyScopeBlock

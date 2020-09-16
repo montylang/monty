@@ -19,7 +19,7 @@ infixEval _ other _ = trace ("Unimplemented infix: " <> show other) undefined
 
 eval :: Expr -> Scoper Value
 eval (ExprId name) = do
-    value <- gets (\s -> findInScope name s)
+    value <- findInScope name
     case toVScoped <$> value of
       Just val -> pure val
       Nothing  -> runtimeError (name <> " is not in scope")
@@ -30,29 +30,28 @@ eval (ExprId name) = do
     toVScoped (value, _) = value
 
 eval (ExprClass className constructors) = do
-    modify (addToScope className VClass)
-    modify (\s -> unionTopScope (HM.fromList (convert <$> constructors)) s)
+    addToScope className VClass
+    unionTopScope $ convert <$> constructors
     pure $ VInt 0 -- TODO: Return... something other than an int :)
   where
     convert :: TypeCons -> (Id, Value)
-    convert (TypeCons name args) =
-      (name, VTypeCons name (argToId <$> args))
+    convert (TypeCons name args) = (name, VTypeCons name args)
 
 eval (ExprType typeName headers) = do
-    modify (addToScope typeName typeDef)
-    modify (\s -> foldl addFuncToScope s headers)
+    addToScope typeName typeDef
+    unionTopScope $ addFuncToScope <$> headers
     pure $ VInt 0
   where
     typeDef = VTypeDef typeName headers
 
-    addFuncToScope :: Scope -> DefSignature -> Scope
-    addFuncToScope scope (DefSignature tName functionName args) =
-      addToScope functionName (VTypeFunction tName functionName args []) scope
+    addFuncToScope :: DefSignature -> (Id, Value)
+    addFuncToScope (DefSignature tName functionName args) =
+      (functionName,  VTypeFunction tName functionName args [])
 
 -- TODO: Ban redefining instances for classes
 eval (ExprInstanceOf className typeName implementations) = do
-    classDef <- gets $ findInScope className
-    typeDef  <- gets $ findInScope typeName
+    classDef <- findInScope className
+    typeDef  <- findInScope typeName
     funcDefs <- functionDefs typeDef
 
     scoperAssert (isVClass classDef) $
@@ -76,10 +75,9 @@ eval (ExprInstanceOf className typeName implementations) = do
     addImplementation avaliable (ExprAssignment name (ExprDef args bod)) = do
       scoperAssert (elem name (defSigToId <$> avaliable)) $
         name <> " is not part of type " <> typeName
-      maybeStub <- gets $ findInScope name
+      maybeStub <- findInScope name
       stub      <- getStubOrDie maybeStub
-      modify (addToScope name (addToStub (FunctionCase args bod) stub))
-      pure ()
+      addToScope name (addToStub (FunctionCase args bod) stub)
     addImplementation _ _  = runtimeError "Every root expr in an implementation must be a def"
 
     getStubOrDie :: Maybe (Value, Scope) -> Scoper Value
@@ -134,31 +132,32 @@ eval (ExprDef args body) = pure $ VFunction [FunctionCase args body]
 
 eval (ExprAssignment name value) = do
     evaledValue  <- eval value
-    inScopeValue <- gets (\s -> HM.lookup name $ head s)
+    inScopeValue <- findInTopScope name
     
     newValue <- case inScopeValue of
       (Just (VFunction cases)) -> appendFunctionCase cases evaledValue
       (Just _)                 -> runtimeError $ "Cannot mutate " <> name
       _                        -> pure evaledValue
     
-    modify (addToScope name newValue)
+    addToScope name newValue
     pure evaledValue
   where
     appendFunctionCase :: [FunctionCase] -> Value -> Scoper Value
     appendFunctionCase cases (VFunction [newCase]) = do
-      scoperAssert (all (functionCaseFits newCase) cases) ("Invalid pattern match for function " <> name)
-      pure $ VFunction (newCase:cases)
+      scoperAssert (all (functionCaseFits newCase) cases) $
+        ("Invalid pattern match for function " <> name)
+      pure $ VFunction (cases <> [newCase])
     appendFunctionCase _ _ = runtimeError $ "Cannot mutate " <> name
 
     functionCaseFits :: FunctionCase -> FunctionCase -> Bool
     functionCaseFits (FunctionCase newCaseArgs _) (FunctionCase existingCaseArgs _) =
       (length newCaseArgs == length existingCaseArgs) &&
-        (any argFits (zip newCaseArgs existingCaseArgs))
+        (any (uncurry argFits) (zip newCaseArgs existingCaseArgs))
 
-    argFits :: (Arg, Arg) -> Bool
-    argFits (_, IdArg _) = False
-    argFits (IdArg _, PatternArg _ _) = True
-    argFits (PatternArg newName _, PatternArg existingName _) =
+    argFits :: Arg -> Arg -> Bool
+    argFits _ (IdArg _) = False
+    argFits (IdArg _) (PatternArg _ _) = True
+    argFits (PatternArg newName _) (PatternArg existingName _) =
       newName /= existingName
 
 eval (ExprCall (ExprId "debug") [param]) = do
@@ -173,13 +172,9 @@ eval (ExprCall funExpr args) = do
     pure result
   where
     runFun :: Value -> [Value] -> Scoper Value
-    runFun (VScoped func fscope) params = do
-      callingScope <- get
-      put fscope
-      retVal <- runScopedFun func params
-      put callingScope
-      pure retVal
-    runFun (VTypeCons name cargs) params = do
+    runFun (VScoped func fscope) params =
+      runWithScope fscope $ runScopedFun func params
+    runFun (VTypeCons name cargs) params =
       if (length cargs) == (length params)
         then pure $ VTypeInstance name params
         else runtimeError ("Bad type cons call to " <> name)
@@ -191,19 +186,20 @@ eval (ExprCall funExpr args) = do
     runScopedFun _ _ = runtimeError "Error: Bad function call on line TODO"
     
     evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
-    evaluateCases cases params = do
-      (FunctionCase fargs body) <- pickFun cases params
-      modify (\s -> pushScopeBlock HM.empty s)
-      addArgsToScope fargs params
-      retVal <- runBody body
-      modify (\s -> popScopeBlock s)
-      pure retVal
+    evaluateCases cases params = runWithTempScope $ do
+        (FunctionCase fargs body) <- pickFun cases params
+        addArgsToScope fargs params
+        runBody body
     
     runBody :: [Expr] -> Scoper Value
     runBody exprs = do
-        _ <- sequence $ eval <$> beginning
-        eval returnExpr
-      where 
+        _            <- sequence $ eval <$> beginning
+        scope        <- get
+        evaledReturn <- eval returnExpr
+        pure $ case evaledReturn of
+          (VFunction _) -> VScoped evaledReturn scope
+          _             -> evaledReturn
+      where
         (beginning, returnExpr) = splitReturn exprs
 
 eval other = runtimeError ("Error (unimplemented expr eval): " <> show other)

@@ -58,7 +58,17 @@ def add1If3(x):
   else:
     Just(x)
 
+def doubleDuty(Just(Just(x))):
+  return x
+
+def doubleDuty(Just(None)):
+  return "Middle child"
+
+def doubleDuty(o):
+  return "BAAAD"
+
 debug(map(Just(2), add1))
 debug(map(None, add1))
 debug(bind(Just(3), add1If3))
 debug(bind(Just(3), add1If3))
+debug(doubleDuty(Just(Just(7))))
