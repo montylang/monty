@@ -111,3 +111,8 @@ generateInteropCase args fun = InteropCase args $ do
         pure $ fromJust <$> values
       where 
         ids = cargs >>= idsInArg
+
+addToStub :: FunctionCase -> Value -> Value
+addToStub newCase (VTypeFunction tname fname args cases) =
+  VTypeFunction tname fname args (cases ++ [newCase])
+addToStub _ _ = trace "Rat pies" undefined

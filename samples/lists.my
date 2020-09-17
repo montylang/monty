@@ -1,6 +1,6 @@
-def foo():
-  return 3
+def add1(x):
+  return x + 1
 
-hello = map
-
-#debug(hello([1, 2], add1))
+debug(map([1, 2], add1))
+debug(map(Nil, add1))
+debug(map(Cons(1, Cons(2, Nil)), add1))

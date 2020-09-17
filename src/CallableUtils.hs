@@ -13,17 +13,19 @@ pickFun cases params = do
   case find (funCaseMatchesParams params) cases of
     Just funCase -> pure funCase 
     -- FIXME: Better error message
-    Nothing      -> runtimeError $ "No function defined for " <> show params
+    Nothing      -> runtimeError $ "No function defined for " <> show (typeOfValue <$> params)
 
 funCaseMatchesParams :: [Value] -> FunctionCase -> Bool
 funCaseMatchesParams params fcase =
-  all (uncurry argMatchesParams) $ zip (fcaseArgs fcase) params
+  all (uncurry argMatchesParam) $ zip (fcaseArgs fcase) params
 
-argMatchesParams :: Arg -> Value -> Bool
-argMatchesParams (IdArg _) _ = True
-argMatchesParams (PatternArg pname pargs) (VTypeInstance tname tvals) =
-  pname == tname && (all (uncurry argMatchesParams) (zip pargs tvals))
-argMatchesParams _ _ = False
+argMatchesParam :: Arg -> Value -> Bool
+argMatchesParam (IdArg _) _ = True
+argMatchesParam (PatternArg "Nil" _) (VList []) = True
+argMatchesParam (PatternArg "Cons" _) (VList (_:_)) = True
+argMatchesParam (PatternArg pname pargs) (VTypeInstance tname tvals) =
+  pname == tname && (all (uncurry argMatchesParam) (zip pargs tvals))
+argMatchesParam _ _ = False
 
 splitReturn :: [Expr] -> ([Expr], Expr)
 splitReturn exprs =
@@ -37,8 +39,12 @@ addArgsToScope fargs values = do
   pure ()
 
 addArg :: (Arg, Value) -> Scoper ()
-addArg ((IdArg name), v) = addToScope name v
-addArg ((PatternArg pname pargs), (VTypeInstance tname tvals)) = do
+addArg (IdArg name, v) = addToScope name v
+addArg (PatternArg "Cons" [h, t], VList (x:xs)) = do
+  addArg (h, x)
+  addArg (t, VList xs)
+addArg (PatternArg "Nil" [], _) = pure ()
+addArg (PatternArg pname pargs, VTypeInstance tname tvals) = do
   scoperAssert (pname == tname)
     $ "Mismatched pattern match: " <> pname <> "," <> tname
   scoperAssert (length pargs == length tvals)

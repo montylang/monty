@@ -1,0 +1,12 @@
+type Functor:
+  def map(self, function)
+
+type Foldable:
+  def foldl(self, initial, folder)
+  def len(self)
+
+type Applicative:
+  def apply(self, inputMaybe)
+
+type Monad:
+  def bind(self, function)

@@ -50,7 +50,7 @@ argParser indent = choice $ try <$> [
 
     consArgParser :: Parser Arg
     consArgParser = do
-      headArg <- try $ idArgParser <* ws <* char '|' <* ws
+      headArg <- try $ idArgParser <* ws <* char ':' <* ws
       tailArg <- try idArgParser <|> try consArgParser
       pure $ PatternArg "Cons" [headArg, tailArg]
 

@@ -2,14 +2,12 @@ module MontyRunner where
 
 import Prelude
 import Debug.Trace
-import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
 
 import ParserTypes
 import RunnerTypes
 import CallableUtils
 import RunnerUtils
-import InteropPrelude
 
 infixEval :: Value -> InfixOp -> Value -> Value
 infixEval (VInt first) InfixAdd (VInt second) = VInt $ first + second
@@ -84,11 +82,6 @@ eval (ExprInstanceOf className typeName implementations) = do
     getStubOrDie :: Maybe (Value, Scope) -> Scoper Value
     getStubOrDie (Just (val, _)) = pure val
     getStubOrDie Nothing = runtimeError "Ain't in scope biatch"
-
-    addToStub :: FunctionCase -> Value -> Value
-    addToStub newCase (VTypeFunction tname fname args cases) =
-      VTypeFunction tname fname args (cases ++ [newCase])
-    addToStub _ _ = trace "Rat pies" undefined
 
 eval (ExprInt a) = pure $ VInt a
 eval (ExprString a) = pure $ VString a
@@ -168,46 +161,37 @@ eval (ExprCall funExpr args) = do
     evaledArgs <- sequence $ eval <$> args
     result     <- runFun fun evaledArgs
     pure result
-  where
-    runFun :: Value -> [Value] -> Scoper Value
-    runFun (VScoped func fscope) params =
-      runWithScope fscope $ runScopedFun func params
-    runFun (VTypeCons name cargs) params =
-      if (length cargs) == (length params)
-        then pure $ VTypeInstance name params
-        else runtimeError ("Bad type cons call to " <> name)
-    runFun expr params = runScopedFun expr params
-    
-    runScopedFun :: Value -> [Value] -> Scoper Value
-    runScopedFun (VFunction cases) params = evaluateCases cases params
-    runScopedFun (VTypeFunction _ _ _ cases) params = evaluateCases cases params
-    runScopedFun _ _ = runtimeError "Error: Bad function call"
-    
-    evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
-    evaluateCases cases params = runWithTempScope $ do
-        fcase <- pickFun cases params
-        addArgsToScope (fcaseArgs fcase) params
-        runFcase fcase
-    
-    runFcase :: FunctionCase -> Scoper Value
-    runFcase (FunctionCase _ body) = do
-        _            <- sequence $ eval <$> beginning
-        scope        <- get
-        evaledReturn <- eval returnExpr
-        pure $ case evaledReturn of
-          (VFunction _) -> VScoped evaledReturn scope
-          _             -> evaledReturn
-      where
-        (beginning, returnExpr) = splitReturn body
-    runFcase (InteropCase _ body) = body
 
 eval other = runtimeError ("Error (unimplemented expr eval): " <> show other)
 
-runs :: [Expr] -> Scoper ()
-runs exprs = do
-  _ <- sequence $ (uncurry addToScope) <$> preludeDefinitions
-  _ <- sequence $ eval <$> exprs
-  pure ()
+runFun :: Value -> [Value] -> Scoper Value
+runFun (VScoped func fscope) params =
+  runWithScope fscope $ runScopedFun func params
+runFun (VTypeCons name cargs) params =
+  if (length cargs) == (length params)
+    then pure $ VTypeInstance name params
+    else runtimeError ("Bad type cons call to " <> name)
+runFun expr params = runScopedFun expr params
 
-run :: [Expr] -> IO ()
-run exprs = evalStateT (runs exprs) [HM.empty]
+runScopedFun :: Value -> [Value] -> Scoper Value
+runScopedFun (VFunction cases) params = evaluateCases cases params
+runScopedFun (VTypeFunction _ _ _ cases) params = evaluateCases cases params
+runScopedFun _ _ = runtimeError "Error: Bad function call"
+
+evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
+evaluateCases cases params = runWithTempScope $ do
+    fcase <- pickFun cases params
+    addArgsToScope (fcaseArgs fcase) params
+    runFcase fcase
+
+runFcase :: FunctionCase -> Scoper Value
+runFcase (FunctionCase _ body) = do
+    _            <- sequence $ eval <$> beginning
+    scope        <- get
+    evaledReturn <- eval returnExpr
+    pure $ case evaledReturn of
+      (VFunction _) -> VScoped evaledReturn scope
+      _             -> evaledReturn
+  where
+    (beginning, returnExpr) = splitReturn body
+runFcase (InteropCase _ body) = body

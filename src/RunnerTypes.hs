@@ -42,10 +42,10 @@ data Value
   -- Arg must contain _one_ instance of the word "self", for pattern matching
   | VTypeDef Id [DefSignature]
   | VTypeFunction {
-      getTypeName :: Id,
-      getFuncName :: Id,
-      getArgs :: [Id],
-      getFuncCases :: [FunctionCase]
+      fTypeName :: Id,
+      fFuncName :: Id,
+      fArgs :: [Id],
+      fFuncCases :: [FunctionCase]
     }
   | VScoped Value Scope
   | VClass
