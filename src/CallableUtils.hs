@@ -16,8 +16,8 @@ pickFun cases params = do
     Nothing      -> runtimeError $ "No function defined for " <> show params
 
 funCaseMatchesParams :: [Value] -> FunctionCase -> Bool
-funCaseMatchesParams params (FunctionCase fargs _) =
-  all (uncurry argMatchesParams) $ zip fargs params
+funCaseMatchesParams params fcase =
+  all (uncurry argMatchesParams) $ zip (fcaseArgs fcase) params
 
 argMatchesParams :: Arg -> Value -> Bool
 argMatchesParams (IdArg _) _ = True
@@ -37,7 +37,7 @@ addArgsToScope fargs values = do
   pure ()
 
 addArg :: (Arg, Value) -> Scoper ()
-addArg ((IdArg name), v) = trace name $ addToScope name v
+addArg ((IdArg name), v) = addToScope name v
 addArg ((PatternArg pname pargs), (VTypeInstance tname tvals)) = do
   scoperAssert (pname == tname)
     $ "Mismatched pattern match: " <> pname <> "," <> tname

@@ -19,7 +19,7 @@ Like with lists, sets must contain all the same type: `Set(1, 2, 3)`
 
 Suppose you have the following Python code:
 
-```
+```python
 inputs = [1, 2, 3]
 results = [x + 1 for x in results]
 ```
@@ -28,7 +28,7 @@ The `map` function takes in the collection, then a function to change the conten
 
 So let's rewrite it:
 
-```
+```python
 inputs = [1, 2, 3]
 results = inputs.map((x): x + 1)
 ```
@@ -39,7 +39,7 @@ Remember, we can write functions inline using the syntax `(x): x + 1`
 
 Suppose you have the following Python code:
 
-```
+```python
 inputs = [1, 2, 3]
 result = 0
 
@@ -51,7 +51,7 @@ Fairly simple, it adds all the results from `inputs` up into `result`. In Monty,
 
 Let's reimplement the above Python code to not change `result`:
 
-```
+```python
 def addAll(inputs):
   if inputs == []:
     return 0
@@ -70,7 +70,7 @@ OK that should be fine in Monty, since nothing changes after being defined.
 
 I agree with you. Let's create a function called `fold` that will help us with this. I want something generalized to take in a function, which combines all of the values together. It will also need an accumulator parameter
 
-```
+```python
 def fold(inputs, accumulator, func):
   if inputs == []:
     return accumulator
@@ -85,7 +85,7 @@ def fold(inputs, accumulator, func):
 
 Now with this function, we can clean up the immutable Python code with:
 
-```
+```python
 def add(x, y):
   return x + y
 
@@ -96,7 +96,7 @@ Much nicer! And we can easily change what that function does.
 
 In Monty, lists have a `foldl` method out of the box, so rewriting this in Monty:
 
-```
+```python
 inputs = [1, 2, 3]
 result = inputs.foldl(0, (x, y): x + y)
 ```
@@ -117,7 +117,7 @@ For the examples given... for loops seem simpler than using a map, don't you agr
 
 Say you have this code in Python:
 
-```
+```python
 class BTree:
   def __init__(self, value, left, right):
     self.value = value
@@ -131,7 +131,7 @@ How would you increment all the values, as we did with the list example?
 
 "Let's see... looks like we'll need a recursive function, something like"
 
-```
+```python
 def add1(t):
   if t == None:
     return None
@@ -151,7 +151,7 @@ Before going on with this charade, let's talk about doing this in Monty instead 
 
 Let's rewrite `BTree`:
 
-```
+```python
 class BTree:
   Node(value, left, right)
   Leaf
@@ -159,7 +159,7 @@ class BTree:
 
 OK, `add1` can be implemented as:
 
-```
+```python
 def add1(t):
   if t == Leaf:
     return Leaf
@@ -169,7 +169,7 @@ def add1(t):
 
 It's almost identical to the Python code, and it has the same problem as the Python code. Now, remember that a Functor is something you can `map` over. What if we could `map` over this tree? Then we could use the exact same code to increment all the values as with the list:
 
-```
+```python
 inputs = Node(1, Node(2, Leaf, Leaf), BTree(3, Leaf, Leaf))
 results = inputs.map((x): x + 1)
 ```
@@ -180,7 +180,7 @@ OK now make inputs a list again.
 
 But wait, how does `BTree` magically become a Functor? Sit tight until the chapter on `instances` and you'll find out!
 
-### Foldables
+## Foldables
 
 A Foldable is something you can call `foldl` on, such as lists.
 
@@ -190,7 +190,7 @@ Remember what `foldl` does. It goes over a collection, and gathers all the conte
 
 Guess what? A Tree is foldable! So we use the exact same code as for lists:
 
-```
+```python
 inputs = Node(1, Node(2, Leaf, Leaf), BTree(3, Leaf, Leaf))
 result = inputs.foldl(0, (x, y): x + y)
 ```

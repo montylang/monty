@@ -1,6 +1,7 @@
 module RunnerUtils where
 
 import Debug.Trace
+import Data.Maybe
 import Data.List (intercalate)
 import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
@@ -94,3 +95,19 @@ runWithScope = runScopeWithSetup . put
 
 runWithTempScope :: Scoper Value -> Scoper Value
 runWithTempScope = runScopeWithSetup pushEmptyScopeBlock
+
+generateInteropCase :: [Arg] -> ([Value] -> Scoper Value) -> FunctionCase
+generateInteropCase args fun = InteropCase args $ do
+    inputValues <- findArgsInScope args
+    fun inputValues
+  where
+    idsInArg :: Arg -> [Id]
+    idsInArg (IdArg name) = [name]
+    idsInArg (PatternArg _ cargs) = cargs >>= idsInArg
+    
+    findArgsInScope :: [Arg] -> Scoper [Value]
+    findArgsInScope cargs = do
+        values <- sequence (findInTopScope <$> ids)
+        pure $ fromJust <$> values
+      where 
+        ids = cargs >>= idsInArg

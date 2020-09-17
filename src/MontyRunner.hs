@@ -9,6 +9,7 @@ import ParserTypes
 import RunnerTypes
 import CallableUtils
 import RunnerUtils
+import InteropPrelude
 
 infixEval :: Value -> InfixOp -> Value -> Value
 infixEval (VInt first) InfixAdd (VInt second) = VInt $ first + second
@@ -149,20 +150,18 @@ eval (ExprAssignment name value) = do
     appendFunctionCase _ _ = runtimeError $ "Cannot mutate " <> name
 
     functionCaseFits :: FunctionCase -> FunctionCase -> Bool
-    functionCaseFits (FunctionCase newCaseArgs _) (FunctionCase existingCaseArgs _) =
-      (length newCaseArgs == length existingCaseArgs) &&
-        (any (uncurry argFits) (zip newCaseArgs existingCaseArgs))
+    functionCaseFits newCase existingCase =
+        (length newCaseArgs == length existingCaseArgs) &&
+          (any (uncurry argFits) (zip newCaseArgs existingCaseArgs))
+      where
+        newCaseArgs = fcaseArgs newCase
+        existingCaseArgs = fcaseArgs existingCase
 
     argFits :: Arg -> Arg -> Bool
     argFits _ (IdArg _) = False
     argFits (IdArg _) (PatternArg _ _) = True
     argFits (PatternArg newName newArgs) (PatternArg existingName existingArgs) =
       newName /= existingName || all (uncurry argFits) (zip newArgs existingArgs)
-
-eval (ExprCall (ExprId "debug") [param]) = do
-  evaled <- eval param
-  lift $ putStrLn $ show evaled
-  pure evaled
 
 eval (ExprCall funExpr args) = do
     fun        <- eval funExpr
@@ -186,12 +185,12 @@ eval (ExprCall funExpr args) = do
     
     evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
     evaluateCases cases params = runWithTempScope $ do
-        (FunctionCase fargs body) <- pickFun cases params
-        addArgsToScope fargs params
-        runBody body
+        fcase <- pickFun cases params
+        addArgsToScope (fcaseArgs fcase) params
+        runFcase fcase
     
-    runBody :: [Expr] -> Scoper Value
-    runBody exprs = do
+    runFcase :: FunctionCase -> Scoper Value
+    runFcase (FunctionCase _ body) = do
         _            <- sequence $ eval <$> beginning
         scope        <- get
         evaledReturn <- eval returnExpr
@@ -199,12 +198,14 @@ eval (ExprCall funExpr args) = do
           (VFunction _) -> VScoped evaledReturn scope
           _             -> evaledReturn
       where
-        (beginning, returnExpr) = splitReturn exprs
+        (beginning, returnExpr) = splitReturn body
+    runFcase (InteropCase _ body) = body
 
 eval other = runtimeError ("Error (unimplemented expr eval): " <> show other)
 
 runs :: [Expr] -> Scoper ()
 runs exprs = do
+  _ <- sequence $ (uncurry addToScope) <$> preludeDefinitions
   _ <- sequence $ eval <$> exprs
   pure ()
 
