@@ -5,7 +5,8 @@ module.exports = {
       'installation'
     ],
     'Language Basics': [
-      'basic-types'
+      'basic-types',
+      'basic-collections',
     ],
   },
 };
