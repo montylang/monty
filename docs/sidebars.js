@@ -6,6 +6,7 @@ module.exports = {
     ],
     'Language Basics': [
       'basic-types',
+      'functions',
       'basic-collections',
     ],
   },
