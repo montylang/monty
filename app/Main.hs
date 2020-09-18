@@ -4,24 +4,33 @@ import System.Environment
 import Text.Parsec.String
 import Control.Monad.State.Strict
 import qualified Data.HashMap.Strict as HM
-import Data.Either
 
 import InteropPrelude
 import RunnerTypes
-import RunnerUtils (addToScope)
+import RunnerUtils (addToScope, findInTopScope, addToStub)
 import ParserTypes
 import MontyRunner (eval)
 import MontyParser (rootBodyParser)
 
 -- TODO: This entire file is waste
 
+-- addToStub :: FunctionCase -> Value -> Value
+
 runs :: [Expr] -> [Expr] -> [Expr] -> Scoper ()
 runs preExprs postExprs exprs = do
   _ <- sequence $ eval <$> preExprs
-  _ <- sequence $ (uncurry addToScope) <$> preludeDefinitions
+  _ <- sequence $ (uncurry addOrUpdateInterops) <$> preludeDefinitions 
   _ <- sequence $ eval <$> postExprs
   _ <- sequence $ eval <$> exprs
   pure ()
+
+  where
+    addOrUpdateInterops :: Id -> [FunctionCase] -> Scoper ()
+    addOrUpdateInterops name body = do
+      result <- findInTopScope name
+      addToScope name $ case result of
+        Just a  -> foldl (flip addToStub) a body
+        Nothing -> VFunction body
 
 run :: [Expr] -> [Expr] -> [Expr] -> IO ()
 run preExprs postExprs exprs = evalStateT (runs preExprs postExprs exprs) [HM.empty]

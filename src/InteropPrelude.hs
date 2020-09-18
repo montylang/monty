@@ -26,12 +26,11 @@ nilMapImpl _ = pure $ VList []
 consImpl :: [Value] -> Scoper Value
 consImpl [cHead, (VList cTail)] = pure $ VList (cHead:cTail)
 
-preludeDefinitions :: [(Id, Value)]
+preludeDefinitions :: [(Id, [FunctionCase])]
 preludeDefinitions =
   [
-    ("debug", VFunction [generateInteropCase [IdArg "value"] debugImpl]),
-    -- TODO: Don't overrwrite this
-    ("map", VTypeFunction "Functor" "map" ["self", "func"] [
+    ("debug", [generateInteropCase [IdArg "value"] debugImpl]),
+    ("map", [
         generateInteropCase
           [PatternArg "Cons" [IdArg "head", IdArg "tail"], IdArg "func"]
           consMapImpl,
@@ -39,6 +38,6 @@ preludeDefinitions =
           [PatternArg "Nil" [], IdArg "func"]
           nilMapImpl
     ]),
-    ("Nil", VFunction [generateInteropCase [] (const . pure $ VList [])]),
-    ("Cons", VFunction [generateInteropCase [IdArg "head", IdArg "tail"] consImpl])
+    ("Nil", [generateInteropCase [] (const . pure $ VList [])]),
+    ("Cons", [generateInteropCase [IdArg "head", IdArg "tail"] consImpl])
   ]
