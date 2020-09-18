@@ -4,6 +4,7 @@ import Data.List (intercalate)
 import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
 import ParserTypes
+import Text.Parsec.Pos
 
 type ScopeBlock = HM.HashMap Id Value
 type Scope      = [ScopeBlock]
@@ -21,7 +22,7 @@ type Scoper a = StateT Scope IO a
 -- a = InteropCase [PatternArg "Just" [IdArg "wubalubadubdub"]] isJust
 
 data FunctionCase
-  = FunctionCase { fcaseArgs :: [Arg], fcaseBody :: [Expr] }
+  = FunctionCase { fcaseArgs :: [Arg], fcaseBody :: [PExpr] }
   | InteropCase { fcaseArgs :: [Arg], fcaseInteropBody :: (Scoper Value) }
 
 instance Show FunctionCase where
@@ -52,4 +53,5 @@ data Value
   | VList [Value]
   | VDict    
   | VTuple   
+  | VError [SourcePos] String -- aka die aka move on to a better place (hopefully)
   deriving (Show, Eq)

@@ -6,7 +6,10 @@ type Foldable:
   def len(self)
 
 type Applicative:
-  def apply(self, inputMaybe)
+  def apply(self, input)
 
 type Monad:
   def bind(self, function)
+
+type Equal:
+  def equals(self, other)

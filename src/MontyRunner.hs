@@ -16,6 +16,15 @@ infixEval (VInt first) InfixMul (VInt second) = VInt $ first * second
 infixEval (VInt first) InfixEq (VInt second) = VBoolean $ first == second
 infixEval _ other _ = trace ("Unimplemented infix: " <> show other) undefined
 
+evalP :: PExpr -> Scoper Value
+evalP (Pos pos expr) = do
+  result <- eval expr
+
+  case result of
+    (VError stack message) ->
+      runtimeError ("Error on line " <> show pos <> ": " <> message)
+    _ -> pure result
+
 eval :: Expr -> Scoper Value
 eval (ExprId name) = do
     value <- findInScope name
@@ -30,7 +39,7 @@ eval (ExprId name) = do
 
 eval (ExprClass className constructors) = do
     addToScope className VClass
-    unionTopScope $ convert <$> constructors
+    unionTopScope $ convert <$> getPosValue <$> constructors
     pure $ VInt 0 -- TODO: Return... something other than an int :)
   where
     convert :: TypeCons -> (Id, Value)
@@ -38,10 +47,10 @@ eval (ExprClass className constructors) = do
 
 eval (ExprType typeName headers) = do
     addToScope typeName typeDef
-    unionTopScope $ addFuncToScope <$> headers
+    unionTopScope $ addFuncToScope <$> getPosValue <$> headers
     pure $ VInt 0
   where
-    typeDef = VTypeDef typeName headers
+    typeDef = VTypeDef typeName $ getPosValue <$> headers
 
     addFuncToScope :: DefSignature -> (Id, Value)
     addFuncToScope (DefSignature tName functionName args) =
@@ -56,7 +65,7 @@ eval (ExprInstanceOf className typeName implementations) = do
     scoperAssert (isVClass classDef) $
       "Attempted to use undefined class: " <> className
     
-    _ <- sequence $ (addImplementation funcDefs) <$> implementations
+    _ <- sequence $ (addImplementation funcDefs) <$> getPosValue <$> implementations
     
     pure $ VInt 0 -- TODO: you know what you've done
   where
@@ -71,12 +80,12 @@ eval (ExprInstanceOf className typeName implementations) = do
     defSigToId (DefSignature _ fname _) = fname
     
     addImplementation :: [DefSignature] -> Expr -> Scoper ()
-    addImplementation avaliable (ExprAssignment name (ExprDef args bod)) = do
+    addImplementation avaliable (ExprAssignment name (Pos _ (ExprDef args bod))) = do
       scoperAssert (elem name (defSigToId <$> avaliable)) $
         name <> " is not part of type " <> typeName
       maybeStub <- findInScope name
       stub      <- getStubOrDie maybeStub
-      addToScope name (addToStub (FunctionCase args bod) stub)
+      addToScope name (addToStub (FunctionCase args $ bod) stub)
     addImplementation _ _  = runtimeError "Every root expr in an implementation must be a def"
 
     getStubOrDie :: Maybe (Value, Scope) -> Scoper Value
@@ -86,45 +95,46 @@ eval (ExprInstanceOf className typeName implementations) = do
 eval (ExprInt a) = pure $ VInt a
 eval (ExprString a) = pure $ VString a
 eval (ExprInfix first op second) = do
-  f <- eval first
-  s <- eval second
+  f <- evalP first
+  s <- evalP second
   pure $ infixEval f op s
 
 eval (ExprIfElse ifCond elifConds elseBody) = do
      selectedBody <- pickBody (ifCond:elifConds)
      evalBody selectedBody
   where
-    pickBody :: [CondBlock] -> Scoper [Expr]
-    pickBody [] = pure elseBody
+    pickBody :: [CondBlock] -> Scoper [PExpr]
+    pickBody [] = pure $ elseBody
     pickBody ((CondBlock condition condBody):xs) = do
-      condVal <- eval condition
+      condVal <- evalP condition
       case condVal of
         VBoolean True  -> pure condBody
         VBoolean False -> pickBody xs
         _              -> runtimeError "Condition is not a boolean"
 
-    evalBody :: [Expr] -> Scoper Value
+    evalBody :: [PExpr] -> Scoper Value
     evalBody exprs = do
-      vals <- sequence $ eval <$> exprs
+      vals <- sequence $ evalP <$> exprs
       pure $ last vals
 
 eval (ExprList []) = pure $ VList []
 eval (ExprList (x:xs)) = do
-    headEvaled <- eval x
+    headEvaled <- evalP x
     tailEvaled <- sequence $ enforceType (typeOfValue headEvaled) <$> xs
     pure $ VList (headEvaled:tailEvaled)
   where
-    enforceType :: String -> Expr -> Scoper Value
+    enforceType :: String -> PExpr -> Scoper Value
     enforceType typeStr expr = do
-      evaled <- eval expr
+      evaled <- evalP expr
       if (typeOfValue evaled) == typeStr
         then pure evaled
         else runtimeError "List must be of the same type"
 
-eval (ExprDef args body) = pure $ VFunction [FunctionCase args body]
+eval (ExprDef args body) =
+  pure $ VFunction [FunctionCase args body]
 
 eval (ExprAssignment name value) = do
-    evaledValue  <- eval value
+    evaledValue  <- evalP value
     inScopeValue <- findInTopScope name
     
     newValue <- case inScopeValue of
@@ -157,8 +167,8 @@ eval (ExprAssignment name value) = do
       newName /= existingName || all (uncurry argFits) (zip newArgs existingArgs)
 
 eval (ExprCall funExpr args) = do
-    fun        <- eval funExpr
-    evaledArgs <- sequence $ eval <$> args
+    fun        <- evalP funExpr
+    evaledArgs <- sequence $ evalP <$> args
     result     <- runFun fun evaledArgs
     pure result
 
@@ -186,9 +196,9 @@ evaluateCases cases params = runWithTempScope $ do
 
 runFcase :: FunctionCase -> Scoper Value
 runFcase (FunctionCase _ body) = do
-    _            <- sequence $ eval <$> beginning
+    _            <- sequence $ evalP <$> beginning
     scope        <- get
-    evaledReturn <- eval returnExpr
+    evaledReturn <- evalP returnExpr
     pure $ case evaledReturn of
       (VFunction _) -> VScoped evaledReturn scope
       _             -> evaledReturn

@@ -9,21 +9,18 @@ import InteropPrelude
 import RunnerTypes
 import RunnerUtils (addToScope, findInTopScope, addToStub)
 import ParserTypes
-import MontyRunner (eval)
+import MontyRunner (evalP) 
 import MontyParser (rootBodyParser)
 
 -- TODO: This entire file is waste
 
--- addToStub :: FunctionCase -> Value -> Value
-
-runs :: [Expr] -> [Expr] -> [Expr] -> Scoper ()
+runs :: [PExpr] -> [PExpr] -> [PExpr] -> Scoper ()
 runs preExprs postExprs exprs = do
-  _ <- sequence $ eval <$> preExprs
-  _ <- sequence $ (uncurry addOrUpdateInterops) <$> preludeDefinitions 
-  _ <- sequence $ eval <$> postExprs
-  _ <- sequence $ eval <$> exprs
-  pure ()
-
+    _ <- sequence $ evalP <$> preExprs
+    _ <- sequence $ (uncurry addOrUpdateInterops) <$> preludeDefinitions 
+    _ <- sequence $ evalP <$> postExprs
+    _ <- sequence $ evalP <$> exprs
+    pure ()
   where
     addOrUpdateInterops :: Id -> [FunctionCase] -> Scoper ()
     addOrUpdateInterops name body = do
@@ -32,7 +29,7 @@ runs preExprs postExprs exprs = do
         Just a  -> foldl (flip addToStub) a body
         Nothing -> VFunction body
 
-run :: [Expr] -> [Expr] -> [Expr] -> IO ()
+run :: [PExpr] -> [PExpr] -> [PExpr] -> IO ()
 run preExprs postExprs exprs = evalStateT (runs preExprs postExprs exprs) [HM.empty]
 
 lineSep :: String

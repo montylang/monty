@@ -2,7 +2,6 @@ module CallableUtils where
 
 import Prelude
 import Data.List (find)
-import Debug.Trace (trace)
 
 import RunnerUtils
 import RunnerTypes
@@ -27,10 +26,10 @@ argMatchesParam (PatternArg pname pargs) (VTypeInstance tname tvals) =
   pname == tname && (all (uncurry argMatchesParam) (zip pargs tvals))
 argMatchesParam _ _ = False
 
-splitReturn :: [Expr] -> ([Expr], Expr)
+splitReturn :: [PExpr] -> ([PExpr], PExpr)
 splitReturn exprs =
-  let (beginning, [ExprReturn returnExpr]) = splitAt ((length exprs) - 1) exprs in
-    (beginning, returnExpr)
+  let (beginning, ([Pos _ (ExprReturn returnExpr)])) = splitAt ((length exprs) - 1) exprs
+  in (beginning, returnExpr)
 
 addArgsToScope :: [Arg] -> [Value] -> Scoper ()
 addArgsToScope fargs values = do
