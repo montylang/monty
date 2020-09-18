@@ -1,29 +1,12 @@
-def add1(x):
-  return x + 1
-
 def add1If3(x):
   return if x == 3:
     Just(x + 1)
   else:
     Just(x)
 
-def doubleDuty(Just(Just(x))):
-  return x
-
-def doubleDuty(Just(None)):
-  return "Middle child"
-
-def doubleDuty(Just(whatevermydude)):
-  return "whatever"
-
-def doubleDuty(o):
-  return "BAAAD"
-
-debug(map([1], add1))
+debug(map([1], (x): x + 1))
 debug(Just(1))
-debug(map(Just(2), add1))
-debug(map(None, add1))
+debug(map(Just(2), (x): x + 1))
+debug(map(None, (x): x + 1))
 debug(bind(Just(3), add1If3))
 debug(bind(Just(3), add1If3))
-debug(doubleDuty(Just(Just(7))))
-debug(doubleDuty(Just(None)))

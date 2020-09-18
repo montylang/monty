@@ -3,6 +3,7 @@ import Text.Parsec
 import Text.Parsec.String
 import Data.Either
 
+import ParserTypes
 import MontyParser
 
 testParser :: (Indent -> Parser a) -> String -> Either ParseError a
@@ -214,6 +215,10 @@ main = hspec $ do
       (testParser exprParser $ unlines ["def foo():", "  4"]) `shouldBe`
         (Right $ ExprAssignment "foo" $ ExprDef [] [ExprInt 4])
 
+    it "Lambda" $ do
+      (testParser exprParser $ unlines ["(x): x + 4"]) `shouldBe`
+        (Right $ ExprDef [IdArg "x"] [ExprReturn (ExprInfix (ExprId "x") InfixAdd (ExprInt 4))])
+
   describe "Return" $ do
     it "Returns" $ do
       (testParser exprParser $ unlines ["return 1"]) `shouldBe`
@@ -249,7 +254,7 @@ main = hspec $ do
           ]) `shouldBe`
         (Right $ ExprClass "Maybe" [
               TypeCons "None" [],
-              TypeCons "Just" [IdArg "you"]
+              TypeCons "Just" ["you"]
             ])
 
   describe "Instances but really just instances" $ do

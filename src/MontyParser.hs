@@ -50,7 +50,7 @@ argParser indent = choice $ try <$> [
 
     consArgParser :: Parser Arg
     consArgParser = do
-      headArg <- try $ idArgParser <* ws <* char ':' <* ws
+      headArg <- try $ idArgParser <* ws <* char '|' <* ws
       tailArg <- try idArgParser <|> try consArgParser
       pure $ PatternArg "Cons" [headArg, tailArg]
 
@@ -107,6 +107,12 @@ defParser indent = do
   args <- defArgParser indent <* char ':' <* eol1
   body <- bodyParser indent
   pure $ ExprDef args body
+
+lambdaParser :: Indent -> Parser Expr
+lambdaParser indent = do
+  args <- defArgParser indent <* char ':' <* ws
+  body <- exprParser indent
+  pure $ ExprDef args [ExprReturn body]
 
 returnParser :: Indent -> Parser Expr
 returnParser indent = ExprReturn <$> (string "return" *> ws1 *> exprParser indent)
@@ -245,6 +251,7 @@ exprParser indent = choice [
     ifParser indent,
     classParser indent,
     try $ defParser indent,
+    try $ lambdaParser indent,
     try $ namedDefParser indent,
     try $ infixParser indent,
     try $ assignmentParser indent,
