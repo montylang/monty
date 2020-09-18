@@ -19,7 +19,7 @@ While we wanted this language to feel similar to python we felt quite strongly t
 language. We've done our best to reuse python syntax to evoke a general intuition about how a monty feature
 should be used. For example we use the keyword `class` in monty. In no way is monty object oriented, `class`
 is actually used to define new data types. However there is some similarity between an object and a data type.
-They're both containers that can hold some about of data. They also both have constructors that are used to
+They're both containers that can hold some data. They also both have constructors that are used to
 instantiate new instances using some parameters. We hope that by drawing parallels for new users the language
 will be easier to pick up and learn.
 
