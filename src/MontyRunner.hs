@@ -16,13 +16,17 @@ infixEval (VInt first) InfixMul (VInt second) = VInt $ first * second
 infixEval (VInt first) InfixEq (VInt second) = VBoolean $ first == second
 infixEval _ other _ = trace ("Unimplemented infix: " <> show other) undefined
 
+unError :: Either String Value -> Scoper Value
+unError (Left err) = stackTrace err
+unError (Right val) = pure val
+    
 evalP :: PExpr -> Scoper Value
 evalP (Pos pos expr) = do
   result <- eval expr
 
   case result of
     (VError stack message) ->
-      runtimeError ("Error on line " <> show pos <> ": " <> message)
+      runtimeError ("Error: " <> message <> "\n" <> show pos)
     _ -> pure result
 
 eval :: Expr -> Scoper Value
@@ -30,7 +34,7 @@ eval (ExprId name) = do
     value <- findInScope name
     case toVScoped <$> value of
       Just val -> pure val
-      Nothing  -> runtimeError (name <> " is not in scope")
+      Nothing  -> stackTrace (name <> " is not in scope")
   where
     toVScoped :: (Value, Scope) -> Value
     -- Only return associated scopes for functions
@@ -65,9 +69,10 @@ eval (ExprInstanceOf className typeName implementations) = do
     scoperAssert (isVClass classDef) $
       "Attempted to use undefined class: " <> className
     
-    _ <- sequence $ (addImplementation funcDefs) <$> getPosValue <$> implementations
-    
-    pure $ VInt 0 -- TODO: you know what you've done
+    potentialErrors <- sequence $ (addImplementation funcDefs) <$> getPosValue <$> implementations
+    case sequence potentialErrors of
+      Left err -> stackTrace err
+      Right _  -> pure $ VInt 0 -- TODO: you know what you've done
   where
     isVClass (Just (VClass, _)) = True
     isVClass _                  = False
@@ -79,18 +84,21 @@ eval (ExprInstanceOf className typeName implementations) = do
     defSigToId :: DefSignature -> Id
     defSigToId (DefSignature _ fname _) = fname
     
-    addImplementation :: [DefSignature] -> Expr -> Scoper ()
+    addImplementation :: [DefSignature] -> Expr -> Scoper (Either String ())
     addImplementation avaliable (ExprAssignment name (Pos _ (ExprDef args bod))) = do
-      scoperAssert (elem name (defSigToId <$> avaliable)) $
-        name <> " is not part of type " <> typeName
-      maybeStub <- findInScope name
-      stub      <- getStubOrDie maybeStub
-      addToScope name (addToStub (FunctionCase args $ bod) stub)
-    addImplementation _ _  = runtimeError "Every root expr in an implementation must be a def"
+        scoperAssert (elem name (defSigToId <$> avaliable)) $
+          name <> " is not part of type " <> typeName
+        maybeStub <- findInScope name
+        getStubOrError maybeStub
+      where
+        getStubOrError :: Maybe (Value, Scope) -> Scoper (Either String ())
+        getStubOrError (Just (stub, _)) =
+          Right <$> addToScope name (addToStub (FunctionCase args $ bod) stub)
+        getStubOrError Nothing =
+          pure $ Left "Ain't in scope biatch"
 
-    getStubOrDie :: Maybe (Value, Scope) -> Scoper Value
-    getStubOrDie (Just (val, _)) = pure val
-    getStubOrDie Nothing = runtimeError "Ain't in scope biatch"
+    addImplementation _ _  =
+      pure $ Left "Every root expr in an implementation must be a def"
 
 eval (ExprInt a) = pure $ VInt a
 eval (ExprString a) = pure $ VString a
@@ -121,14 +129,16 @@ eval (ExprList []) = pure $ VList []
 eval (ExprList (x:xs)) = do
     headEvaled <- evalP x
     tailEvaled <- sequence $ enforceType (typeOfValue headEvaled) <$> xs
-    pure $ VList (headEvaled:tailEvaled)
+    case sequence tailEvaled of
+      Left err   -> stackTrace err
+      Right t -> pure $ VList (headEvaled:t)
   where
-    enforceType :: String -> PExpr -> Scoper Value
+    enforceType :: String -> PExpr -> Scoper (Either String Value)
     enforceType typeStr expr = do
       evaled <- evalP expr
-      if (typeOfValue evaled) == typeStr
-        then pure evaled
-        else runtimeError "List must be of the same type"
+      pure $ if (typeOfValue evaled) == typeStr
+        then Right evaled
+        else Left "List must be of the same type"
 
 eval (ExprDef args body) =
   pure $ VFunction [FunctionCase args body]
@@ -138,19 +148,19 @@ eval (ExprAssignment name value) = do
     inScopeValue <- findInTopScope name
     
     newValue <- case inScopeValue of
-      (Just (VFunction cases)) -> appendFunctionCase cases evaledValue
-      (Just _)                 -> runtimeError $ "Cannot mutate " <> name
+      (Just (VFunction cases)) -> unError =<< appendFunctionCase cases evaledValue
+      (Just _)                 -> stackTrace $ "Cannot mutate " <> name
       _                        -> pure evaledValue
     
     addToScope name newValue
     pure evaledValue
   where
-    appendFunctionCase :: [FunctionCase] -> Value -> Scoper Value
-    appendFunctionCase cases (VFunction [newCase]) = do
-      scoperAssert (all (functionCaseFits newCase) cases) $
-        ("Invalid pattern match for function " <> name)
-      pure $ VFunction (cases <> [newCase])
-    appendFunctionCase _ _ = runtimeError $ "Cannot mutate " <> name
+    appendFunctionCase :: [FunctionCase] -> Value -> Scoper (Either String Value)
+    appendFunctionCase cases (VFunction [newCase]) = pure $
+      if all (functionCaseFits newCase) cases
+        then Left ("Invalid pattern match for function " <> name)
+        else Right $ VFunction (cases <> [newCase])
+    appendFunctionCase _ _ = pure $ Left $ "Cannot mutate " <> name
 
     functionCaseFits :: FunctionCase -> FunctionCase -> Bool
     functionCaseFits newCase existingCase =
@@ -170,23 +180,26 @@ eval (ExprCall funExpr args) = do
     fun        <- evalP funExpr
     evaledArgs <- sequence $ evalP <$> args
     result     <- runFun fun evaledArgs
-    pure result
+    unError result
 
-eval other = runtimeError ("Error (unimplemented expr eval): " <> show other)
+eval other = stackTrace ("Error (unimplemented expr eval): " <> show other)
 
-runFun :: Value -> [Value] -> Scoper Value
-runFun (VScoped func fscope) params =
-  runWithScope fscope $ runScopedFun func params
-runFun (VTypeCons name cargs) params =
+runFun :: Value -> [Value] -> Scoper (Either String Value)
+runFun (VScoped func fscope) params = do
+  result <- runScopedFun func params
+  case result of
+    Left err  -> pure $ Left err
+    Right val -> Right <$> runWithScope fscope (pure val)
+runFun (VTypeCons name cargs) params = pure $
   if (length cargs) == (length params)
-    then pure $ VTypeInstance name params
-    else runtimeError ("Bad type cons call to " <> name)
+    then Right $ VTypeInstance name params
+    else Left ("Bad type cons call to " <> name)
 runFun expr params = runScopedFun expr params
 
-runScopedFun :: Value -> [Value] -> Scoper Value
-runScopedFun (VFunction cases) params = evaluateCases cases params
-runScopedFun (VTypeFunction _ _ _ cases) params = evaluateCases cases params
-runScopedFun _ _ = runtimeError "Error: Bad function call"
+runScopedFun :: Value -> [Value] -> Scoper (Either String Value)
+runScopedFun (VFunction cases) params = Right <$> evaluateCases cases params
+runScopedFun (VTypeFunction _ _ _ cases) params = Right <$> evaluateCases cases params
+runScopedFun _ _ = pure $ Left "Error: Bad function call"
 
 evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
 evaluateCases cases params = runWithTempScope $ do

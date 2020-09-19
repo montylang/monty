@@ -18,7 +18,10 @@ consMapImpl :: [Value] -> Scoper Value
 consMapImpl [x, (VList xs), func] = do
   ranHead <- runFun func [x]
   ranTail <- sequence $ (\el -> runFun func [el]) <$> xs
-  pure $ VList (ranHead:ranTail)
+  case (ranHead, sequence ranTail) of
+    (Right h, Right t) -> pure $ VList (h:t)
+    (Left err, _)      -> stackTrace err
+    (_, Left err)      -> stackTrace err
 
 nilMapImpl :: [Value] -> Scoper Value
 nilMapImpl _ = pure $ VList []

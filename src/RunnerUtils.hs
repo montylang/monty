@@ -15,6 +15,9 @@ runtimeError message = do
   -- Will never get reached, but hey, it fixes compiler errors
   undefined
 
+stackTrace :: String -> Scoper Value
+stackTrace message = pure $ VError [] message
+
 typeOfValue :: Value -> String
 typeOfValue (VInt _)                = "Int"
 typeOfValue (VString _)             = "String"
