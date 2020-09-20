@@ -81,10 +81,6 @@ popScopeBlock = do
     []     -> pure ()
     (_:xs) -> put xs
 
-scoperAssert :: Bool -> String -> Scoper ()
-scoperAssert False message = runtimeError message
-scoperAssert True _ = pure ()
-
 runScopeWithSetup :: Scoper () -> Scoper Value -> Scoper Value
 runScopeWithSetup scopeSetup body = do
   previousScope <- get

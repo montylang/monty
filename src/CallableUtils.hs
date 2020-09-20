@@ -33,23 +33,33 @@ splitReturn exprs =
   in (beginning, returnExpr)
 
 addArgsToScope :: [Arg] -> [Value] -> Scoper (Either String ())
+addArgsToScope fargs values | length fargs /= length values =
+  pure $ Left "Mismatched argument length"
 addArgsToScope fargs values = do
-  if length fargs /= length values
-    then pure $ Left "Mismatched argument length"
-    else (sequence $ addArg <$> zip fargs values) *> (pure $ Right ())
+  eitherList <- sequence $ addArg <$> zip fargs values
+  pure $ const () <$> sequence eitherList
 
-addArg :: (Arg, Value) -> Scoper ()
-addArg (IdArg name, v) = addToScope name v
+addArg :: (Arg, Value) -> Scoper (Either String ())
+
+addArg (IdArg name, v) = Right <$> addToScope name v
+
 addArg (PatternArg "Cons" [h, t], VList (x:xs)) = do
-  addArg (h, x)
-  addArg (t, VList xs)
-addArg (PatternArg "Nil" [], _) = pure ()
-addArg (PatternArg pname pargs, VTypeInstance tname tvals) = do
-  scoperAssert (pname == tname)
-    $ "Mismatched pattern match: " <> pname <> "," <> tname
-  scoperAssert (length pargs == length tvals)
-    $ "Mismatched argument length for pattern match of " <> pname
+  headE <- addArg (h, x)
+  tailE <- addArg (t, VList xs)
+  pure $ headE *> tailE
+
+addArg (PatternArg "Nil" [], _) = pure $ Right ()
+
+addArg (PatternArg pname _, VTypeInstance tname _) | (pname /= tname) =
+  pure $ Left $ "Mismatched pattern match: " <> pname <> "," <> tname
+
+addArg (PatternArg pname pargs, VTypeInstance _ tvals)
+  | (length pargs /= length tvals) = 
+  pure $ Left $ "Mismatched argument length for pattern match of " <> pname
+
+addArg (PatternArg _ pargs, VTypeInstance _ tvals) = do
   _ <- sequence $ addArg <$> (zip pargs tvals)
-  pure ()
+  pure $ Right ()
+
 addArg _ =
-  runtimeError $ "Bad call to pattern matched function"
+  pure $ Left "Bad call to pattern matched function"

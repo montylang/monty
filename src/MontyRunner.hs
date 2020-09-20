@@ -29,8 +29,7 @@ evalP (Pos pos expr) = do
   result <- eval expr
 
   case result of
-    (VError stack message) ->
-      runtimeError ("Error: " <> message <> "\n" <> show pos)
+    (VError stack msg) -> runtimeError ("Error: " <> msg <> "\n" <> show pos)
     _ -> pure result
 
 eval :: Expr -> Scoper Value
