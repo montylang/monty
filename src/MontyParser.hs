@@ -253,7 +253,11 @@ typeParser indent = do
     typeBodyParser typeName ind = do
       name <- string "def" *> ws1 *> varIdParser ind
       args <- multiParenParser '(' ')' (varIdParser ind)
-      addPos $ DefSignature typeName name args
+      addPos $ DefSignature typeName name (nameToArg <$> args)
+
+    nameToArg :: Id -> Arg
+    nameToArg "self" = SelfArg
+    nameToArg  name  = IdArg name
 
 listParser :: Indent -> Parser PExpr
 listParser indent =

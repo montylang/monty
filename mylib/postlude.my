@@ -2,6 +2,17 @@ class Maybe:
   None
   Just(value)
 
+class Either:
+  Left(value)
+  Right(value)
+
+instance Either of Functor:
+  def map(Right(value), f):
+    return Right(f(value))
+
+  def map(l, _):
+    return l
+
 instance Maybe of Functor:
   def map(Just(value), f):
     return Just(f(value))

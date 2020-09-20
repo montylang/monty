@@ -28,7 +28,9 @@ data InfixOp
 
 data Arg
   = IdArg Id
+  | TypedIdArg Id Id
   | PatternArg Id [Arg]
+  | SelfArg
   deriving (Show, Eq)
 
 type PExpr = Pos Expr
@@ -49,11 +51,17 @@ data Expr
   | ExprInstanceOf Id Id [PExpr]
   deriving (Show, Eq)
 
--- DefSignature TypeName FunctionName [Arg]
-data DefSignature = DefSignature Id Id [Id]
+data DefSignature = DefSignature {
+    getDefSigTypeName :: Id,
+    getDefSigFunName :: Id,
+    getDefSigArgs :: [Arg]
+  }
   deriving (Show, Eq)
 
-data TypeCons = TypeCons Id [Id]
+data TypeCons = TypeCons {
+    getTypeConsName :: Id,
+    getTypeConsArgs :: [Id]
+  }
   deriving (Show, Eq)
 
 data Pos a = Pos {

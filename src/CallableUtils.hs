@@ -20,6 +20,7 @@ funCaseMatchesParams params fcase =
 
 argMatchesParam :: Arg -> Value -> Bool
 argMatchesParam (IdArg _) _ = True
+argMatchesParam (TypedIdArg _ t) (VTypeInstance tname _) = t == tname
 argMatchesParam (PatternArg "Nil" _) (VList []) = True
 argMatchesParam (PatternArg "Cons" _) (VList (_:_)) = True
 argMatchesParam (PatternArg pname pargs) (VTypeInstance tname tvals) =
@@ -31,11 +32,11 @@ splitReturn exprs =
   let (beginning, ([Pos _ (ExprReturn returnExpr)])) = splitAt ((length exprs) - 1) exprs
   in (beginning, returnExpr)
 
-addArgsToScope :: [Arg] -> [Value] -> Scoper ()
+addArgsToScope :: [Arg] -> [Value] -> Scoper (Either String ())
 addArgsToScope fargs values = do
-  scoperAssert (length fargs == length values) "Mismatched argument length"
-  _ <- sequence $ addArg <$> (zip fargs values)
-  pure ()
+  if length fargs /= length values
+    then pure $ Left "Mismatched argument length"
+    else (sequence $ addArg <$> zip fargs values) *> (pure $ Right ())
 
 addArg :: (Arg, Value) -> Scoper ()
 addArg (IdArg name, v) = addToScope name v

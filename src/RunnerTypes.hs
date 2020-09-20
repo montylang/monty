@@ -45,11 +45,11 @@ data Value
   | VTypeFunction {
       fTypeName :: Id,
       fFuncName :: Id,
-      fArgs :: [Id],
+      fArgs :: [Arg],
       fFuncCases :: [FunctionCase]
     }
   | VScoped Value Scope
-  | VClass
+  | VClass [Id]
   | VList [Value]
   | VDict    
   | VTuple   

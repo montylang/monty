@@ -2,12 +2,16 @@ module MontyRunner where
 
 import Prelude
 import Debug.Trace
+import Data.Either
+import Data.List
+import Data.Maybe
 import Control.Monad.State.Strict
 
 import ParserTypes
 import RunnerTypes
 import CallableUtils
 import RunnerUtils
+import InstanceUtils (addImplementation)
 
 infixEval :: Value -> InfixOp -> Value -> Value
 infixEval (VInt first) InfixAdd (VInt second) = VInt $ first + second
@@ -42,22 +46,24 @@ eval (ExprId name) = do
     toVScoped (value, _) = value
 
 eval (ExprClass className constructors) = do
-    addToScope className VClass
+    addToScope className (VClass consNames)
     unionTopScope $ convert <$> getPosValue <$> constructors
     pure $ VInt 0 -- TODO: Return... something other than an int :)
   where
     convert :: TypeCons -> (Id, Value)
     convert (TypeCons name args) = (name, VTypeCons name args)
 
+    consNames = getTypeConsName . getPosValue <$> constructors
+
 eval (ExprType typeName headers) = do
     addToScope typeName typeDef
-    unionTopScope $ addFuncToScope <$> getPosValue <$> headers
+    unionTopScope $ defSigToKeyValue <$> getPosValue <$> headers
     pure $ VInt 0
   where
     typeDef = VTypeDef typeName $ getPosValue <$> headers
 
-    addFuncToScope :: DefSignature -> (Id, Value)
-    addFuncToScope (DefSignature tName functionName args) =
+    defSigToKeyValue :: DefSignature -> (Id, Value)
+    defSigToKeyValue (DefSignature tName functionName args) =
       (functionName,  VTypeFunction tName functionName args [])
 
 -- TODO: Ban redefining instances for classes
@@ -65,40 +71,22 @@ eval (ExprInstanceOf className typeName implementations) = do
     classDef <- findInScope className
     typeDef  <- findInScope typeName
     funcDefs <- functionDefs typeDef
-
-    scoperAssert (isVClass classDef) $
-      "Attempted to use undefined class: " <> className
     
-    potentialErrors <- sequence $ (addImplementation funcDefs) <$> getPosValue <$> implementations
-    case sequence potentialErrors of
-      Left err -> stackTrace err
-      Right _  -> pure $ VInt 0 -- TODO: you know what you've done
+    case classDef of
+      Just (VClass consNames, _) -> unError =<< addAllImplementations className consNames funcDefs
+      _ -> stackTrace $ "Attempted to use undefined class: " <> className
   where
-    isVClass (Just (VClass, _)) = True
-    isVClass _                  = False
-    
     functionDefs :: Maybe (Value, Scope) -> Scoper [DefSignature]
     functionDefs (Just (VTypeDef _ sigs, _)) = pure sigs
     functionDefs _ = runtimeError $ "Type " <> typeName <> " not found"
 
-    defSigToId :: DefSignature -> Id
-    defSigToId (DefSignature _ fname _) = fname
-    
-    addImplementation :: [DefSignature] -> Expr -> Scoper (Either String ())
-    addImplementation avaliable (ExprAssignment name (Pos _ (ExprDef args bod))) = do
-        scoperAssert (elem name (defSigToId <$> avaliable)) $
-          name <> " is not part of type " <> typeName
-        maybeStub <- findInScope name
-        getStubOrError maybeStub
-      where
-        getStubOrError :: Maybe (Value, Scope) -> Scoper (Either String ())
-        getStubOrError (Just (stub, _)) =
-          Right <$> addToScope name (addToStub (FunctionCase args $ bod) stub)
-        getStubOrError Nothing =
-          pure $ Left "Ain't in scope biatch"
-
-    addImplementation _ _  =
-      pure $ Left "Every root expr in an implementation must be a def"
+    addAllImplementations :: Id -> [Id] -> [DefSignature] -> Scoper (Either String Value)
+    addAllImplementations cname consNames funcDefs = do
+      potentialErrors <-
+        sequence $ (addImplementation cname consNames funcDefs) <$> getPosValue <$> implementations
+      pure $ case sequence potentialErrors of
+        Left err -> Left err
+        Right _  -> Right $ VInt 0 -- TODO: you know what you've done
 
 eval (ExprInt a) = pure $ VInt a
 eval (ExprString a) = pure $ VString a
@@ -197,15 +185,21 @@ runFun (VTypeCons name cargs) params = pure $
 runFun expr params = runScopedFun expr params
 
 runScopedFun :: Value -> [Value] -> Scoper (Either String Value)
-runScopedFun (VFunction cases) params = Right <$> evaluateCases cases params
-runScopedFun (VTypeFunction _ _ _ cases) params = Right <$> evaluateCases cases params
+runScopedFun (VFunction cases) params = evaluateCases cases params
+runScopedFun (VTypeFunction _ _ _ cases) params = evaluateCases cases params
 runScopedFun _ _ = pure $ Left "Error: Bad function call"
 
-evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
-evaluateCases cases params = runWithTempScope $ do
+evaluateCases :: [FunctionCase] -> [Value] -> Scoper (Either String Value)
+evaluateCases cases params = injectLift runWithTempScope $ do
     fcase <- pickFun cases params
-    addArgsToScope (fcaseArgs fcase) params
-    runFcase fcase
+    result <- addArgsToScope (fcaseArgs fcase) params
+    case result of
+      Left err -> pure $ Left err
+      Right _ -> Right <$> (runFcase fcase)
+  where
+    -- Maybe toooo epic. Beyond illegible
+    injectLift :: (Monad mo, Traversable mi, Monad mi) => (mo a -> mo r) -> mo (mi a) -> mo (mi r)
+    injectLift f = (=<<) (sequence . (f . pure <$>))
 
 runFcase :: FunctionCase -> Scoper Value
 runFcase (FunctionCase _ body) = do
