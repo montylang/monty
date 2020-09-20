@@ -68,7 +68,7 @@ typeConsArgParser indent = multiParenParser '(' ')' (varIdParser indent) <* ws
 
 namedDefParser :: Indent -> Parser PExpr
 namedDefParser indent = do
-  name <- string "def" *> ws1 *> varIdParser indent
+  name <- try $ string "def" *> ws1 *> varIdParser indent
   args <- defArgParser indent <* char ':' <* eol1
   body <- bodyParser indent
   def  <- addPos $ ExprDef args body
@@ -94,7 +94,7 @@ exprCallParser indent = do
     q pos args = extend (flip ExprCall args) pos
     
     extend :: (Pos a -> b) -> Pos a -> Pos b 
-    extend fun position@(Pos pos val) =
+    extend fun position@(Pos pos _) =
       Pos pos (fun position)
 
 -- Bit of a hack but so is this entire language so whatever
@@ -118,23 +118,24 @@ multiParenParser open close innerParser =
   where
     delimWs = many $ oneOf "\t \n"
 
+
 defParser :: Indent -> Parser PExpr
 defParser indent = do
-  _    <- try $ string "def" <* ws
-  args <- defArgParser indent <* char ':' <* eol1
+  _    <- try (string "def" *> (lookAhead (ws1 <|> string "(")))
+  args <- ws *> defArgParser indent <* char ':' <* eol1
   body <- bodyParser indent
   addPos $ ExprDef args body
 
 lambdaParser :: Indent -> Parser PExpr
 lambdaParser indent = do
-  args <- defArgParser indent <* char ':' <* ws
+  args <- try $ defArgParser indent <* char ':' <* ws
   body <- exprParser indent
   ret  <- addPos $ ExprReturn body
   addPos $ ExprDef args [ret]
 
 returnParser :: Indent -> Parser PExpr
-returnParser indent =
-  ExprReturn <$> (string "return" *> ws1 *> exprParser indent) >>= addPos
+returnParser indent = try (string "return" *> ws1) *>
+  (ExprReturn <$> (exprParser indent) >>= addPos)
 
 -- TODO: Support this `if foo: print('reeee')`
 condBlockParser :: String -> Indent -> Parser CondBlock
@@ -265,29 +266,30 @@ listParser indent =
 
 exprParser' :: Indent -> Parser PExpr
 exprParser' indent = try (parenEater $ exprParser indent) <|> content
-  where content = choice $ try . ($ indent) <$> [
-            exprIdParser,
-            intParser,
-            stringParser
-          ]
+  where
+    content = choice $ ($ indent) <$> [
+        try . exprIdParser,
+        intParser,
+        stringParser
+      ]
 
 exprParser :: Indent -> Parser PExpr
-exprParser indent = choice [
-    ifParser indent,
-    classParser indent,
-    try $ defParser indent,
-    try $ lambdaParser indent,
-    try $ namedDefParser indent,
-    try $ infixParser indent,
-    try $ assignmentParser indent,
-    try $ exprCallParser indent,
-    try $ emptyTypeCallParser indent,
-    try $ returnParser indent,
-    try $ typeParser indent,
-    try $ instanceParser indent,
-    listParser indent,
-    consParser indent,
-    exprParser' indent
+exprParser indent = choice $ ($ indent) <$> [
+    returnParser,
+    classParser,
+    ifParser,
+    namedDefParser,
+    defParser,
+    lambdaParser,
+    try . assignmentParser,
+    try . infixParser,
+    try . exprCallParser,
+    try . emptyTypeCallParser,
+    typeParser,
+    instanceParser,
+    listParser,
+    consParser,
+    exprParser'
   ]
 
 -- Pretty epic
