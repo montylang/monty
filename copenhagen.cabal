@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d1dc01ac4865541785be0170b3db8f4c83d64d99172725395b0f45afa1cb4269
+-- hash: ba5c8430d16773625c5ebbeae90215c47a513f9e4ab46003ec9e4ce5970a945c
 
 name:           copenhagen
 version:        0.1.0.0
@@ -29,7 +29,6 @@ library
       CallableUtils
       InstanceUtils
       InteropPrelude
-      Lexer
       MontyParser
       MontyRunner
       ParserTypes

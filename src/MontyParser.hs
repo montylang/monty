@@ -1,12 +1,15 @@
 module MontyParser where
 
-import Text.Megaparsec hiding (Pos)
-import Text.Megaparsec.Char
 import Data.Char
 import Data.Maybe
 import Debug.Trace
+import Text.Megaparsec hiding (Pos)
+import Text.Megaparsec.Char
 
 import ParserTypes
+
+rword :: String -> Parser ()
+rword w = string w *> notFollowedBy alphaNumChar <* ws
 
 ws :: Parser String
 ws = many $ char ' '
@@ -34,8 +37,7 @@ addPos expr = do
 
 assignmentParser :: Indent -> Parser PExpr
 assignmentParser indent = do
-  var  <- varIdParser indent
-  _    <- ws <* char '=' <* ws
+  var  <- try $ (varIdParser indent <* ws <* char '=' <* ws)
   expr <- exprParser indent
   addPos $ ExprAssignment var expr
 
@@ -85,7 +87,7 @@ consParser indent = do
 -- Supports f() and f()()
 exprCallParser :: Indent -> Parser PExpr
 exprCallParser indent = do
-    fun           <- exprParser' indent
+    fun           <- try (exprParser' indent <* ws <* (lookAhead $ char '('))
     firstArgLists <- multiParenParser '(' ')' $ exprParser indent
     otherArgLists <- many $ multiParenParser '(' ')' $ exprParser indent
     call          <- addPos $ ExprCall fun firstArgLists
@@ -119,11 +121,9 @@ multiParenParser open close innerParser =
   where
     delimWs = many $ oneOf "\t \n"
 
-
 defParser :: Indent -> Parser PExpr
 defParser indent = do
-  _    <- try (string "def" *> (lookAhead (ws1 <|> string "(")))
-  args <- ws *> defArgParser indent <* char ':' <* eol1
+  args <- try $ rword "def" *> defArgParser indent <* char ':' <* eol1
   body <- bodyParser indent
   addPos $ ExprDef args body
 
@@ -135,14 +135,13 @@ lambdaParser indent = do
   addPos $ ExprDef args [ret]
 
 returnParser :: Indent -> Parser PExpr
-returnParser indent = try (string "return" *> ws1) *>
+returnParser indent = try (rword "return") *>
   (ExprReturn <$> (exprParser indent) >>= addPos)
 
 -- TODO: Support this `if foo: print('reeee')`
 condBlockParser :: String -> Indent -> Parser CondBlock
 condBlockParser initialKeyword indent = do
-  _    <- try (string initialKeyword <* ws1)
-  cond <- exprParser indent <* ws <* char ':' <* eol1
+  cond <- try $ rword initialKeyword *> exprParser indent <* ws <* char ':' <* eol1
   body <- bodyParser indent <* eol1
   pure $ CondBlock cond body
 
@@ -158,15 +157,17 @@ ifParser indent = do
 
     elseParser :: Parser [PExpr]
     elseParser =
-      string indent *> string "else" *> ws *> char ':' *> eol1 *>
+      string indent *> rword "else" *> char ':' *> eol1 *>
       bodyParser indent
 
-
-infixOpParser :: Parser InfixOp
-infixOpParser = choice $ op <$> arr
+infixOpParser :: Parser PExpr -> Parser (PExpr -> Expr)
+infixOpParser lhsParser = do
+    lhs <- lhsParser <* ws
+    op  <- (choice $ opParser <$> arr) <* ws
+    pure $ ExprInfix lhs op
   where
-    op :: (String, InfixOp) -> Parser InfixOp
-    op (s, o) = string s *> pure o
+    opParser :: (String, InfixOp) -> Parser InfixOp
+    opParser (s, o) = string s *> pure o
     arr = [
         ("+", InfixAdd),
         ("-", InfixSub),
@@ -187,10 +188,9 @@ infixOpParser = choice $ op <$> arr
 
 infixParser :: Indent -> Parser PExpr
 infixParser indent = do
-  first  <- exprParser' indent <* ws
-  op     <- infixOpParser <* ws
+  first  <- try $ infixOpParser (exprParser' indent)
   second <- exprParser indent
-  addPos $ ExprInfix first op second
+  addPos $ first second
 
 varIdParser :: Indent -> Parser Id
 varIdParser _ = do
@@ -282,9 +282,9 @@ exprParser indent = choice $ ($ indent) <$> [
     namedDefParser,
     defParser,
     lambdaParser,
-    try . assignmentParser,
-    try . infixParser,
-    try . exprCallParser,
+    infixParser,
+    assignmentParser,
+    exprCallParser,
     try . emptyTypeCallParser,
     typeParser,
     instanceParser,
@@ -297,7 +297,7 @@ exprParser indent = choice $ ($ indent) <$> [
 blockParser :: Indent -> (Indent -> Parser a) -> Parser [a]
 blockParser base parser = do
     nextIndent <- (<>) <$> string base <*> ws1
-    first      <- parser nextIndent <* lookAhead singleEol
+    first      <- parser nextIndent <* lookAhead (singleEol <|> eof)
     rest       <- many $ stmt nextIndent
     pure $ first:rest
   where
@@ -314,10 +314,10 @@ rootBodyParser = do
     pure $ first:(catMaybes rest)
   where
     stmt :: Parser (Maybe PExpr)
-    stmt = try something <|> blankLine 
+    stmt = try blankLine <|> something
       where
         blankLine :: Parser (Maybe PExpr)
         blankLine = eol1 *> pure Nothing
 
         something :: Parser (Maybe PExpr)
-        something = blankLine *> (Just <$> exprParser "")
+        something = Just <$> exprParser ""
