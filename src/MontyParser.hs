@@ -297,6 +297,7 @@ exprParser' indent = try (parenEater $ exprParser indent) <|> content
     content = choice $ ($ indent) <$> [
         exprVarIdParser,
         intParser,
+        listParser,
         stringParser
       ]
 
@@ -314,7 +315,6 @@ exprParser indent = choice $ ($ indent) <$> [
     emptyTypeCallParser,
     typeParser,
     instanceParser,
-    listParser,
     consParser,
     exprParser'
   ]

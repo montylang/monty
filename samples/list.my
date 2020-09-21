@@ -4,3 +4,6 @@ def add1(x):
 debug(map([1, 2], add1))
 debug(map(Nil, add1))
 debug(map(Cons(1, Cons(2, Nil)), add1))
+debug([1, 2, 3].foldl(0, (x, y): x + y))
+debug([].foldl(0, (x, y): x + y))
+debug(len([1, 2]))

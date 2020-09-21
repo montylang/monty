@@ -10,7 +10,7 @@ import InteropPrelude
 import RunnerTypes
 import RunnerUtils (addToScope, findInTopScope, addToStub)
 import ParserTypes
-import MontyRunner (evalP) 
+import MontyRunner (evalP)
 import MontyParser (rootBodyParser)
 
 -- TODO: This entire file is waste
