@@ -72,7 +72,9 @@ data Pos a = Pos {
     getPos :: SourcePos,
     getPosValue :: a
   }
-  deriving (Show)
+
+instance Show a => Show (Pos a) where
+  show (Pos _ val) = show val
 
 instance Eq a => Eq (Pos a) where
   (Pos _ a) == (Pos _ b) = a == b

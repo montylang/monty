@@ -5,11 +5,15 @@ import Data.Maybe
 import Debug.Trace
 import Text.Megaparsec hiding (Pos)
 import Text.Megaparsec.Char
+import Text.Megaparsec.Char.Lexer
 
 import ParserTypes
 
 rword :: String -> Parser ()
 rword w = string w *> notFollowedBy alphaNumChar <* ws
+
+sc :: Parser ()
+sc = ws *> pure ()
 
 ws :: Parser String
 ws = many $ char ' '
@@ -84,27 +88,47 @@ consParser indent = do
   exprId   <- addPos $ ExprId "Cons"
   addPos $ ExprCall exprId [headExpr, tailExpr]
 
--- Supports f() and f()()
+-- Supports f(), f()(), f.map(something)(), etc
 exprCallParser :: Indent -> Parser PExpr
-exprCallParser indent = do
-    fun           <- try (exprParser' indent <* ws <* (lookAhead $ char '('))
-    firstArgLists <- multiParenParser '(' ')' $ exprParser indent
-    otherArgLists <- many $ multiParenParser '(' ')' $ exprParser indent
-    call          <- addPos $ ExprCall fun firstArgLists
-    pure $ foldl q call otherArgLists
+exprCallParser indent = normalParserBoot <|> sugarParserBoot
   where
-    q :: PExpr -> [PExpr] -> PExpr
-    q pos args = extend (flip ExprCall args) pos
-    
-    extend :: (Pos a -> b) -> Pos a -> Pos b 
-    extend fun position@(Pos pos _) =
-      Pos pos (fun position)
+    callParser previous =
+      sugarParser previous <|>
+      normalParser previous <|>
+      pure previous
+
+    sugarInitial  = exprParser' indent <|> emptyTypeCallParser indent
+    normalInitial = exprParser' indent <|> exprTypeIdParser indent
+
+    sugarParserBoot :: Parser PExpr
+    sugarParserBoot = do
+      initialExpr <- try (sugarInitial <* ws <* (lookAhead $ char '.'))
+      sugarParser initialExpr
+
+    sugarParser :: PExpr -> Parser PExpr 
+    sugarParser previous = do
+      _       <- char '.'
+      fun     <- exprVarIdParser indent
+      argList <- multiParenParser '(' ')' $ exprParser indent
+      final   <- addPos $ ExprCall fun (previous:argList)
+      callParser final
+
+    normalParserBoot :: Parser PExpr 
+    normalParserBoot = do
+      initialExpr <- try (normalInitial <* ws <* (lookAhead $ char '('))
+      normalParser initialExpr
+
+    normalParser :: PExpr -> Parser PExpr 
+    normalParser previous = do
+      _       <- lookAhead $ char '('
+      argList <- multiParenParser '(' ')' $ exprParser indent
+      final   <- addPos $ ExprCall previous argList
+      callParser final
 
 -- Bit of a hack but so is this entire language so whatever
 emptyTypeCallParser :: Indent -> Parser PExpr
 emptyTypeCallParser indent = do
-  fun    <- typeIdParser indent
-  exprId <- addPos $ ExprId fun
+  exprId <- exprTypeIdParser indent
   addPos $ ExprCall exprId []
 
 -- Eats surrounding parens of an expr, for disambiguation
@@ -175,14 +199,13 @@ infixOpParser lhsParser = do
         ("/", InfixDiv),
         ("%", InfixMod),
         ("==", InfixEq),
+        ("is", InfixEq),
         ("!=", InfixNotEq),
         (">", InfixGreater),
         ("<", InfixLess),
         ("<=", InfixLessEqual),
         (">=", InfixGreaterEqual),
-        ("&&", InfixLogicAnd),
         ("and", InfixLogicAnd),
-        ("||", InfixLogicOr),
         ("or", InfixLogicOr)
       ]
 
@@ -207,11 +230,14 @@ typeIdParser _ = do
 anyIdParser :: Indent -> Parser Id
 anyIdParser indent = try (varIdParser indent) <|> typeIdParser indent
 
-exprIdParser :: Indent -> Parser PExpr
-exprIdParser indent = ExprId <$> anyIdParser indent >>= addPos
+exprVarIdParser :: Indent -> Parser PExpr
+exprVarIdParser indent = ExprId <$> varIdParser indent >>= addPos
+
+exprTypeIdParser :: Indent -> Parser PExpr
+exprTypeIdParser indent = ExprId <$> typeIdParser indent >>= addPos
 
 intParser :: Indent -> Parser PExpr
-intParser _ = ExprInt . read <$> some digitChar >>= addPos
+intParser _ = ExprInt <$> signed sc decimal >>= addPos
 
 stringParser :: Indent -> Parser PExpr
 stringParser _ = do
@@ -269,7 +295,7 @@ exprParser' :: Indent -> Parser PExpr
 exprParser' indent = try (parenEater $ exprParser indent) <|> content
   where
     content = choice $ ($ indent) <$> [
-        try . exprIdParser,
+        exprVarIdParser,
         intParser,
         stringParser
       ]
@@ -285,7 +311,7 @@ exprParser indent = choice $ ($ indent) <$> [
     infixParser,
     assignmentParser,
     exprCallParser,
-    try . emptyTypeCallParser,
+    emptyTypeCallParser,
     typeParser,
     instanceParser,
     listParser,
