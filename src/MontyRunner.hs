@@ -6,6 +6,7 @@ import Data.Either
 import Data.List
 import Data.Maybe
 import Control.Monad.State.Strict
+import Text.Megaparsec.Pos
 
 import ParserTypes
 import RunnerTypes
@@ -29,7 +30,7 @@ evalP (Pos pos expr) = do
   result <- eval expr
 
   case result of
-    (VError stack msg) -> runtimeError ("Error: " <> msg <> "\n" <> show pos)
+    (VError stack msg) -> runtimeError (sourcePosPretty pos <> ": " <> msg)
     _ -> pure result
 
 eval :: Expr -> Scoper Value
@@ -50,7 +51,7 @@ eval (ExprClass className constructors) = do
     pure $ VInt 0 -- TODO: Return... something other than an int :)
   where
     convert :: TypeCons -> (Id, Value)
-    convert (TypeCons name args) = (name, VTypeCons name args)
+    convert (TypeCons name args) = (name, VTypeCons className name args)
 
     consNames = getTypeConsName . getPosValue <$> constructors
 
@@ -177,10 +178,10 @@ runFun (VScoped func fscope) params = do
   case result of
     Left err  -> pure $ Left err
     Right val -> Right <$> runWithScope fscope (pure val)
-runFun (VTypeCons name cargs) params = pure $
+runFun (VTypeCons className consName cargs) params = pure $
   if (length cargs) == (length params)
-    then Right $ VTypeInstance name params
-    else Left ("Bad type cons call to " <> name)
+    then Right $ VTypeInstance className consName params
+    else Left ("Bad type cons call to " <> consName)
 runFun expr params = runScopedFun expr params
 
 runScopedFun :: Value -> [Value] -> Scoper (Either String Value)

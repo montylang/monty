@@ -2,6 +2,7 @@ module CallableUtils where
 
 import Prelude
 import Data.List (find)
+import Debug.Trace
 
 import RunnerUtils
 import RunnerTypes
@@ -20,10 +21,10 @@ funCaseMatchesParams params fcase =
 
 argMatchesParam :: Arg -> Value -> Bool
 argMatchesParam (IdArg _) _ = True
-argMatchesParam (TypedIdArg _ t) (VTypeInstance tname _) = t == tname
+argMatchesParam (TypedIdArg _ t) (VTypeInstance cname _ _) = t == cname
 argMatchesParam (PatternArg "Nil" _) (VList []) = True
 argMatchesParam (PatternArg "Cons" _) (VList (_:_)) = True
-argMatchesParam (PatternArg pname pargs) (VTypeInstance tname tvals) =
+argMatchesParam (PatternArg pname pargs) (VTypeInstance _ tname tvals) =
   pname == tname && (all (uncurry argMatchesParam) (zip pargs tvals))
 argMatchesParam _ _ = False
 
@@ -43,6 +44,8 @@ addArg :: (Arg, Value) -> Scoper (Either String ())
 
 addArg (IdArg name, v) = Right <$> addToScope name v
 
+addArg (TypedIdArg name _, v) = Right <$> addToScope name v
+
 addArg (PatternArg "Cons" [h, t], VList (x:xs)) = do
   headE <- addArg (h, x)
   tailE <- addArg (t, VList xs)
@@ -50,16 +53,15 @@ addArg (PatternArg "Cons" [h, t], VList (x:xs)) = do
 
 addArg (PatternArg "Nil" [], _) = pure $ Right ()
 
-addArg (PatternArg pname _, VTypeInstance tname _) | (pname /= tname) =
+addArg (PatternArg pname _, VTypeInstance _ tname _) | (pname /= tname) =
   pure $ Left $ "Mismatched pattern match: " <> pname <> "," <> tname
 
-addArg (PatternArg pname pargs, VTypeInstance _ tvals)
+addArg (PatternArg pname pargs, VTypeInstance _ _ tvals)
   | (length pargs /= length tvals) = 
   pure $ Left $ "Mismatched argument length for pattern match of " <> pname
 
-addArg (PatternArg _ pargs, VTypeInstance _ tvals) = do
+addArg (PatternArg _ pargs, VTypeInstance _ _ tvals) = do
   _ <- sequence $ addArg <$> (zip pargs tvals)
   pure $ Right ()
 
-addArg _ =
-  pure $ Left "Bad call to pattern matched function"
+addArg _ = pure $ Left "Bad call to pattern matched function"

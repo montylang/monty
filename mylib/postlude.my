@@ -2,22 +2,11 @@ class Maybe:
   None
   Just(value)
 
-class Either:
-  Left(value)
-  Right(value)
-
-instance Either of Functor:
-  def map(Right(value), f):
-    return Right(f(value))
-
-  def map(l, _):
-    return l
-
 instance Maybe of Functor:
   def map(Just(value), f):
     return Just(f(value))
 
-  def map(None, _):
+  def map(_, __):
     return None
 
 instance Maybe of Foldable:
@@ -37,7 +26,7 @@ instance Maybe of Applicative:
   def apply(Just(f), inputMaybe):
     return map(inputMaybe, f)
 
-  def apply(None, inputMaybe):
+  def apply(None, _):
     return None
 
 instance Maybe of Monad:
@@ -46,3 +35,41 @@ instance Maybe of Monad:
 
   def bind(None, _):
     return None
+
+class Either:
+  Left(value)
+  Right(value)
+
+instance Either of Functor:
+  def map(Right(value), f):
+    return Right(f(value))
+
+  def map(l, _):
+    return l
+
+instance Either of Foldable:
+  def foldl(Right(value), initial, folder):
+    return folder(initial, value)
+
+  def foldl(_, initial, __):
+    return initial
+
+  def len(Right(_)):
+    return 1
+
+  def len(_):
+    return 0
+
+instance Either of Applicative:
+  def apply(Right(f), inputMaybe):
+    return map(inputMaybe, f)
+
+  def apply(l, _):
+    return l
+
+instance Either of Monad:
+  def bind(Right(value), f):
+    return f(value)
+
+  def bind(l, _):
+    return l

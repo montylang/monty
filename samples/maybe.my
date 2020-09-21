@@ -4,7 +4,6 @@ def add1If3(x):
   else:
     Just(x)
 
-debug(map([1], (x): x + 1))
 debug(Just(1))
 debug(map(Just(2), (x): x + 10000))
 debug(map(None, (x): x + 1))

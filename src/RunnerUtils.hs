@@ -23,7 +23,7 @@ typeOfValue (VInt _)                = "Int"
 typeOfValue (VString _)             = "String"
 typeOfValue (VBoolean _)            = "Bool"
 typeOfValue (VFunction _)           = "Function" -- TODO: Become a signature
-typeOfValue (VTypeCons _ _)         = "TypeCons"
+typeOfValue (VTypeCons _ _ _)       = "TypeCons"
 typeOfValue (VTypeDef _ _)          = "TypeDef"
 typeOfValue (VTypeFunction _ _ _ _) = "Function" -- TODO: Become a signature
 typeOfValue (VScoped val _)         = typeOfValue val
@@ -32,7 +32,7 @@ typeOfValue (VList [])              = "List()"
 typeOfValue (VList (x:_))           = "List(" <> typeOfValue x <> ")"
 typeOfValue (VDict)                 = "Dict"
 typeOfValue (VTuple)                = "Tuple"
-typeOfValue (VTypeInstance typeName values) =
+typeOfValue (VTypeInstance _ typeName values) =
   typeName <> "(" <> intercalate "," (typeOfValue <$> values) <> ")"
 
 -- TODO: Don't allow overriding of values in top scope
