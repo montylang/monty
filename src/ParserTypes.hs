@@ -72,7 +72,10 @@ data Pos a = Pos {
     getPos :: SourcePos,
     getPosValue :: a
   }
-  deriving (Show, Eq)
+  deriving (Show)
+
+instance Eq a => Eq (Pos a) where
+  (Pos _ a) == (Pos _ b) = a == b
 
 instance Functor Pos where
   fmap f (Pos pos val) = Pos pos (f val)
