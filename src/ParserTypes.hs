@@ -1,6 +1,10 @@
 module ParserTypes where
 
-import Text.Parsec.Pos
+import Data.Void
+
+import Text.Megaparsec hiding (Pos)
+
+type Parser = Parsec Void String
 
 type Indent = String
 
@@ -77,7 +81,7 @@ instance Applicative Pos where
   (Pos firstPos fun) <*> (Pos secondPos val) =
     Pos (min firstPos secondPos) (fun val)
 
-  pure val = Pos (newPos "" maxBound maxBound) val
+  pure val = Pos (SourcePos "" (mkPos maxBound) (mkPos maxBound)) val
 
 -- Proof Pos is a monad
 instance Monad Pos where

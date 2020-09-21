@@ -4,7 +4,7 @@ import Data.List (intercalate)
 import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
 import ParserTypes
-import Text.Parsec.Pos
+import Text.Megaparsec.Pos (SourcePos)
 
 type ScopeBlock = HM.HashMap Id Value
 type Scope      = [ScopeBlock]

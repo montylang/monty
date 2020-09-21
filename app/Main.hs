@@ -1,9 +1,10 @@
 module Main where
 
 import System.Environment
-import Text.Parsec.String
 import Control.Monad.State.Strict
 import qualified Data.HashMap.Strict as HM
+import Text.Megaparsec
+import Text.Megaparsec.Error
 
 import InteropPrelude
 import RunnerTypes
@@ -13,6 +14,8 @@ import MontyRunner (evalP)
 import MontyParser (rootBodyParser)
 
 -- TODO: This entire file is waste
+
+parseFromFile p file = runParser p file <$> readFile file
 
 runs :: [PExpr] -> [PExpr] -> [PExpr] -> Scoper ()
 runs preExprs postExprs exprs = do
@@ -50,6 +53,6 @@ main = do
     pure (pre, post, program)
   case parsed of
     (Right (pre, post, prog)) -> run pre post prog
-    (Left a) -> putStrLn $ show a
+    (Left a) -> putStrLn $ errorBundlePretty a
   putStrLn lineSep
   pure ()

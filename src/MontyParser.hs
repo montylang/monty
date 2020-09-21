@@ -1,7 +1,7 @@
 module MontyParser where
 
-import Text.Parsec
-import Text.Parsec.String
+import Text.Megaparsec hiding (Pos)
+import Text.Megaparsec.Char
 import Data.Char
 import Data.Maybe
 import Debug.Trace
@@ -12,7 +12,7 @@ ws :: Parser String
 ws = many $ char ' '
 
 ws1 :: Parser String
-ws1 = many1 $ char ' '
+ws1 = some $ char ' '
 
 commentEater :: Parser ()
 commentEater = char '#' *> many (noneOf "\n") *> pure ()
@@ -25,11 +25,11 @@ eol1 :: Parser ()
 eol1 = singleEol <* (many $ try singleEol)
 
 moduleParser :: Parser String
-moduleParser = many1 $ alphaNum <|> char '.'
+moduleParser = some $ alphaNumChar <|> char '.'
 
 addPos :: a -> Parser (Pos a)
 addPos expr = do
-  pos <- getPosition
+  pos <- getSourcePos
   pure $ Pos pos expr
 
 assignmentParser :: Indent -> Parser PExpr
@@ -195,13 +195,13 @@ infixParser indent = do
 varIdParser :: Indent -> Parser Id
 varIdParser _ = do
   x  <- char '_' <|> satisfy isLower
-  xs <- many $ (char '_' <|> alphaNum)
+  xs <- many $ (char '_' <|> alphaNumChar)
   pure $ x:xs
 
 typeIdParser :: Indent -> Parser Id
 typeIdParser _ = do
   firstChar <- satisfy isUpper
-  rest      <- many $ (char '_' <|> alphaNum)
+  rest      <- many $ (char '_' <|> alphaNumChar)
   pure $ firstChar:rest
 
 anyIdParser :: Indent -> Parser Id
@@ -211,7 +211,7 @@ exprIdParser :: Indent -> Parser PExpr
 exprIdParser indent = ExprId <$> anyIdParser indent >>= addPos
 
 intParser :: Indent -> Parser PExpr
-intParser _ = ExprInt . read <$> many1 digit >>= addPos
+intParser _ = ExprInt . read <$> some digitChar >>= addPos
 
 stringParser :: Indent -> Parser PExpr
 stringParser _ = do

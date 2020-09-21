@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1cd4de47cfe66641bfa31a4bf9c86c5b8a2c4b93a428b4e43631ff73ef56c2b5
+-- hash: ba5c8430d16773625c5ebbeae90215c47a513f9e4ab46003ec9e4ce5970a945c
 
 name:           copenhagen
 version:        0.1.0.0
@@ -41,8 +41,8 @@ library
   build-depends:
       base >=4.7 && <5
     , hashable
+    , megaparsec
     , mtl
-    , parsec
     , unordered-containers
   default-language: Haskell2010
 
@@ -57,8 +57,8 @@ executable copenhagen-exe
       base >=4.7 && <5
     , copenhagen
     , hashable
+    , megaparsec
     , mtl
-    , parsec
     , unordered-containers
   default-language: Haskell2010
 
@@ -75,7 +75,7 @@ test-suite copenhagen-test
     , copenhagen
     , hashable
     , hspec
+    , megaparsec
     , mtl
-    , parsec
     , unordered-containers
   default-language: Haskell2010
