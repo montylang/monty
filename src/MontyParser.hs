@@ -3,6 +3,7 @@ module MontyParser where
 import Text.Parsec
 import Text.Parsec.String
 import Data.Char
+import Data.Maybe
 import Debug.Trace
 
 import ParserTypes
@@ -297,10 +298,10 @@ blockParser :: Indent -> (Indent -> Parser a) -> Parser [a]
 blockParser base parser = do
     nextIndent <- (<>) <$> string base <*> ws1
     first      <- parser nextIndent <* lookAhead singleEol
-    rest       <- many $ try $ stmt nextIndent
+    rest       <- many $ stmt nextIndent
     pure $ first:rest
   where
-    stmt nextIndent = eol1 *> string nextIndent *> parser nextIndent
+    stmt nextIndent = (try $ eol1 *> string nextIndent) *> parser nextIndent
 
 bodyParser :: Indent -> Parser [PExpr]
 bodyParser base = blockParser base exprParser
@@ -309,9 +310,14 @@ rootBodyParser :: Parser [PExpr]
 rootBodyParser = do
     _ <- many $ try singleEol
     first <- exprParser "" <* lookAhead singleEol
-    rest  <- many $ try $ stmt
-    _ <- (many $ try singleEol) <* eof
-    pure $ first:rest
+    rest  <- many stmt <* eof
+    pure $ first:(catMaybes rest)
   where
-    stmt :: Parser PExpr
-    stmt = eol1 *> exprParser ""
+    stmt :: Parser (Maybe PExpr)
+    stmt = try something <|> blankLine 
+      where
+        blankLine :: Parser (Maybe PExpr)
+        blankLine = eol1 *> pure Nothing
+
+        something :: Parser (Maybe PExpr)
+        something = blankLine *> (Just <$> exprParser "")

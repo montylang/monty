@@ -31,7 +31,7 @@
     )
   '("\\.my$")
   nil
-  "A mode for blarb files"
+  "A mode for Monty files"
   )
 
 (provide 'monty-mode)
