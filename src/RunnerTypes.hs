@@ -56,7 +56,7 @@ data Value
       fTypeName :: Id,
       fFuncName :: Id,
       fArgs :: [Arg],
-      fFuncCases :: [FunctionCase]
+      fFuncCases :: [(Id, FunctionCase)]
     }
   | VScoped Value Scope
   | VClass [Id]

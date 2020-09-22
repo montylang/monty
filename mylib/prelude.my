@@ -10,6 +10,7 @@ type Applicative:
 
 type Monad:
   def bind(self, function)
+  def wrap(value)
 
 type Equal:
   def equals(self, other)

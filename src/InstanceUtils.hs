@@ -10,7 +10,7 @@ addImplementation :: Id -> [Id] -> [DefSignature] -> Expr -> Scoper (Either Stri
 addImplementation cname classTypeCons available
                   (ExprAssignment name (Pos _ (ExprDef args body))) =
   case markArgs cname classTypeCons args =<< (getSigArgs name available) of
-    Right caseArgs -> addBodyToScope name body caseArgs
+    Right caseArgs -> addBodyToScope cname name body caseArgs
     Left err       -> pure $ Left err
 addImplementation _ _ _ _ =
   pure $ Left "Every root expr in an implementation must be a def"
@@ -22,9 +22,9 @@ getSigArgs cname cavailable =
     Nothing -> Left $ -- TODO: Types must currently have at least one function
       cname <> " is not part of type " <> (getDefSigTypeName $ head cavailable)
 
-updateStub :: Value -> [Arg] -> [PExpr] -> Value
-updateStub stub caseArgs body =
-  addToStub (FunctionCase caseArgs $ body) stub
+updateStub :: Id -> Value -> [Arg] -> [PExpr] -> Value
+updateStub cname stub caseArgs body =
+  addToStub cname (FunctionCase caseArgs $ body) stub
 
 markArgs :: Id -> [Id] -> [Arg] -> [Arg] -> Either String [Arg]
 markArgs cname classes argsA dargs =
@@ -36,9 +36,9 @@ validateArgs cname classes SelfArg (PatternArg pname _) | not $ elem pname class
   Left $ "Type constructor " <> pname <> " is not an " <> cname
 validateArgs _ _ _ arg = Right arg
 
-addBodyToScope :: Id -> [PExpr] -> [Arg] -> Scoper (Either String ())
-addBodyToScope name body caseArgs = do
+addBodyToScope :: Id -> Id -> [PExpr] -> [Arg] -> Scoper (Either String ())
+addBodyToScope cname name body caseArgs = do
   maybeStub <- findInScope name
   case maybeStub of
-    Just (ree, _) -> Right <$> (addToScope name $ updateStub ree caseArgs body)
+    Just (ree, _) -> Right <$> (addToScope name $ updateStub cname ree caseArgs body)
     _             -> pure $ Left $ name <> " is not in scope"

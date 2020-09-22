@@ -36,6 +36,9 @@ instance Maybe of Monad:
   def bind(None, _):
     return None
 
+  def wrap(value):
+    return Just(value)
+
 class Either:
   Left(value)
   Right(value)
@@ -73,3 +76,6 @@ instance Either of Monad:
 
   def bind(l, _):
     return l
+
+  def wrap(value):
+    return Right(value)

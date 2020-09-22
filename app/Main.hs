@@ -20,16 +20,19 @@ parseFromFile p file = runParser p file <$> readFile file
 runs :: [PExpr] -> [PExpr] -> [PExpr] -> Scoper ()
 runs preExprs postExprs exprs = do
     _ <- sequence $ evalP <$> preExprs
-    _ <- sequence $ (uncurry addOrUpdateInterops) <$> preludeDefinitions 
+    _ <- sequence $ (uncurry3 addOrUpdateInterops) <$> preludeDefinitions
     _ <- sequence $ evalP <$> postExprs
     _ <- sequence $ evalP <$> exprs
     pure ()
   where
-    addOrUpdateInterops :: Id -> [FunctionCase] -> Scoper ()
-    addOrUpdateInterops name body = do
+    uncurry3 :: (a -> b -> c -> d) -> ((a, b, c) -> d)
+    uncurry3 f ~(a, b, c) = f a b c
+
+    addOrUpdateInterops :: Id -> Id -> [FunctionCase] -> Scoper ()
+    addOrUpdateInterops cname name body = do
       result <- findInTopScope name
       addToScope name $ case result of
-        Just a  -> foldl (flip addToStub) a body
+        Just a  -> foldl (flip $ addToStub cname) a body
         Nothing -> VFunction body
 
 run :: [PExpr] -> [PExpr] -> [PExpr] -> IO ()
@@ -42,9 +45,9 @@ main :: IO ()
 main = do
   args   <- getArgs
   -- FIXME: You know what's wrong ;)
-  parsedPrelude <- parseFromFile rootBodyParser "mylib/prelude.my"
+  parsedPrelude  <- parseFromFile rootBodyParser "mylib/prelude.my"
   parsedPostlude <- parseFromFile rootBodyParser "mylib/postlude.my"
-  parsedProgram <- parseFromFile rootBodyParser (head args)
+  parsedProgram  <- parseFromFile rootBodyParser (head args)
   putStrLn lineSep
   parsed <- pure $ do
     pre <- parsedPrelude

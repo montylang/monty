@@ -9,10 +9,10 @@ debug([].foldl(0, (x, y): x + y))
 debug(len([1, 2]))
 
 def cartesian(xs, ys):
-  return xs.bind((x): ys.bind((y): [[x, y]]))
-  # return unwrap:
-  #   x <- xs
-  #   y <- ys
-  #   wrap([x, y])
+  return unwrap:
+    x <- xs
+    y <- ys
+    wrap([x, y])
 
 debug([1, 2, 3].cartesian([4, 5, 6]))
+debug(Just(1).cartesian(Just(2)))

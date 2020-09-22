@@ -170,12 +170,69 @@ eval (ExprCall funExpr args) = do
     result     <- runFun fun evaledArgs
     unError result
 
-eval (ExprUnwrap (x:xs)) = do
-    undefined
+-- return xs.bind((x): ys.bind((y): [[x, y]]))
+-- return bind(xs, (x): bind(ys, (y): [[x, y]]))
+-- return unwrap:
+--   x <- xs
+--   y <- ys
+--   wrap([x, y])
+eval (ExprUnwrap content) = do
+    unError =<< evalUnwrap' Nothing content
   where
-    evalBind :: Expr -> Scoper EValue
-    evalBind (ExprBind name value) = undefined
-    evalBind _ = pure $ Left "The only thing you may do in unwrap is bind or wrap."
+    findImpl :: Id -> [(Id, FunctionCase)] -> Maybe FunctionCase
+    findImpl monadClass cases =
+      second <$> find ((monadClass ==) . first) cases
+    
+    -- TODO: Care about the scope
+    toCases :: Value -> Maybe [(Id, FunctionCase)]
+    toCases (VTypeFunction _ _ _ cases) = Just cases
+    toCases _                           = Nothing
+
+    first :: (a, b) -> a
+    first (a, _) = a
+
+    second :: (a, b) -> b
+    second (_, b) = b
+    
+    evalUnwrap' :: Maybe Id -> [PExpr] -> Scoper EValue
+    evalUnwrap' (Just className) [Pos _ (ExprWrap result)] = do
+      evaledResult <- evalP result
+      wrapImpls <- findInScope "wrap"
+
+      case findImpl className =<< toCases =<< first <$> wrapImpls of
+        Just fcase -> evaluateCases [fcase] [evaledResult]
+        Nothing    -> pure $ Left $ "No wrap implementation for " <> className
+
+    evalUnwrap' _ [_] =
+      pure $ Left "Last statement in unwrap must be wrap"
+
+    evalUnwrap' (Just className) ((Pos _ (ExprBind var expr)):xs) = do
+      evaledExpr <- evalP expr
+      unwrapWithClassname className var evaledExpr xs
+
+    evalUnwrap' Nothing ((Pos _ (ExprBind var expr)):xs) = do
+      evaledExpr <- evalP expr
+
+      case evaledExpr of
+        (VList _)                     -> unwrapWithClassname "List" var evaledExpr xs
+        (VTypeInstance className _ _) -> unwrapWithClassname className var evaledExpr xs
+        _ -> pure $ Left $ "Initial expr in unwrap is not monadic"
+
+    evalUnwrap' _ _ = pure $ Left $ "something terrible has happened"
+
+    unwrapWithClassname :: Id -> Id -> Value -> [PExpr] -> Scoper EValue
+    unwrapWithClassname className var expr xs = do
+      lambda <- pure $ generateInteropCase [IdArg var] $
+        \(_) -> do
+          unwrapped <- evalUnwrap' (Just className) xs
+          case unwrapped of
+            Left err -> runtimeError err
+            Right val -> pure $ val
+      bindImpls  <- findInScope "bind"
+
+      case findImpl className =<< toCases =<< first <$> bindImpls of
+        Just fcase -> evaluateCases [fcase] [expr, VFunction [lambda]]
+        Nothing    -> pure $ Left $ "No bind implementation for " <> className
 
 eval other = stackTrace ("Error (unimplemented expr eval): " <> show other)
 
@@ -193,7 +250,9 @@ runFun expr params = runScopedFun expr params
 
 runScopedFun :: Value -> [Value] -> Scoper EValue
 runScopedFun (VFunction cases) params = evaluateCases cases params
-runScopedFun (VTypeFunction _ _ _ cases) params = evaluateCases cases params
+runScopedFun (VTypeFunction _ _ _ tcases) params = evaluateCases cases params
+  where
+    cases = (\(_, c) -> c) <$> tcases
 runScopedFun _ _ = pure $ Left "Error: Bad function call"
 
 evaluateCases :: [FunctionCase] -> [Value] -> Scoper EValue

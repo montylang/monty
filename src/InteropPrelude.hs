@@ -66,14 +66,17 @@ consBindImpl [consHead, consTail, func] = do
 nilBindImpl :: [Value] -> Scoper Value
 nilBindImpl [_] = pure $ VList []
 
+listWrapImpl :: [Value] -> Scoper Value
+listWrapImpl [value] = pure $ VList [value]
+
 consImpl :: [Value] -> Scoper Value
 consImpl [cHead, (VList cTail)] = pure $ VList (cHead:cTail)
 
-preludeDefinitions :: [(Id, [FunctionCase])]
+preludeDefinitions :: [(Id, Id, [FunctionCase])]
 preludeDefinitions =
   [
-    ("debug", [generateInteropCase [IdArg "value"] debugImpl]),
-    ("map", [
+    ("List", "debug", [generateInteropCase [IdArg "value"] debugImpl]),
+    ("List", "map", [
         generateInteropCase
           [PatternArg "Cons" [IdArg "head", IdArg "tail"], IdArg "func"]
           consMapImpl,
@@ -81,7 +84,7 @@ preludeDefinitions =
           [PatternArg "Nil" [], IdArg "func"]
           nilMapImpl
     ]),
-    ("foldl", [
+    ("List", "foldl", [
         generateInteropCase
           [PatternArg "Cons" [IdArg "head", IdArg "tail"],
            IdArg "initial",
@@ -93,7 +96,7 @@ preludeDefinitions =
            IdArg "folder"]
           nilFoldlImpl
     ]),
-    ("len", [
+    ("List", "len", [
         generateInteropCase
           [PatternArg "Cons" [IdArg "head", IdArg "tail"]]
           consLenImpl,
@@ -101,7 +104,7 @@ preludeDefinitions =
           [PatternArg "Nil" []]
           nilLenImpl
     ]),
-    ("bind", [
+    ("List", "bind", [
         generateInteropCase
           [PatternArg "Cons" [IdArg "head", IdArg "tail"],
            IdArg "func"]
@@ -111,6 +114,11 @@ preludeDefinitions =
            IdArg "func"]
           nilBindImpl
     ]),
-    ("Nil", [generateInteropCase [] (const . pure $ VList [])]),
-    ("Cons", [generateInteropCase [IdArg "head", IdArg "tail"] consImpl])
+    ("List", "wrap", [
+        generateInteropCase
+          [IdArg "value"]
+          listWrapImpl
+    ]),
+    ("List", "Nil", [generateInteropCase [] (const . pure $ VList [])]),
+    ("List", "Cons", [generateInteropCase [IdArg "head", IdArg "tail"] consImpl])
   ]
