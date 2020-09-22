@@ -11,6 +11,8 @@ type Scope      = [ScopeBlock]
 
 type Scoper a = StateT Scope IO a
 
+type EValue = Either String Value
+
 -- listMapArgHead = "head"
 -- listMapArgTail = "tail"
 

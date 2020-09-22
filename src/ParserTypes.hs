@@ -53,6 +53,9 @@ data Expr
   | ExprList [PExpr]
   | ExprType Id [Pos DefSignature]
   | ExprInstanceOf Id Id [PExpr]
+  | ExprWrap PExpr
+  | ExprBind Id PExpr
+  | ExprUnwrap [PExpr]
   deriving (Show, Eq)
 
 data DefSignature = DefSignature {

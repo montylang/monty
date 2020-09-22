@@ -7,3 +7,12 @@ debug(map(Cons(1, Cons(2, Nil)), add1))
 debug([1, 2, 3].foldl(0, (x, y): x + y))
 debug([].foldl(0, (x, y): x + y))
 debug(len([1, 2]))
+
+def cartesian(xs, ys):
+  return xs.bind((x): ys.bind((y): [[x, y]]))
+  # return unwrap:
+  #   x <- xs
+  #   y <- ys
+  #   wrap([x, y])
+
+debug([1, 2, 3].cartesian([4, 5, 6]))

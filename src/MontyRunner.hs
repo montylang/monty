@@ -80,7 +80,7 @@ eval (ExprInstanceOf className typeName implementations) = do
     functionDefs (Just (VTypeDef _ sigs, _)) = pure sigs
     functionDefs _ = runtimeError $ "Type " <> typeName <> " not found"
 
-    addAllImplementations :: Id -> [Id] -> [DefSignature] -> Scoper (Either String Value)
+    addAllImplementations :: Id -> [Id] -> [DefSignature] -> Scoper EValue
     addAllImplementations cname consNames funcDefs = do
       potentialErrors <-
         sequence $ (addImplementation cname consNames funcDefs) <$> getPosValue <$> implementations
@@ -121,7 +121,7 @@ eval (ExprList (x:xs)) = do
       Left err   -> stackTrace err
       Right t -> pure $ VList (headEvaled:t)
   where
-    enforceType :: String -> PExpr -> Scoper (Either String Value)
+    enforceType :: String -> PExpr -> Scoper EValue
     enforceType typeStr expr = do
       evaled <- evalP expr
       pure $ if (typeOfValue evaled) == typeStr
@@ -143,7 +143,7 @@ eval (ExprAssignment name value) = do
     addToScope name newValue
     pure evaledValue
   where
-    appendFunctionCase :: [FunctionCase] -> Value -> Scoper (Either String Value)
+    appendFunctionCase :: [FunctionCase] -> Value -> Scoper EValue
     appendFunctionCase cases (VFunction [newCase]) = pure $
       if all (functionCaseFits newCase) cases
         then Left ("Invalid pattern match for function " <> name)
@@ -170,9 +170,16 @@ eval (ExprCall funExpr args) = do
     result     <- runFun fun evaledArgs
     unError result
 
+eval (ExprUnwrap (x:xs)) = do
+    undefined
+  where
+    evalBind :: Expr -> Scoper EValue
+    evalBind (ExprBind name value) = undefined
+    evalBind _ = pure $ Left "The only thing you may do in unwrap is bind or wrap."
+
 eval other = stackTrace ("Error (unimplemented expr eval): " <> show other)
 
-runFun :: Value -> [Value] -> Scoper (Either String Value)
+runFun :: Value -> [Value] -> Scoper EValue
 runFun (VScoped func fscope) params = do
   result <- runScopedFun func params
   case result of
@@ -184,12 +191,12 @@ runFun (VTypeCons className consName cargs) params = pure $
     else Left ("Bad type cons call to " <> consName)
 runFun expr params = runScopedFun expr params
 
-runScopedFun :: Value -> [Value] -> Scoper (Either String Value)
+runScopedFun :: Value -> [Value] -> Scoper EValue
 runScopedFun (VFunction cases) params = evaluateCases cases params
 runScopedFun (VTypeFunction _ _ _ cases) params = evaluateCases cases params
 runScopedFun _ _ = pure $ Left "Error: Bad function call"
 
-evaluateCases :: [FunctionCase] -> [Value] -> Scoper (Either String Value)
+evaluateCases :: [FunctionCase] -> [Value] -> Scoper EValue
 evaluateCases cases params = injectLift runWithTempScope $ do
     fcase <- pickFun cases params
     result <- addArgsToScope (fcaseArgs fcase) params

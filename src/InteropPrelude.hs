@@ -46,6 +46,26 @@ consLenImpl [x, (VList xs)] = pure $ VInt $ length (x:xs)
 nilLenImpl :: [Value] -> Scoper Value
 nilLenImpl [] = pure $ VInt 0
 
+consBindImpl :: [Value] -> Scoper Value
+consBindImpl [consHead, consTail, func] = do
+    mapped <- consMapImpl [consHead, consTail, func]
+    case mapped of
+      VList values -> joinValues values
+      _            -> stackTrace "Result of map in bind wasn't a list"
+  where
+    unList :: Value -> Either String [Value]
+    unList (VList vals) = Right vals
+    unList _            = Left "Result of bind on list must be a list"
+
+    joinValues :: [Value] -> Scoper Value
+    joinValues values =
+      case sequence $ unList <$> values of
+        Left err   -> stackTrace err
+        Right vals -> pure $ VList $ join vals
+
+nilBindImpl :: [Value] -> Scoper Value
+nilBindImpl [_] = pure $ VList []
+
 consImpl :: [Value] -> Scoper Value
 consImpl [cHead, (VList cTail)] = pure $ VList (cHead:cTail)
 
@@ -80,6 +100,16 @@ preludeDefinitions =
         generateInteropCase
           [PatternArg "Nil" []]
           nilLenImpl
+    ]),
+    ("bind", [
+        generateInteropCase
+          [PatternArg "Cons" [IdArg "head", IdArg "tail"],
+           IdArg "func"]
+          consBindImpl,
+        generateInteropCase
+          [PatternArg "Nil" [],
+           IdArg "func"]
+          nilBindImpl
     ]),
     ("Nil", [generateInteropCase [] (const . pure $ VList [])]),
     ("Cons", [generateInteropCase [IdArg "head", IdArg "tail"] consImpl])

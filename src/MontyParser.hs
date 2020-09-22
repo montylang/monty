@@ -287,6 +287,27 @@ typeParser indent = do
     nameToArg "self" = SelfArg
     nameToArg  name  = IdArg name
 
+wrapParser :: Indent -> Parser PExpr
+wrapParser indent = do
+  _      <- try $ string "wrap" <* ws <* char '('
+  toWrap <- exprParser indent <* char ')'
+  addPos $ ExprWrap toWrap
+
+unwrapParser :: Indent -> Parser PExpr
+unwrapParser indent = do
+    _       <- try $ string "unwrap" <* ws <* char ':' <* eol1
+    content <- blockParser indent wrappableParser
+    addPos $ ExprUnwrap content
+  where
+    wrappableParser :: Indent -> Parser PExpr
+    wrappableParser ind = wrapParser ind <|> bindParser ind
+
+    bindParser :: Indent -> Parser PExpr
+    bindParser ind = do
+      varName <- try $ varIdParser ind <* ws <* string "<-" <* ws
+      value   <- exprParser ind
+      addPos $ ExprBind varName value
+
 listParser :: Indent -> Parser PExpr
 listParser indent =
   ExprList <$> multiParenParser '[' ']' (exprParser indent) >>= addPos
@@ -303,6 +324,7 @@ exprParser' indent = try (parenEater $ exprParser indent) <|> content
 
 exprParser :: Indent -> Parser PExpr
 exprParser indent = choice $ ($ indent) <$> [
+    unwrapParser,
     returnParser,
     classParser,
     ifParser,
