@@ -170,12 +170,6 @@ eval (ExprCall funExpr args) = do
     result     <- runFun fun evaledArgs
     unError result
 
--- return xs.bind((x): ys.bind((y): [[x, y]]))
--- return bind(xs, (x): bind(ys, (y): [[x, y]]))
--- return unwrap:
---   x <- xs
---   y <- ys
---   wrap([x, y])
 eval (ExprUnwrap content) = do
     unError =<< evalUnwrap' Nothing content
   where
@@ -193,6 +187,11 @@ eval (ExprUnwrap content) = do
 
     second :: (a, b) -> b
     second (_, b) = b
+
+    classForValue :: Value -> Id
+    classForValue (VList _) = "List"
+    classForValue (VTypeInstance cname _ _) = cname
+    classForValue _ = "<primitive>"
     
     evalUnwrap' :: Maybe Id -> [PExpr] -> Scoper EValue
     evalUnwrap' (Just className) [Pos _ (ExprWrap result)] = do
@@ -207,8 +206,13 @@ eval (ExprUnwrap content) = do
       pure $ Left "Last statement in unwrap must be wrap"
 
     evalUnwrap' (Just className) ((Pos _ (ExprBind var expr)):xs) = do
-      evaledExpr <- evalP expr
-      unwrapWithClassname className var evaledExpr xs
+      evaled <- evalP expr
+
+      if className == classForValue evaled
+        then unwrapWithClassname className var evaled xs
+        else pure $ Left $
+          "All binds in unwrap must be of same monad type. " <>
+          "Expected '" <> className <> "' got '" <> classForValue evaled <> "'"
 
     evalUnwrap' Nothing ((Pos _ (ExprBind var expr)):xs) = do
       evaledExpr <- evalP expr
@@ -226,6 +230,7 @@ eval (ExprUnwrap content) = do
         \(_) -> do
           unwrapped <- evalUnwrap' (Just className) xs
           case unwrapped of
+            -- TODO: Stack trace instead of runtime error
             Left err -> runtimeError err
             Right val -> pure $ val
       bindImpls  <- findInScope "bind"
