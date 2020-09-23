@@ -1,14 +1,14 @@
 * TODOs
 ** Basic Syntax
   - [X] String literals
-  - [ ] List
+  - [X] List
   - [ ] Dicts
   - [ ] Tuples
-  - [ ] Type def
+  - [X] Type def
   - [ ] Unaries (not '-')
-  - [ ] Lambdas
+  - [X] Lambdas
   - [ ] Pass
-  - [ ] Wrap/Unwrap
+  - [X] Wrap/Unwrap
   - [-] Infix operators
     - [X] Simple maths
     - [ ] is/is not
@@ -24,8 +24,9 @@
     - [X] Sugar syntax
   - [X] if/elif/else
   - [X] While
-
 ** Advanced
   - [ ] Infix precedence
-  - [ ] Pattern matching
+  - [-] Pattern matching
+    - [X] In function sigs
+    - [ ] Match statement
   - [ ] Types actually mean something....

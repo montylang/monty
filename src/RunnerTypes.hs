@@ -37,7 +37,6 @@ instance Eq FunctionCase where
 data Value
   = VInt Int
   | VString String
-  | VBoolean Bool
   | VFunction [FunctionCase]
   | VTypeCons {
       getVTypeConsClass :: Id,
@@ -69,7 +68,6 @@ data Value
 instance Show Value where
   show (VInt value) = show value
   show (VString value) = show value
-  show (VBoolean value) = show value
   show (VFunction _) = show "<function>"
   show (VTypeCons _ name args) =
     name <>

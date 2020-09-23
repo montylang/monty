@@ -1,3 +1,17 @@
+class Bool:
+  True
+  False
+
+instance Bool of Equal:
+  def equals(True, True):
+    return True
+
+  def equals(False, False):
+    return True
+
+  def equals(_, __):
+    return False
+
 class Maybe:
   None
   Just(value)
@@ -39,6 +53,16 @@ instance Maybe of Monad:
   def wrap(value):
     return Just(value)
 
+instance Maybe of Equal:
+  def equals(None, None):
+    return True
+
+  def equals(Just(val1), Just(val2)):
+    return val1 == val2
+
+  def equals(_, __):
+    return False
+
 class Either:
   Left(value)
   Right(value)
@@ -79,3 +103,13 @@ instance Either of Monad:
 
   def wrap(value):
     return Right(value)
+
+instance Either of Equal:
+  def equals(Left(val1), Left(val2)):
+    return val1 == val2
+
+  def equals(Right(val1), Right(val2)):
+    return val1 == val2
+
+  def equals(_, __):
+    return False

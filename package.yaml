@@ -24,6 +24,7 @@ dependencies:
 - unordered-containers
 - hashable
 - mtl
+- microlens
 
 library:
   source-dirs: src

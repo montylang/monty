@@ -88,49 +88,6 @@ consParser indent = do
   exprId   <- addPos $ ExprId "Cons"
   addPos $ ExprCall exprId [headExpr, tailExpr]
 
--- Supports f(), f()(), f.map(something)(), etc
-exprCallParser :: Indent -> Parser PExpr
-exprCallParser indent = normalParserBoot <|> sugarParserBoot
-  where
-    callParser previous =
-      sugarParser previous <|>
-      normalParser previous <|>
-      pure previous
-
-    sugarInitial  = exprParser' indent <|> emptyTypeCallParser indent
-    normalInitial = exprParser' indent <|> exprTypeIdParser indent
-
-    sugarParserBoot :: Parser PExpr
-    sugarParserBoot = do
-      initialExpr <- try (sugarInitial <* ws <* (lookAhead $ char '.'))
-      sugarParser initialExpr
-
-    sugarParser :: PExpr -> Parser PExpr 
-    sugarParser previous = do
-      _       <- char '.'
-      fun     <- exprVarIdParser indent
-      argList <- multiParenParser '(' ')' $ exprParser indent
-      final   <- addPos $ ExprCall fun (previous:argList)
-      callParser final
-
-    normalParserBoot :: Parser PExpr 
-    normalParserBoot = do
-      initialExpr <- try (normalInitial <* ws <* (lookAhead $ char '('))
-      normalParser initialExpr
-
-    normalParser :: PExpr -> Parser PExpr 
-    normalParser previous = do
-      _       <- lookAhead $ char '('
-      argList <- multiParenParser '(' ')' $ exprParser indent
-      final   <- addPos $ ExprCall previous argList
-      callParser final
-
--- Bit of a hack but so is this entire language so whatever
-emptyTypeCallParser :: Indent -> Parser PExpr
-emptyTypeCallParser indent = do
-  exprId <- exprTypeIdParser indent
-  addPos $ ExprCall exprId []
-
 -- Eats surrounding parens of an expr, for disambiguation
 parenEater :: Parser PExpr -> Parser PExpr
 parenEater innerParser =
@@ -211,7 +168,7 @@ infixOpParser lhsParser = do
 
 infixParser :: Indent -> Parser PExpr
 infixParser indent = do
-  first  <- try $ infixOpParser (exprParser' indent)
+  first  <- try $ infixOpParser $ exprParser' indent
   second <- exprParser indent
   addPos $ first second
 
@@ -235,6 +192,12 @@ exprVarIdParser indent = ExprId <$> varIdParser indent >>= addPos
 
 exprTypeIdParser :: Indent -> Parser PExpr
 exprTypeIdParser indent = ExprId <$> typeIdParser indent >>= addPos
+
+exprTypeConsParser :: Indent -> Parser PExpr
+exprTypeConsParser indent = do
+  name <- ExprId <$> typeIdParser indent >>= addPos
+  args <- (multiParenParser '(' ')' $ exprParser indent) <|> pure []
+  addPos $ ExprCall name args
 
 intParser :: Indent -> Parser PExpr
 intParser _ = ExprInt <$> signed sc decimal >>= addPos
@@ -312,11 +275,39 @@ listParser :: Indent -> Parser PExpr
 listParser indent =
   ExprList <$> multiParenParser '[' ']' (exprParser indent) >>= addPos
 
+chainableParser :: Indent -> PExpr -> Parser PExpr
+chainableParser indent previous =
+    sugarCallParser previous <|> normalCallParser previous <|> pure previous
+  where
+    sugarCallParser :: PExpr -> Parser PExpr
+    sugarCallParser prev = do
+      _       <- char '.'
+      fun     <- exprVarIdParser indent
+      argList <- multiParenParser '(' ')' $ exprParser indent
+      final   <- addPos $ ExprCall fun (prev:argList)
+      chainableParser indent final
+
+    normalCallParser :: PExpr -> Parser PExpr 
+    normalCallParser prev = do
+      argList <- multiParenParser '(' ')' $ exprParser indent
+      final   <- addPos $ ExprCall prev argList
+      chainableParser indent final
+
 exprParser' :: Indent -> Parser PExpr
-exprParser' indent = try (parenEater $ exprParser indent) <|> content
+exprParser' indent = chainableParser indent =<< 
+    (try (parenEater $ exprParser indent) <|> content)
   where
     content = choice $ ($ indent) <$> [
+        instanceParser,
+        unwrapParser,
+        returnParser,
+        classParser,
+        namedDefParser,
+        defParser,
+        ifParser,
+        typeParser,
         exprVarIdParser,
+        exprTypeConsParser,
         intParser,
         listParser,
         stringParser
@@ -324,19 +315,9 @@ exprParser' indent = try (parenEater $ exprParser indent) <|> content
 
 exprParser :: Indent -> Parser PExpr
 exprParser indent = choice $ ($ indent) <$> [
-    unwrapParser,
-    returnParser,
-    classParser,
-    ifParser,
-    namedDefParser,
-    defParser,
     lambdaParser,
     infixParser,
     assignmentParser,
-    exprCallParser,
-    emptyTypeCallParser,
-    typeParser,
-    instanceParser,
     consParser,
     exprParser'
   ]

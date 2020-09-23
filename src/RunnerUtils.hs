@@ -2,10 +2,13 @@ module RunnerUtils where
 
 import Debug.Trace
 import Data.Maybe
-import Data.List (intercalate)
+import Data.List
 import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
+import Lens.Micro
+import Lens.Micro.Extras
 import System.Exit
+
 import RunnerTypes
 import ParserTypes
 
@@ -21,7 +24,6 @@ stackTrace message = pure $ VError [] message
 typeOfValue :: Value -> String
 typeOfValue (VInt _)                = "Int"
 typeOfValue (VString _)             = "String"
-typeOfValue (VBoolean _)            = "Bool"
 typeOfValue (VFunction _)           = "Function" -- TODO: Become a signature
 typeOfValue (VTypeCons cl name _)   = cl <> "(" <> name <> ")"
 typeOfValue (VTypeDef _ _)          = "TypeDef"
@@ -65,6 +67,29 @@ findInTopScope = gets . findInScope'
   where
     findInScope' key (top:_) = HM.lookup key top
     findInScope' _ _         = Nothing
+
+findImplsInScope :: Id -> Value -> Scoper [FunctionCase]
+findImplsInScope fname value = do
+    fnameImplsMaybe <- findInScope fname
+
+    pure $ fromMaybe [] $ do
+      cname      <- classForValue value
+      fnameImpls <- view _1 <$> fnameImplsMaybe
+      cases      <- toCases fnameImpls
+      pure $ findImpls cname cases
+  where
+    toCases :: Value -> Maybe [(Id, FunctionCase)]
+    toCases (VTypeFunction _ _ _ cases) = Just cases
+    toCases _                           = Nothing
+
+    findImpls :: Id -> [(Id, FunctionCase)] -> [FunctionCase]
+    findImpls monadClass cases =
+      (view _2) <$> filter ((monadClass ==) . (view _1)) cases
+
+classForValue :: Value -> Maybe Id
+classForValue (VList _) = Just "List"
+classForValue (VTypeInstance cname _ _) = Just cname
+classForValue _ = Nothing
 
 pushScopeBlock :: ScopeBlock -> Scoper ()
 pushScopeBlock block = do

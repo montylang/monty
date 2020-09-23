@@ -7,6 +7,8 @@ import Data.List
 import Data.Maybe
 import Control.Monad.State.Strict
 import Text.Megaparsec.Pos
+import Lens.Micro
+import Lens.Micro.Extras
 
 import ParserTypes
 import RunnerTypes
@@ -14,12 +16,14 @@ import CallableUtils
 import RunnerUtils
 import InstanceUtils (addImplementation)
 
-infixEval :: Value -> InfixOp -> Value -> Value
-infixEval (VInt first) InfixAdd (VInt second) = VInt $ first + second
-infixEval (VInt first) InfixSub (VInt second) = VInt $ first - second
-infixEval (VInt first) InfixMul (VInt second) = VInt $ first * second
-infixEval (VInt first) InfixEq (VInt second) = VBoolean $ first == second
-infixEval _ other _ = trace ("Unimplemented infix: " <> show other) undefined
+intInfixEval :: Value -> InfixOp -> Value -> Value
+intInfixEval (VInt first) InfixAdd (VInt second) = VInt $ first + second
+intInfixEval (VInt first) InfixSub (VInt second) = VInt $ first - second
+intInfixEval (VInt first) InfixMul (VInt second) = VInt $ first * second
+intInfixEval (VInt first) InfixEq (VInt second) =
+  VTypeInstance "Bool" (if first == second then "True" else "False") []
+
+intInfixEval _ other _ = trace ("Unimplemented infix: " <> show other) undefined
 
 unError :: Either String Value -> Scoper Value
 unError (Left err) = stackTrace err
@@ -90,10 +94,25 @@ eval (ExprInstanceOf className typeName implementations) = do
 
 eval (ExprInt a) = pure $ VInt a
 eval (ExprString a) = pure $ VString a
+eval (ExprInfix first InfixEq second) = do
+    f <- evalP first
+    s <- evalP second
+
+    case f of
+      (VInt _) -> pure $ intInfixEval f InfixEq s
+      _        -> evalGeneric f s
+  where
+    evalGeneric f s = do
+      impls <- findImplsInScope "equals" f
+  
+      case impls of
+        []     -> stackTrace $ "No equals implementation for " <> show f
+        fcases -> unError =<< evaluateCases fcases [f, s]
+
 eval (ExprInfix first op second) = do
   f <- evalP first
   s <- evalP second
-  pure $ infixEval f op s
+  pure $ intInfixEval f op s
 
 eval (ExprIfElse ifCond elifConds elseBody) = do
      selectedBody <- pickBody (ifCond:elifConds)
@@ -103,10 +122,11 @@ eval (ExprIfElse ifCond elifConds elseBody) = do
     pickBody [] = pure $ elseBody
     pickBody ((CondBlock condition condBody):xs) = do
       condVal <- evalP condition
+
       case condVal of
-        VBoolean True  -> pure condBody
-        VBoolean False -> pickBody xs
-        _              -> runtimeError "Condition is not a boolean"
+        (VTypeInstance _ "True" _)  -> pure condBody
+        (VTypeInstance _ "False" _) -> pickBody xs
+        _           -> runtimeError "Condition is not a boolean"
 
     evalBody :: [PExpr] -> Scoper Value
     evalBody exprs = do
@@ -173,34 +193,14 @@ eval (ExprCall funExpr args) = do
 eval (ExprUnwrap content) = do
     unError =<< evalUnwrap' Nothing content
   where
-    findImpl :: Id -> [(Id, FunctionCase)] -> Maybe FunctionCase
-    findImpl monadClass cases =
-      second <$> find ((monadClass ==) . first) cases
-    
-    -- TODO: Care about the scope
-    toCases :: Value -> Maybe [(Id, FunctionCase)]
-    toCases (VTypeFunction _ _ _ cases) = Just cases
-    toCases _                           = Nothing
-
-    first :: (a, b) -> a
-    first (a, _) = a
-
-    second :: (a, b) -> b
-    second (_, b) = b
-
-    classForValue :: Value -> Id
-    classForValue (VList _) = "List"
-    classForValue (VTypeInstance cname _ _) = cname
-    classForValue _ = "<primitive>"
-    
     evalUnwrap' :: Maybe Id -> [PExpr] -> Scoper EValue
     evalUnwrap' (Just className) [Pos _ (ExprWrap result)] = do
       evaledResult <- evalP result
-      wrapImpls <- findInScope "wrap"
+      impls <- findImplsInScope "wrap" evaledResult
 
-      case findImpl className =<< toCases =<< first <$> wrapImpls of
-        Just fcase -> evaluateCases [fcase] [evaledResult]
-        Nothing    -> pure $ Left $ "No wrap implementation for " <> className
+      case impls of
+        []     -> pure $ Left $ "No wrap implementation for " <> className
+        fcases -> evaluateCases fcases [evaledResult]
 
     evalUnwrap' _ [_] =
       pure $ Left "Last statement in unwrap must be wrap"
@@ -208,11 +208,13 @@ eval (ExprUnwrap content) = do
     evalUnwrap' (Just className) ((Pos _ (ExprBind var expr)):xs) = do
       evaled <- evalP expr
 
-      if className == classForValue evaled
+      if (Just className) == classForValue evaled
         then unwrapWithClassname className var evaled xs
         else pure $ Left $
           "All binds in unwrap must be of same monad type. " <>
-          "Expected '" <> className <> "' got '" <> classForValue evaled <> "'"
+          "Expected '" <> className <> "' got '" <>
+          (fromMaybe "<primitive>" (classForValue evaled)) <>
+          "'"
 
     evalUnwrap' Nothing ((Pos _ (ExprBind var expr)):xs) = do
       evaledExpr <- evalP expr
@@ -233,11 +235,12 @@ eval (ExprUnwrap content) = do
             -- TODO: Stack trace instead of runtime error
             Left err -> runtimeError err
             Right val -> pure $ val
-      bindImpls  <- findInScope "bind"
 
-      case findImpl className =<< toCases =<< first <$> bindImpls of
-        Just fcase -> evaluateCases [fcase] [expr, VFunction [lambda]]
-        Nothing    -> pure $ Left $ "No bind implementation for " <> className
+      impls <- findImplsInScope "bind" expr
+
+      case impls of
+        []     -> pure $ Left $ "No bind implementation for " <> className
+        fcases -> evaluateCases fcases [expr, VFunction [lambda]]
 
 eval other = stackTrace ("Error (unimplemented expr eval): " <> show other)
 
