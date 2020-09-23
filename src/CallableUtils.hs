@@ -13,7 +13,7 @@ pickFun cases params = do
   case find (funCaseMatchesParams params) cases of
     Just funCase -> pure funCase 
     -- FIXME: Better error message
-    Nothing      -> runtimeError $ "No function defined for " <> show (typeOfValue <$> params)
+    Nothing      -> runtimeError $ "No function defined for " <> show params
 
 funCaseMatchesParams :: [Value] -> FunctionCase -> Bool
 funCaseMatchesParams params fcase =

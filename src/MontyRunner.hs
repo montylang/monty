@@ -22,7 +22,6 @@ intInfixEval (VInt first) InfixSub (VInt second) = VInt $ first - second
 intInfixEval (VInt first) InfixMul (VInt second) = VInt $ first * second
 intInfixEval (VInt first) InfixEq (VInt second) =
   VTypeInstance "Bool" (if first == second then "True" else "False") []
-
 intInfixEval _ other _ = trace ("Unimplemented infix: " <> show other) undefined
 
 unError :: Either String Value -> Scoper Value
@@ -98,9 +97,11 @@ eval (ExprInfix first InfixEq second) = do
     f <- evalP first
     s <- evalP second
 
-    case f of
-      (VInt _) -> pure $ intInfixEval f InfixEq s
-      _        -> evalGeneric f s
+    if typesEqual f s
+      then case f of
+        (VInt _) -> pure $ intInfixEval f InfixEq s
+        _        -> evalGeneric f s
+      else stackTrace "Cannot compare values of different types"
   where
     evalGeneric f s = do
       impls <- findImplsInScope "equals" f
@@ -136,15 +137,15 @@ eval (ExprIfElse ifCond elifConds elseBody) = do
 eval (ExprList []) = pure $ VList []
 eval (ExprList (x:xs)) = do
     headEvaled <- evalP x
-    tailEvaled <- sequence $ enforceType (typeOfValue headEvaled) <$> xs
+    tailEvaled <- sequence $ enforceType headEvaled <$> xs
     case sequence tailEvaled of
       Left err   -> stackTrace err
       Right t -> pure $ VList (headEvaled:t)
   where
-    enforceType :: String -> PExpr -> Scoper EValue
-    enforceType typeStr expr = do
+    enforceType :: Value -> PExpr -> Scoper EValue
+    enforceType headVal expr = do
       evaled <- evalP expr
-      pure $ if (typeOfValue evaled) == typeStr
+      pure $ if typesEqual evaled headVal
         then Right evaled
         else Left "List must be of the same type"
 

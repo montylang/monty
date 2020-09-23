@@ -21,21 +21,11 @@ runtimeError message = do
 stackTrace :: String -> Scoper Value
 stackTrace message = pure $ VError [] message
 
-typeOfValue :: Value -> String
-typeOfValue (VInt _)                = "Int"
-typeOfValue (VString _)             = "String"
-typeOfValue (VFunction _)           = "Function" -- TODO: Become a signature
-typeOfValue (VTypeCons cl name _)   = cl <> "(" <> name <> ")"
-typeOfValue (VTypeDef _ _)          = "TypeDef"
-typeOfValue (VTypeFunction _ _ _ _) = "Function" -- TODO: Become a signature
-typeOfValue (VScoped val _)         = typeOfValue val
-typeOfValue (VClass _)              = "Class"
-typeOfValue (VList [])              = "List()"
-typeOfValue (VList (x:_))           = "List(" <> typeOfValue x <> ")"
-typeOfValue (VDict)                 = "Dict"
-typeOfValue (VTuple)                = "Tuple"
-typeOfValue (VTypeInstance _ typeName values) =
-  typeName <> "(" <> intercalate "," (typeOfValue <$> values) <> ")"
+typesEqual :: Value -> Value -> Bool
+typesEqual (VTypeInstance t1 _ _) (VTypeInstance t2 _ _) = t1 == t2
+typesEqual (VInt _) (VInt _)       = True
+typesEqual (VString _) (VString _) = True
+typesEqual _ _                     = False
 
 -- TODO: Don't allow overriding of values in top scope
 addToScope :: String -> Value -> Scoper ()
