@@ -1,0 +1,13 @@
+class Bool:
+  True
+  False
+
+instance Bool of Equal:
+  def equals(True, True):
+    return True
+
+  def equals(False, False):
+    return True
+
+  def equals(_, __):
+    return False

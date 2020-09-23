@@ -335,12 +335,21 @@ blockParser base parser = do
 bodyParser :: Indent -> Parser [PExpr]
 bodyParser base = blockParser base exprParser
 
+-- import PackageName
+importParser :: Parser PExpr
+importParser = do
+  _    <- try (rword "import")
+  path <- sepBy1 (varIdParser "") (char '.')
+  addPos $ ExprImport path
+
 rootBodyParser :: Parser [PExpr]
 rootBodyParser = do
     _ <- many $ try singleEol
+    imports <- many (importParser <* eol1)
+    _ <- many $ try singleEol
     first <- exprParser "" <* lookAhead singleEol
     rest  <- many stmt <* eof
-    pure $ first:(catMaybes rest)
+    pure $ imports <> (first:(catMaybes rest))
   where
     stmt :: Parser (Maybe PExpr)
     stmt = try blankLine <|> something

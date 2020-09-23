@@ -1,20 +1,16 @@
 module MontyRunner where
 
-import Prelude
 import Debug.Trace
-import Data.Either
-import Data.List
 import Data.Maybe
 import Control.Monad.State.Strict
-import Text.Megaparsec.Pos
-import Lens.Micro
-import Lens.Micro.Extras
+import Text.Megaparsec
 
 import ParserTypes
 import RunnerTypes
 import CallableUtils
 import RunnerUtils
 import InstanceUtils (addImplementation)
+import ModuleLoader
 
 intInfixEval :: Value -> InfixOp -> Value -> Value
 intInfixEval (VInt first) InfixAdd (VInt second) = VInt $ first + second
@@ -242,6 +238,10 @@ eval (ExprUnwrap content) = do
       case impls of
         []     -> pure $ Left $ "No bind implementation for " <> className
         fcases -> evaluateCases fcases [expr, VFunction [lambda]]
+
+eval (ExprImport components) = do
+  loadModule evalP components
+  pure $ VInt 0
 
 eval other = stackTrace ("Error (unimplemented expr eval): " <> show other)
 

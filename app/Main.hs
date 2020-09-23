@@ -4,7 +4,6 @@ import System.Environment
 import Control.Monad.State.Strict
 import qualified Data.HashMap.Strict as HM
 import Text.Megaparsec
-import Text.Megaparsec.Error
 
 import InteropPrelude
 import RunnerTypes
@@ -12,16 +11,17 @@ import RunnerUtils (addToScope, findInTopScope, addToStub)
 import ParserTypes
 import MontyRunner (evalP)
 import MontyParser (rootBodyParser)
+import ModuleLoader
 
 -- TODO: This entire file is waste
 
 parseFromFile p file = runParser p file <$> readFile file
 
-runs :: [PExpr] -> [PExpr] -> [PExpr] -> Scoper ()
-runs preExprs postExprs exprs = do
-    _ <- sequence $ evalP <$> preExprs
+run :: [PExpr] -> Scoper ()
+run exprs = do
+    _ <- loadModule evalP ["mylib", "prelude"]
     _ <- sequence $ (uncurry3 addOrUpdateInterops) <$> preludeDefinitions
-    _ <- sequence $ evalP <$> postExprs
+    _ <- loadModule evalP ["mylib", "postlude"]
     _ <- sequence $ evalP <$> exprs
     pure ()
   where
@@ -35,9 +35,6 @@ runs preExprs postExprs exprs = do
         Just a  -> foldl (flip $ addToStub cname) a body
         Nothing -> VFunction body
 
-run :: [PExpr] -> [PExpr] -> [PExpr] -> IO ()
-run preExprs postExprs exprs = evalStateT (runs preExprs postExprs exprs) [HM.empty]
-
 lineSep :: String
 lineSep = '-' <$ [1..80]
 
@@ -45,17 +42,10 @@ main :: IO ()
 main = do
   args   <- getArgs
   -- FIXME: You know what's wrong ;)
-  parsedPrelude  <- parseFromFile rootBodyParser "mylib/prelude.my"
-  parsedPostlude <- parseFromFile rootBodyParser "mylib/postlude.my"
-  parsedProgram  <- parseFromFile rootBodyParser (head args)
+  parsedProgram <- parseFromFile rootBodyParser (head args)
   putStrLn lineSep
-  parsed <- pure $ do
-    pre <- parsedPrelude
-    post <- parsedPostlude
-    program <- parsedProgram
-    pure (pre, post, program)
-  case parsed of
-    (Right (pre, post, prog)) -> run pre post prog
+  case parsedProgram of
+    (Right prog) -> evalStateT (run prog) [HM.empty]
     (Left a) -> putStrLn $ errorBundlePretty a
   putStrLn lineSep
   pure ()

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 59b56b93e2da85fcd61789da9b1f0f12e7b5b34332c216a37b187984868f9f12
+-- hash: 656c6f6c99639b2529681deb993348d167d578700f2108fea641e60c7d2fa8e3
 
 name:           copenhagen
 version:        0.1.0.0
@@ -29,6 +29,7 @@ library
       CallableUtils
       InstanceUtils
       InteropPrelude
+      ModuleLoader
       MontyParser
       MontyRunner
       ParserTypes
@@ -40,6 +41,8 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , directory
+    , filepath
     , hashable
     , megaparsec
     , microlens
@@ -57,6 +60,8 @@ executable copenhagen-exe
   build-depends:
       base >=4.7 && <5
     , copenhagen
+    , directory
+    , filepath
     , hashable
     , megaparsec
     , microlens
@@ -75,6 +80,8 @@ test-suite copenhagen-test
   build-depends:
       base >=4.7 && <5
     , copenhagen
+    , directory
+    , filepath
     , hashable
     , hspec
     , megaparsec

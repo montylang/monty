@@ -1,0 +1,50 @@
+class Maybe:
+  None
+  Just(value)
+
+instance Maybe of Functor:
+  def map(Just(value), f):
+    return Just(f(value))
+
+  def map(_, __):
+    return None
+
+instance Maybe of Foldable:
+  def foldl(Just(value), initial, folder):
+    return folder(initial, value)
+
+  def foldl(None, initial, _):
+    return initial
+
+  def len(Just(_)):
+    return 1
+
+  def len(_):
+    return 0
+
+instance Maybe of Applicative:
+  def apply(Just(f), inputMaybe):
+    return map(inputMaybe, f)
+
+  def apply(None, _):
+    return None
+
+instance Maybe of Monad:
+  def bind(Just(value), f):
+    return f(value)
+
+  def bind(None, _):
+    return None
+
+  def wrap(value):
+    return Just(value)
+
+instance Maybe of Equal:
+  def equals(None, None):
+    return True
+
+  def equals(Just(val1), Just(val2)):
+    return val1 == val2
+
+  def equals(_, __):
+    return False

@@ -1,0 +1,50 @@
+class Either:
+  Left(value)
+  Right(value)
+
+instance Either of Functor:
+  def map(Right(value), f):
+    return Right(f(value))
+
+  def map(l, _):
+    return l
+
+instance Either of Foldable:
+  def foldl(Right(value), initial, folder):
+    return folder(initial, value)
+
+  def foldl(_, initial, __):
+    return initial
+
+  def len(Right(_)):
+    return 1
+
+  def len(_):
+    return 0
+
+instance Either of Applicative:
+  def apply(Right(f), inputMaybe):
+    return map(inputMaybe, f)
+
+  def apply(l, _):
+    return l
+
+instance Either of Monad:
+  def bind(Right(value), f):
+    return f(value)
+
+  def bind(l, _):
+    return l
+
+  def wrap(value):
+    return Right(value)
+
+instance Either of Equal:
+  def equals(Left(val1), Left(val2)):
+    return val1 == val2
+
+  def equals(Right(val1), Right(val2)):
+    return val1 == val2
+
+  def equals(_, __):
+    return False
