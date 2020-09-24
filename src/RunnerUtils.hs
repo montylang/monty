@@ -5,6 +5,7 @@ import Data.Maybe
 import Data.List
 import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
+import Control.Monad.Except
 import Lens.Micro
 import Lens.Micro.Extras
 import System.Exit
@@ -14,12 +15,12 @@ import ParserTypes
 
 runtimeError :: String -> Scoper a
 runtimeError message = do
-  _ <- lift $ die message
+  _ <- liftIO $ die message
   -- Will never get reached, but hey, it fixes compiler errors
   undefined
 
 stackTrace :: String -> Scoper Value
-stackTrace message = pure $ VError [] message
+stackTrace message = throwError $ ErrString message
 
 typesEqual :: Value -> Value -> Bool
 typesEqual (VTypeInstance t1 _ _) (VTypeInstance t2 _ _) = t1 == t2

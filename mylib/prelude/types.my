@@ -22,3 +22,6 @@ class Ordering:
   LT
   GT
   EQ
+
+type Show:
+  def str(self)

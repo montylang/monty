@@ -3,25 +3,16 @@ module RunnerTypes where
 import Data.List (intercalate)
 import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
+import Control.Monad.Except
 import ParserTypes
 import Text.Megaparsec.Pos (SourcePos)
 
 type ScopeBlock = HM.HashMap Id Value
 type Scope      = [ScopeBlock]
 
-type Scoper a = StateT Scope IO a
-
-type EValue = Either String Value
-
--- listMapArgHead = "head"
--- listMapArgTail = "tail"
-
--- listMapBody :: Scoper Value
--- listMapBody = do
---   head <- findInScope listMapArgHead
---   tail <- findInScope "tail"
-
--- a = InteropCase [PatternArg "Just" [IdArg "wubalubadubdub"]] isJust
+data ErrVal = ErrString String
+  
+type Scoper a = StateT Scope (ExceptT ErrVal IO) a
 
 data FunctionCase
   = FunctionCase { fcaseArgs :: [Arg], fcaseBody :: [PExpr] }
@@ -62,7 +53,6 @@ data Value
   | VList [Value]
   | VDict    
   | VTuple   
-  | VError [SourcePos] String -- aka die aka move on to a better place (hopefully)
   deriving (Eq)
 
 instance Show Value where
@@ -86,4 +76,3 @@ instance Show Value where
   show (VList values) = show values
   show (VDict) = undefined
   show (VTuple) = undefined
-  show (VError _ message) = "<error " <> message <> ">"

@@ -2,6 +2,7 @@ module Main where
 
 import System.Environment
 import Control.Monad.State.Strict
+import Control.Monad.Except
 import qualified Data.HashMap.Strict as HM
 import Text.Megaparsec
 
@@ -45,7 +46,8 @@ main = do
   parsedProgram <- parseFromFile rootBodyParser (head args)
   putStrLn lineSep
   case parsedProgram of
-    (Right prog) -> evalStateT (run prog) [HM.empty]
+    -- TODO: Show errors?
+    (Right prog) -> (runExceptT $ evalStateT (run prog) [HM.empty]) *> pure ()
     (Left a) -> putStrLn $ errorBundlePretty a
   putStrLn lineSep
   pure ()

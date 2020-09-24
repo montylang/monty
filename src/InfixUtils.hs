@@ -5,6 +5,7 @@ import Debug.Trace
 import ParserTypes
 import RunnerTypes
 import TypeUtils
+import RunnerUtils
 
 intInfixEval :: Value -> InfixOp -> Value -> Value
 intInfixEval (VInt first) InfixAdd (VInt second) = VInt $ first + second
@@ -24,7 +25,7 @@ opToComp InfixGe value = isVInstanceNamed "GT" value || isVInstanceNamed "EQ" va
 opToComp InfixLe value = isVInstanceNamed "LT" value || isVInstanceNamed "EQ" value
 opToComp _ _ = undefined
 
-applyUnaryNot :: Value -> Scoper EValue
-applyUnaryNot (VTypeInstance "Bool" "True" [])  = pure $ Right vfalse
-applyUnaryNot (VTypeInstance "Bool" "False" []) = pure $ Right vtrue
-applyUnaryNot value = pure $ Left $ "Cannot negate " <> show value
+applyUnaryNot :: Value -> Scoper Value
+applyUnaryNot (VTypeInstance "Bool" "True" [])  = pure $ vfalse
+applyUnaryNot (VTypeInstance "Bool" "False" []) = pure $ vtrue
+applyUnaryNot value = stackTrace $ "Cannot negate " <> show value

@@ -2,7 +2,6 @@
 module InteropPrelude (preludeDefinitions) where
 
 import Control.Monad.State.Strict
-import Data.Either
 
 import ParserTypes
 import RunnerTypes
@@ -11,31 +10,24 @@ import MontyRunner
 
 debugImpl :: [Value] -> Scoper Value
 debugImpl [input] = do
-  lift $ putStrLn $ show input
+  liftIO $ putStrLn $ show input
   pure input
 
 consMapImpl :: [Value] -> Scoper Value
 consMapImpl [x, (VList xs), func] = do
   ranHead <- runFun func [x]
   ranTail <- sequence $ (\el -> runFun func [el]) <$> xs
-  case (ranHead, sequence ranTail) of
-    (Right h, Right t) -> pure $ VList (h:t)
-    (Left err, _)      -> stackTrace err
-    (_, Left err)      -> stackTrace err
+  pure $ VList (ranHead:ranTail)
 
 nilMapImpl :: [Value] -> Scoper Value
 nilMapImpl _ = pure $ VList []
 
 consFoldlImpl :: [Value] -> Scoper Value
-consFoldlImpl [x, (VList xs), initial, folder] = do
-    res <- foldM nativeFolder (Right initial) (x:xs)
-    case res of
-      Left(err)  -> stackTrace err
-      Right(suc) -> pure suc
+consFoldlImpl [x, (VList xs), initial, folder] =
+    foldM nativeFolder initial (x:xs)
   where
-    nativeFolder :: (Either String Value) -> Value -> Scoper (Either String Value)
-    nativeFolder err@(Left _) _ = pure err
-    nativeFolder (Right acc) it = runFun folder [acc, it]
+    nativeFolder :: Value -> Value -> Scoper Value
+    nativeFolder acc it = runFun folder [acc, it]
 
 nilFoldlImpl :: [Value] -> Scoper Value
 nilFoldlImpl [initial, _] = pure initial

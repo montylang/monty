@@ -2,6 +2,15 @@ class Maybe:
   None
   Just(value)
 
+instance Maybe of Show:
+  def str(None):
+    return "None"
+
+  def str(Just(val)):
+    # TODO:!
+    #return "Just(" + str(val) + ")"
+    return "Just"
+
 instance Maybe of Functor:
   def map(Just(value), f):
     return Just(f(value))

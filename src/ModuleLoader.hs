@@ -13,13 +13,13 @@ import MontyParser (rootBodyParser)
 
 loadModule :: (PExpr -> Scoper Value) -> [String] -> Scoper ()
 loadModule evaler components = do
-    isFile <- lift $ doesFileExist (path <> ".my")
-    isDir  <- lift $ doesDirectoryExist path
+    isFile <- liftIO $ doesFileExist (path <> ".my")
+    isDir  <- liftIO $ doesDirectoryExist path
 
     if isFile then
       loadFiles evaler [path <> ".my"]
     else if isDir then do
-      content <- (lift $ listDirectory path)
+      content <- (liftIO $ listDirectory path)
       loadFiles evaler $ constructPath <$> filter isMontyFile content
     else
       runtimeError $ "Could not find module " <> intercalate "." components
@@ -37,7 +37,7 @@ loadFiles evaler paths = do
 
     loadFile :: String -> Scoper ()
     loadFile path = do
-      parsed <- lift $ parseFromFile rootBodyParser path
+      parsed <- liftIO $ parseFromFile rootBodyParser path
     
       case parsed of
         (Right exprs) -> (sequence $ evaler <$> exprs) *> pure () 

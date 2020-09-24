@@ -19,4 +19,4 @@ debug(Just(True).compare(None))
 
 debug(Just(1) > Just(2))
 debug(1 > 2)
-debug(2 < 3)
+debug(-2 < 3)
