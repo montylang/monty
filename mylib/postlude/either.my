@@ -13,7 +13,7 @@ instance Either of Foldable:
   def foldl(Right(value), initial, folder):
     return folder(initial, value)
 
-  def foldl(_, initial, __):
+  def foldl(_, initial, _):
     return initial
 
   def len(Right(_)):
@@ -46,5 +46,18 @@ instance Either of Equal:
   def equals(Right(val1), Right(val2)):
     return val1 == val2
 
-  def equals(_, __):
+  def equals(_, _):
     return False
+
+instance Either of Ordered:
+  def compare(Left(_), Left(_)):
+    return EQ
+
+  def compare(Right(val1), Right(val2)):
+    return compare(val1, val2)
+
+  def compare(Left(_), _):
+    return LT
+
+  def compare(_, Left(_)):
+    return GT

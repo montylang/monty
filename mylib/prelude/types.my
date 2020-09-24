@@ -13,4 +13,12 @@ type Monad:
   def wrap(value)
 
 type Equal:
-  def equals(self, other)
+  def equals(self, self)
+
+type Ordered:
+  def compare(self, self)
+
+class Ordering:
+  LT
+  GT
+  EQ

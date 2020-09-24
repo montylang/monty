@@ -3,6 +3,7 @@ module CallableUtils where
 import Prelude
 import Data.List (find)
 import Debug.Trace
+import Data.List
 
 import RunnerUtils
 import RunnerTypes
@@ -22,6 +23,7 @@ funCaseMatchesParams params fcase =
 argMatchesParam :: Arg -> Value -> Bool
 argMatchesParam (IdArg _) _ = True
 argMatchesParam (TypedIdArg _ t) (VTypeInstance cname _ _) = t == cname
+argMatchesParam (TypedIdArg _ "Int") (VInt _) = True
 argMatchesParam (PatternArg "Nil" _) (VList []) = True
 argMatchesParam (PatternArg "Cons" _) (VList (_:_)) = True
 argMatchesParam (PatternArg pname pargs) (VTypeInstance _ tname tvals) =
@@ -38,7 +40,7 @@ addArgsToScope fargs values | length fargs /= length values =
   pure $ Left "Mismatched argument length"
 addArgsToScope fargs values = do
   eitherList <- sequence $ addArg <$> zip fargs values
-  pure $ const () <$> sequence eitherList
+  pure $ () <$ sequence eitherList
 
 addArg :: (Arg, Value) -> Scoper (Either String ())
 

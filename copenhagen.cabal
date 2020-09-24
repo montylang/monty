@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 656c6f6c99639b2529681deb993348d167d578700f2108fea641e60c7d2fa8e3
+-- hash: f2e136ddf5881b217fd31132d668bc1c4a32f5cc28f1a1ed362f17d81cd00796
 
 name:           copenhagen
 version:        0.1.0.0
@@ -27,6 +27,7 @@ source-repository head
 library
   exposed-modules:
       CallableUtils
+      InfixUtils
       InstanceUtils
       InteropPrelude
       ModuleLoader
@@ -35,6 +36,7 @@ library
       ParserTypes
       RunnerTypes
       RunnerUtils
+      TypeUtils
   other-modules:
       Paths_copenhagen
   hs-source-dirs:

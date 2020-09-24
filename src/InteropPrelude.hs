@@ -72,6 +72,13 @@ listWrapImpl [value] = pure $ VList [value]
 consImpl :: [Value] -> Scoper Value
 consImpl [cHead, (VList cTail)] = pure $ VList (cHead:cTail)
 
+intCompareImpl :: [Value] -> Scoper Value
+intCompareImpl [(VInt first), (VInt second)] =
+    pure $ ordToVal $ compare first second
+  where 
+    ordToVal :: Ordering -> Value
+    ordToVal a = VTypeInstance "Ordering" (show a) []
+
 preludeDefinitions :: [(Id, Id, [FunctionCase])]
 preludeDefinitions =
   [
@@ -120,5 +127,11 @@ preludeDefinitions =
           listWrapImpl
     ]),
     ("List", "Nil", [generateInteropCase [] (const . pure $ VList [])]),
-    ("List", "Cons", [generateInteropCase [IdArg "head", IdArg "tail"] consImpl])
+    ("List", "Cons", [generateInteropCase [IdArg "head", IdArg "tail"] consImpl]),
+    ("Int", "compare", [
+        generateInteropCase
+          [TypedIdArg "first"  "Int",
+           TypedIdArg "second" "Int"]
+          intCompareImpl
+    ])
   ]

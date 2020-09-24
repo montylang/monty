@@ -9,5 +9,15 @@ instance Bool of Equal:
   def equals(False, False):
     return True
 
-  def equals(_, __):
+  def equals(_, _):
     return False
+
+instance Bool of Ordered:
+  def compare(False, True):
+    return LT
+
+  def compare(True, False):
+    return GT
+
+  def compare(_, _):
+    return EQ

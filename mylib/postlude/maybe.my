@@ -6,7 +6,7 @@ instance Maybe of Functor:
   def map(Just(value), f):
     return Just(f(value))
 
-  def map(_, __):
+  def map(_, _):
     return None
 
 instance Maybe of Foldable:
@@ -46,5 +46,18 @@ instance Maybe of Equal:
   def equals(Just(val1), Just(val2)):
     return val1 == val2
 
-  def equals(_, __):
+  def equals(_, _):
     return False
+
+instance Maybe of Ordered:
+  def compare(None, None):
+    return EQ
+
+  def compare(Just(val1), Just(val2)):
+    return compare(val1, val2)
+
+  def compare(None, _):
+    return LT
+
+  def compare(_, None):
+    return GT

@@ -29,6 +29,7 @@ typesEqual _ _                     = False
 
 -- TODO: Don't allow overriding of values in top scope
 addToScope :: String -> Value -> Scoper ()
+addToScope "_" _     = pure ()
 addToScope key value = modify addToScope'
   where
     addToScope' (topScope:lowerScopes) = newTop:lowerScopes
@@ -78,6 +79,7 @@ findImplsInScope fname value = do
 
 classForValue :: Value -> Maybe Id
 classForValue (VList _) = Just "List"
+classForValue (VInt _) = Just "Int"
 classForValue (VTypeInstance cname _ _) = Just cname
 classForValue _ = Nothing
 
@@ -117,6 +119,7 @@ generateInteropCase args fun = InteropCase args $ do
   where
     idsInArg :: Arg -> [Id]
     idsInArg (IdArg name) = [name]
+    idsInArg (TypedIdArg name _) = [name]
     idsInArg (PatternArg _ cargs) = cargs >>= idsInArg
     
     findArgsInScope :: [Arg] -> Scoper [Value]

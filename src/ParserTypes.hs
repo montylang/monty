@@ -19,12 +19,12 @@ data InfixOp
   | InfixMul  -- Semiring
   | InfixDiv
   | InfixMod  -- Semiring
-  | InfixEq       -- Equal equal(a, b): bool
-  | InfixNotEq    -- Equal
-  | InfixGreater  -- Ord : ord(a, b) == GT
-  | InfixLess
-  | InfixLessEqual
-  | InfixGreaterEqual
+  | InfixEq
+  | InfixNe
+  | InfixGt
+  | InfixLt
+  | InfixLe
+  | InfixGe
   | InfixLogicAnd -- Logic: lor(a, b): bool
   | InfixLogicOr
   | InfixCons

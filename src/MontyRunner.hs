@@ -8,22 +8,42 @@ import Text.Megaparsec
 import ParserTypes
 import RunnerTypes
 import CallableUtils
+import TypeUtils
 import RunnerUtils
+import InfixUtils
 import InstanceUtils (addImplementation)
 import ModuleLoader
 
-intInfixEval :: Value -> InfixOp -> Value -> Value
-intInfixEval (VInt first) InfixAdd (VInt second) = VInt $ first + second
-intInfixEval (VInt first) InfixSub (VInt second) = VInt $ first - second
-intInfixEval (VInt first) InfixMul (VInt second) = VInt $ first * second
-intInfixEval (VInt first) InfixEq (VInt second) =
-  VTypeInstance "Bool" (if first == second then "True" else "False") []
-intInfixEval _ other _ = trace ("Unimplemented infix: " <> show other) undefined
+bindT :: (Monad m, Monad t, Traversable t) => (a -> m (t b)) -> m (t a) -> m (t b)
+bindT f = (=<<) ((join <$>) . (traverse f))
+
+genericInfixEval :: Value -> InfixOp -> Value -> Scoper EValue
+genericInfixEval first InfixEq second =
+  applyBinaryFun "equals" first second
+genericInfixEval first InfixNe second =
+  bindT applyUnaryNot $ applyBinaryFun "equals" first second
+genericInfixEval first InfixGt second = compareOrderable first InfixGt second
+genericInfixEval first InfixGe second = compareOrderable first InfixGe second
+genericInfixEval first InfixLt second = compareOrderable first InfixLt second
+genericInfixEval first InfixLe second = compareOrderable first InfixLe second
+genericInfixEval _ op _ = trace ("Unimplemented generic infix " <> show op) undefined
+
+compareOrderable :: Value -> InfixOp -> Value -> Scoper EValue
+compareOrderable f op s =
+  (toBoolValue . opToComp op <$>) <$> applyBinaryFun "compare" f s
+
+applyBinaryFun :: Id -> Value -> Value -> Scoper EValue
+applyBinaryFun fname f s = do
+  impls <- findImplsInScope fname f
+
+  case impls of
+    []     -> pure $ Left $ "No '" <> fname <> "' implementation for " <> show f
+    fcases -> evaluateCases fcases [f, s]
 
 unError :: Either String Value -> Scoper Value
 unError (Left err) = stackTrace err
 unError (Right val) = pure val
-    
+
 evalP :: PExpr -> Scoper Value
 evalP (Pos pos expr) = do
   result <- eval expr
@@ -33,6 +53,7 @@ evalP (Pos pos expr) = do
     _ -> pure result
 
 eval :: Expr -> Scoper Value
+eval (ExprId "_") = stackTrace "Cannot use black hole as variable"
 eval (ExprId name) = do
     value <- findInScope name
     case toVScoped <$> value of
@@ -89,27 +110,18 @@ eval (ExprInstanceOf className typeName implementations) = do
 
 eval (ExprInt a) = pure $ VInt a
 eval (ExprString a) = pure $ VString a
-eval (ExprInfix first InfixEq second) = do
-    f <- evalP first
-    s <- evalP second
-
-    if typesEqual f s
-      then case f of
-        (VInt _) -> pure $ intInfixEval f InfixEq s
-        _        -> evalGeneric f s
-      else stackTrace "Cannot compare values of different types"
-  where
-    evalGeneric f s = do
-      impls <- findImplsInScope "equals" f
-  
-      case impls of
-        []     -> stackTrace $ "No equals implementation for " <> show f
-        fcases -> unError =<< evaluateCases fcases [f, s]
 
 eval (ExprInfix first op second) = do
   f <- evalP first
   s <- evalP second
-  pure $ intInfixEval f op s
+  if typesEqual f s
+    then case f of
+      (VInt _) -> pure $ intInfixEval f op s
+      _        ->
+        if typesEqual f s
+          then genericInfixEval f op s >>= unError
+          else stackTrace "Cannot compare values of different types"
+    else stackTrace "Cannot compare values of different types"
 
 eval (ExprIfElse ifCond elifConds elseBody) = do
      selectedBody <- pickBody (ifCond:elifConds)
