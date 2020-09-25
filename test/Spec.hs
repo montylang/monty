@@ -264,7 +264,7 @@ main = hspec $ do
         (Right $ pure $ ExprCall (pure $ ExprCall (pure $ ExprId "foo") []) [])
 
     it "Curried function call" $ do
-      (testParser exprCallParser $ "foo()()") `shouldBe`
+      (testParser exprParser $ "foo()()") `shouldBe`
         (Right $ pure $ ExprCall (pure $ ExprCall (pure $ ExprId "foo") []) [])
 
   describe "Classes but really just data" $ do

@@ -1,6 +1,5 @@
 module MontyRunner where
 
-import Debug.Trace
 import Data.Maybe
 import Control.Monad.State.Strict
 import Control.Monad.Except
@@ -25,7 +24,7 @@ genericInfixEval first InfixGt second = compareOrderable first InfixGt second
 genericInfixEval first InfixGe second = compareOrderable first InfixGe second
 genericInfixEval first InfixLt second = compareOrderable first InfixLt second
 genericInfixEval first InfixLe second = compareOrderable first InfixLe second
-genericInfixEval _ op _ = trace ("Unimplemented generic infix " <> show op) undefined
+genericInfixEval _ op _ = stackTrace ("Unimplemented generic infix " <> show op)
 
 compareOrderable :: Value -> InfixOp -> Value -> Scoper Value
 compareOrderable f op s =
@@ -92,15 +91,13 @@ eval (ExprInstanceOf className typeName implementations) = do
   where
     functionDefs :: Maybe (Value, Scope) -> Scoper [DefSignature]
     functionDefs (Just (VTypeDef _ sigs, _)) = pure sigs
-    functionDefs _ = runtimeError $ "Type " <> typeName <> " not found"
+    functionDefs _ = stackTrace $ "Type " <> typeName <> " not found"
 
     addAllImplementations :: Id -> [Id] -> [DefSignature] -> Scoper Value
     addAllImplementations cname consNames funcDefs = do
-      potentialErrors <-
-        sequence $ (addImplementation cname consNames funcDefs) <$> getPosValue <$> implementations
-      case sequence potentialErrors of
-        Left err -> throwError $ ErrString err
-        Right _  -> pure $ VInt 0 -- TODO: you know what you've done
+      _ <- sequence $ (addImplementation cname consNames funcDefs)
+                      <$> getPosValue <$> implementations
+      pure $ VInt 0 -- TODO: you know what you've done
 
 eval (ExprInt a) = pure $ VInt a
 eval (ExprString a) = pure $ VString a
@@ -129,7 +126,7 @@ eval (ExprIfElse ifCond elifConds elseBody) = do
       case condVal of
         (VTypeInstance _ "True" _)  -> pure condBody
         (VTypeInstance _ "False" _) -> pickBody xs
-        _           -> runtimeError "Condition is not a boolean"
+        _           -> stackTrace "Condition is not a boolean"
 
     evalBody :: [PExpr] -> Scoper Value
     evalBody exprs = do
@@ -263,10 +260,8 @@ runScopedFun _ _ = stackTrace "Error: Bad function call"
 evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
 evaluateCases cases params = runWithTempScope $ do
   fcase <- pickFun cases params
-  result <- addArgsToScope (fcaseArgs fcase) params
-  case result of
-    Left err -> stackTrace err
-    Right _ -> runFcase fcase
+  _     <- addArgsToScope (fcaseArgs fcase) params
+  runFcase fcase
 
 runFcase :: FunctionCase -> Scoper Value
 runFcase (FunctionCase _ body) = do

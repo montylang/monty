@@ -1,25 +1,16 @@
 module RunnerUtils where
 
-import Debug.Trace
 import Data.Maybe
-import Data.List
 import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
 import Control.Monad.Except
 import Lens.Micro
 import Lens.Micro.Extras
-import System.Exit
 
 import RunnerTypes
 import ParserTypes
 
-runtimeError :: String -> Scoper a
-runtimeError message = do
-  _ <- liftIO $ die message
-  -- Will never get reached, but hey, it fixes compiler errors
-  undefined
-
-stackTrace :: String -> Scoper Value
+stackTrace :: String -> Scoper a
 stackTrace message = throwError $ ErrString message
 
 typesEqual :: Value -> Value -> Bool
@@ -130,7 +121,7 @@ generateInteropCase args fun = InteropCase args $ do
       where 
         ids = cargs >>= idsInArg
 
-addToStub :: Id -> FunctionCase -> Value -> Value
+addToStub :: Id -> FunctionCase -> Value -> Scoper Value
 addToStub cname newCase (VTypeFunction tname fname args cases) =
-  VTypeFunction tname fname args (cases ++ [(cname, newCase)])
-addToStub _ _ _ = trace "Rat pies" undefined
+  pure $ VTypeFunction tname fname args (cases ++ [(cname, newCase)])
+addToStub _ _ _ = stackTrace "Cannot add stub case to non v-type function"

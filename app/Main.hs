@@ -32,9 +32,11 @@ run exprs = do
     addOrUpdateInterops :: Id -> Id -> [FunctionCase] -> Scoper ()
     addOrUpdateInterops cname name body = do
       result <- findInTopScope name
-      addToScope name $ case result of
-        Just a  -> foldl (flip $ addToStub cname) a body
-        Nothing -> VFunction body
+      folded <- case result of
+        Just a  -> foldM (flip $ addToStub cname) a body
+        Nothing -> pure $ VFunction body
+
+      addToScope name folded
 
 lineSep :: String
 lineSep = '-' <$ [1..80]

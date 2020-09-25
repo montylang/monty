@@ -6,39 +6,39 @@ import ParserTypes
 import RunnerTypes
 import RunnerUtils
 
-addImplementation :: Id -> [Id] -> [DefSignature] -> Expr -> Scoper (Either String ())
+addImplementation :: Id -> [Id] -> [DefSignature] -> Expr -> Scoper ()
 addImplementation cname classTypeCons available
-                  (ExprAssignment name (Pos _ (ExprDef args body))) =
-  case markArgs cname classTypeCons args =<< (getSigArgs name available) of
-    Right caseArgs -> addBodyToScope cname name body caseArgs
-    Left err       -> pure $ Left err
+                  (ExprAssignment name (Pos _ (ExprDef args body))) = do
+  sigArgs  <- getSigArgs name available
+  caseArgs <- markArgs cname classTypeCons args sigArgs 
+  addBodyToScope cname name body caseArgs
 addImplementation _ _ _ _ =
-  pure $ Left "Every root expr in an implementation must be a def"
+  stackTrace "Every root expr in an implementation must be a def"
 
-getSigArgs :: Id -> [DefSignature] -> Either String [Arg]
+getSigArgs :: Id -> [DefSignature] -> Scoper [Arg]
 getSigArgs cname cavailable =
   case find ((cname ==) . getDefSigFunName) cavailable of
-    Just sig -> Right $ getDefSigArgs sig
-    Nothing -> Left $ -- TODO: Types must currently have at least one function
+    Just sig -> pure $ getDefSigArgs sig
+    Nothing  -> stackTrace $ -- TODO: Types must currently have at least one function
       cname <> " is not part of type " <> (getDefSigTypeName $ head cavailable)
 
-updateStub :: Id -> Value -> [Arg] -> [PExpr] -> Value
+updateStub :: Id -> Value -> [Arg] -> [PExpr] -> Scoper Value
 updateStub cname stub caseArgs body =
   addToStub cname (FunctionCase caseArgs $ body) stub
 
-markArgs :: Id -> [Id] -> [Arg] -> [Arg] -> Either String [Arg]
+markArgs :: Id -> [Id] -> [Arg] -> [Arg] -> Scoper [Arg]
 markArgs cname classes argsA dargs =
   sequence $ (uncurry (validateArgs cname classes)) <$> zip dargs argsA
 
-validateArgs :: Id -> [Id] -> Arg -> Arg -> Either String Arg
-validateArgs cname _ SelfArg (IdArg argName) = Right $ TypedIdArg argName cname
+validateArgs :: Id -> [Id] -> Arg -> Arg -> Scoper Arg
+validateArgs cname _ SelfArg (IdArg argName) = pure $ TypedIdArg argName cname
 validateArgs cname classes SelfArg (PatternArg pname _) | not $ elem pname classes =
-  Left $ "Type constructor " <> pname <> " is not an " <> cname
-validateArgs _ _ _ arg = Right arg
+  stackTrace $ "Type constructor " <> pname <> " is not an " <> cname
+validateArgs _ _ _ arg = pure arg
 
-addBodyToScope :: Id -> Id -> [PExpr] -> [Arg] -> Scoper (Either String ())
+addBodyToScope :: Id -> Id -> [PExpr] -> [Arg] -> Scoper ()
 addBodyToScope cname name body caseArgs = do
   maybeStub <- findInScope name
   case maybeStub of
-    Just (ree, _) -> Right <$> (addToScope name $ updateStub cname ree caseArgs body)
-    _             -> pure $ Left $ name <> " is not in scope"
+    Just (ree, _) -> (addToScope name =<< updateStub cname ree caseArgs body)
+    _             -> stackTrace $ name <> " is not in scope"

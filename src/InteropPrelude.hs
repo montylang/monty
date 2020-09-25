@@ -45,15 +45,14 @@ consBindImpl [consHead, consTail, func] = do
       VList values -> joinValues values
       _            -> stackTrace "Result of map in bind wasn't a list"
   where
-    unList :: Value -> Either String [Value]
-    unList (VList vals) = Right vals
-    unList _            = Left "Result of bind on list must be a list"
+    unList :: Value -> Scoper [Value]
+    unList (VList vals) = pure vals
+    unList _            = stackTrace "Result of bind on list must be a list"
 
     joinValues :: [Value] -> Scoper Value
-    joinValues values =
-      case sequence $ unList <$> values of
-        Left err   -> stackTrace err
-        Right vals -> pure $ VList $ join vals
+    joinValues values = do
+      vals <- sequence $ unList <$> values
+      pure $ VList $ join vals
 
 nilBindImpl :: [Value] -> Scoper Value
 nilBindImpl [_] = pure $ VList []

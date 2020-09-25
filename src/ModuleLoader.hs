@@ -22,7 +22,7 @@ loadModule evaler components = do
       content <- (liftIO $ listDirectory path)
       loadFiles evaler $ constructPath <$> filter isMontyFile content
     else
-      runtimeError $ "Could not find module " <> intercalate "." components
+      stackTrace $ "Could not find module " <> intercalate "." components
   where
     path = intercalate [pathSeparator] components
     constructPath = (<>) $ path <> [pathSeparator]
@@ -38,7 +38,7 @@ loadFiles evaler paths = do
     loadFile :: String -> Scoper ()
     loadFile path = do
       parsed <- liftIO $ parseFromFile rootBodyParser path
-    
+
       case parsed of
         (Right exprs) -> (sequence $ evaler <$> exprs) *> pure () 
-        (Left a) -> (runtimeError $ errorBundlePretty a) *> pure ()
+        (Left a) -> stackTrace $ errorBundlePretty a

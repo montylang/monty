@@ -2,7 +2,6 @@ module MontyParser where
 
 import Data.Char
 import Data.Maybe
-import Debug.Trace
 import Text.Megaparsec hiding (Pos)
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer

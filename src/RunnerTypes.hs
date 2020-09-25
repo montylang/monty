@@ -5,14 +5,13 @@ import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
 import Control.Monad.Except
 import ParserTypes
-import Text.Megaparsec.Pos (SourcePos)
 
 type ScopeBlock = HM.HashMap Id Value
 type Scope      = [ScopeBlock]
 
 data ErrVal = ErrString String
-  
-type Scoper a = StateT Scope (ExceptT ErrVal IO) a
+
+type Scoper = StateT Scope (ExceptT ErrVal IO)
 
 data FunctionCase
   = FunctionCase { fcaseArgs :: [Arg], fcaseBody :: [PExpr] }
