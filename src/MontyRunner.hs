@@ -1,6 +1,8 @@
 module MontyRunner where
 
 import Data.Maybe
+import Lens.Micro
+import Lens.Micro.Extras
 import Control.Monad.State.Strict
 import Control.Monad.Except
 import Text.Megaparsec
@@ -105,14 +107,11 @@ eval (ExprString a) = pure $ VString a
 eval (ExprInfix first op second) = do
   f <- evalP first
   s <- evalP second
-  if typesEqual f s
-    then case f of
-      (VInt _) -> pure $ intInfixEval f op s
-      _        ->
-        if typesEqual f s
-          then genericInfixEval f op s
-          else stackTrace "Cannot compare values of different types"
-    else stackTrace "Cannot compare values of different types"
+  assert (typesEqual f s) "Cannot compare values of different types"
+
+  case f of
+    (VInt _) -> intInfixEval f op s
+    _        -> genericInfixEval f op s
 
 eval (ExprIfElse ifCond elifConds elseBody) = do
      selectedBody <- pickBody (ifCond:elifConds)
@@ -126,7 +125,7 @@ eval (ExprIfElse ifCond elifConds elseBody) = do
       case condVal of
         (VTypeInstance _ "True" _)  -> pure condBody
         (VTypeInstance _ "False" _) -> pickBody xs
-        _           -> stackTrace "Condition is not a boolean"
+        _                           -> stackTrace "Condition is not a boolean"
 
     evalBody :: [PExpr] -> Scoper Value
     evalBody exprs = do
@@ -142,9 +141,8 @@ eval (ExprList (x:xs)) = do
     enforceType :: Value -> PExpr -> Scoper Value
     enforceType headVal expr = do
       evaled <- evalP expr
-      if typesEqual evaled headVal
-        then pure evaled
-        else stackTrace "List must be of the same type"
+      assert (typesEqual evaled headVal) "List must be of the same type"
+      pure evaled
 
 eval (ExprDef args body) =
   pure $ VFunction [FunctionCase args body]
@@ -162,10 +160,10 @@ eval (ExprAssignment name value) = do
     pure evaledValue
   where
     appendFunctionCase :: [FunctionCase] -> Value -> Scoper Value
-    appendFunctionCase cases (VFunction [newCase]) =
-      if all (functionCaseFits newCase) cases
-        then stackTrace ("Invalid pattern match for function " <> name)
-        else pure $ VFunction (cases <> [newCase])
+    appendFunctionCase cases (VFunction [newCase]) = do
+      assert (all (functionCaseFits newCase) cases)
+        $ "Invalid pattern match for function " <> name
+      pure $ VFunction (cases <> [newCase])
     appendFunctionCase _ _ = stackTrace $ "Cannot mutate " <> name
 
     functionCaseFits :: FunctionCase -> FunctionCase -> Bool
@@ -177,10 +175,10 @@ eval (ExprAssignment name value) = do
         existingCaseArgs = fcaseArgs existingCase
 
     argFits :: Arg -> Arg -> Bool
-    argFits _ (IdArg _) = False
     argFits (IdArg _) (PatternArg _ _) = True
     argFits (PatternArg newName newArgs) (PatternArg existingName existingArgs) =
       newName /= existingName || all (uncurry argFits) (zip newArgs existingArgs)
+    argFits _ _ = False
 
 eval (ExprCall funExpr args) = do
     fun        <- evalP funExpr
@@ -244,17 +242,16 @@ runFun :: Value -> [Value] -> Scoper Value
 runFun (VScoped func fscope) params = do
   result <- runScopedFun func params
   runWithScope fscope (pure result)
-runFun (VTypeCons className consName cargs) params =
-  if (length cargs) == (length params)
-    then pure $ VTypeInstance className consName params
-    else stackTrace ("Bad type cons call to " <> consName)
+runFun (VTypeCons className consName cargs) params = do
+  assert ((length cargs) == (length params)) ("Bad type cons call to " <> consName)
+  pure $ VTypeInstance className consName params
 runFun expr params = runScopedFun expr params
 
 runScopedFun :: Value -> [Value] -> Scoper Value
 runScopedFun (VFunction cases) params = evaluateCases cases params
 runScopedFun (VTypeFunction _ _ _ tcases) params = evaluateCases cases params
   where
-    cases = (\(_, c) -> c) <$> tcases
+    cases = (view _2) <$> tcases
 runScopedFun _ _ = stackTrace "Error: Bad function call"
 
 evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value

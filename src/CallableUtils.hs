@@ -33,9 +33,8 @@ splitReturn exprs =
   in (beginning, returnExpr)
 
 addArgsToScope :: [Arg] -> [Value] -> Scoper ()
-addArgsToScope fargs values | length fargs /= length values =
-  stackTrace "Mismatched argument length"
 addArgsToScope fargs values = do
+  assert (length fargs == length values) "Mismatched argument length"
   _ <- sequence $ addArg <$> zip fargs values
   pure ()
 
@@ -52,14 +51,13 @@ addArg (PatternArg "Cons" [h, t], VList (x:xs)) = do
 
 addArg (PatternArg "Nil" [], _) = pure ()
 
-addArg (PatternArg pname _, VTypeInstance _ tname _) | (pname /= tname) =
-  stackTrace $ "Mismatched pattern match: " <> pname <> "," <> tname
+addArg (PatternArg pname pargs, VTypeInstance _ tname tvals) = do
+  assert (pname == tname) $
+    "Mismatched pattern match: " <> pname <> "," <> tname
 
-addArg (PatternArg pname pargs, VTypeInstance _ _ tvals)
-  | (length pargs /= length tvals) = 
-  stackTrace $ "Mismatched argument length for pattern match of " <> pname
+  assert (length pargs == length tvals) $
+    "Mismatched argument length for pattern match of " <> pname
 
-addArg (PatternArg _ pargs, VTypeInstance _ _ tvals) = do
   _ <- sequence $ addArg <$> (zip pargs tvals)
   pure ()
 

@@ -1,22 +1,20 @@
 module InfixUtils where
 
-import Debug.Trace
-
 import ParserTypes
 import RunnerTypes
 import TypeUtils
 import RunnerUtils
 
-intInfixEval :: Value -> InfixOp -> Value -> Value
-intInfixEval (VInt first) InfixAdd (VInt second) = VInt $ first + second
-intInfixEval (VInt first) InfixSub (VInt second) = VInt $ first - second
-intInfixEval (VInt first) InfixMul (VInt second) = VInt $ first * second
-intInfixEval (VInt first) InfixEq (VInt second) = toBoolValue $ first == second
-intInfixEval (VInt first) InfixGt (VInt second) = toBoolValue $ first > second
-intInfixEval (VInt first) InfixLt (VInt second) = toBoolValue $ first < second
-intInfixEval (VInt first) InfixGe (VInt second) = toBoolValue $ first >= second
-intInfixEval (VInt first) InfixLe (VInt second) = toBoolValue $ first <= second
-intInfixEval _ other _ = trace ("Unimplemented infix: " <> show other) undefined
+intInfixEval :: Value -> InfixOp -> Value -> Scoper Value
+intInfixEval (VInt first) InfixAdd (VInt second) = pure $ VInt $ first + second
+intInfixEval (VInt first) InfixSub (VInt second) = pure $ VInt $ first - second
+intInfixEval (VInt first) InfixMul (VInt second) = pure $ VInt $ first * second
+intInfixEval (VInt first) InfixEq (VInt second) = pure $ toBoolValue $ first == second
+intInfixEval (VInt first) InfixGt (VInt second) = pure $ toBoolValue $ first > second
+intInfixEval (VInt first) InfixLt (VInt second) = pure $ toBoolValue $ first < second
+intInfixEval (VInt first) InfixGe (VInt second) = pure $ toBoolValue $ first >= second
+intInfixEval (VInt first) InfixLe (VInt second) = pure $ toBoolValue $ first <= second
+intInfixEval _ other _ = stackTrace ("Unimplemented infix: " <> show other)
 
 opToComp :: InfixOp -> Value -> Bool
 opToComp InfixGt value = isVInstanceNamed "GT" value

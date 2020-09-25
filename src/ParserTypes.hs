@@ -97,4 +97,3 @@ instance Monad Pos where
   (Pos pos val) >>= f =
     let (Pos pos2 result) = f val in
       Pos (min pos pos2) result
- 

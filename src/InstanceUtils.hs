@@ -1,6 +1,8 @@
 module InstanceUtils  where
 
 import Data.List
+import Lens.Micro
+import Lens.Micro.Extras
 
 import ParserTypes
 import RunnerTypes
@@ -39,6 +41,6 @@ validateArgs _ _ _ arg = pure arg
 addBodyToScope :: Id -> Id -> [PExpr] -> [Arg] -> Scoper ()
 addBodyToScope cname name body caseArgs = do
   maybeStub <- findInScope name
-  case maybeStub of
-    Just (ree, _) -> (addToScope name =<< updateStub cname ree caseArgs body)
-    _             -> stackTrace $ name <> " is not in scope"
+  case (view _1) <$> maybeStub of
+    Just val -> (addToScope name =<< updateStub cname val caseArgs body)
+    _        -> stackTrace $ name <> " is not in scope"

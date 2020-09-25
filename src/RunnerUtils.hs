@@ -13,6 +13,10 @@ import ParserTypes
 stackTrace :: String -> Scoper a
 stackTrace message = throwError $ ErrString message
 
+assert :: Bool -> String -> Scoper ()
+assert False message = throwError $ ErrString message
+assert True _        = pure ()
+
 typesEqual :: Value -> Value -> Bool
 typesEqual (VTypeInstance t1 _ _) (VTypeInstance t2 _ _) = t1 == t2
 typesEqual (VInt _) (VInt _)       = True

@@ -70,9 +70,8 @@ intCompareImpl [(VInt first), (VInt second)] =
     ordToVal :: Ordering -> Value
     ordToVal a = VTypeInstance "Ordering" (show a) []
 
-preludeDefinitions :: [(Id, Id, [FunctionCase])]
-preludeDefinitions =
-  [
+listDefinitions :: [(Id, Id, [FunctionCase])]
+listDefinitions = [
     ("List", "debug", [generateInteropCase [IdArg "value"] debugImpl]),
     ("List", "map", [
         generateInteropCase
@@ -118,7 +117,11 @@ preludeDefinitions =
           listWrapImpl
     ]),
     ("List", "Nil", [generateInteropCase [] (const . pure $ VList [])]),
-    ("List", "Cons", [generateInteropCase [IdArg "head", IdArg "tail"] consImpl]),
+    ("List", "Cons", [generateInteropCase [IdArg "head", IdArg "tail"] consImpl])
+  ]
+
+intDefinitions :: [(Id, Id, [FunctionCase])]
+intDefinitions = [
     ("Int", "compare", [
         generateInteropCase
           [TypedIdArg "first"  "Int",
@@ -126,3 +129,7 @@ preludeDefinitions =
           intCompareImpl
     ])
   ]
+
+preludeDefinitions :: [(Id, Id, [FunctionCase])]
+preludeDefinitions =
+  listDefinitions <> intDefinitions
