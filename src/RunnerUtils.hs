@@ -4,8 +4,7 @@ import Data.Maybe
 import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
 import Control.Monad.Except
-import Lens.Micro
-import Lens.Micro.Extras
+import Lens.Micro.Platform
 
 import RunnerTypes
 import ParserTypes
@@ -23,37 +22,38 @@ typesEqual (VInt _) (VInt _)       = True
 typesEqual (VString _) (VString _) = True
 typesEqual _ _                     = False
 
--- TODO: Don't allow overriding of values in top scope
 addToScope :: String -> Value -> Scoper ()
 addToScope "_" _     = pure ()
-addToScope key value = modify addToScope'
+addToScope key value = scope %= addToScope'
   where
     addToScope' (topScope:lowerScopes) = newTop:lowerScopes
       where newTop = HM.insert key value topScope
     addToScope' [] = undefined
 
 unionTopScope :: [(Id, Value)] -> Scoper ()
-unionTopScope = modify . unionTopScope' . HM.fromList
+unionTopScope updates = scope %= unionTopScope' (HM.fromList updates)
   where
+    unionTopScope' :: ScopeBlock -> Scope -> Scope
     unionTopScope' new (topScopeBlock:bottomBlocks) =
       (HM.union new topScopeBlock):bottomBlocks
     unionTopScope' _ [] = undefined
 
 -- Returns the value for the given key, and the scope block where it is defined
 findInScope :: String -> Scoper (Maybe (Value, Scope))
-findInScope = gets . findInScope'
+findInScope key = findInScope' <$> use scope
   where
-    findInScope' _ [] = Nothing
-    findInScope' key (top:lower) =
+    findInScope' :: Scope -> Maybe (Value, Scope)
+    findInScope' [] = Nothing
+    findInScope' (top:lower) =
       case HM.lookup key top of
-        Nothing    -> findInScope' key lower
         Just value -> Just (value, top:lower)
+        Nothing    -> findInScope' lower
 
 findInTopScope :: String -> Scoper (Maybe Value)
-findInTopScope = gets . findInScope'
+findInTopScope key = findInScope' <$> use scope
   where
-    findInScope' key (top:_) = HM.lookup key top
-    findInScope' _ _         = Nothing
+    findInScope' (top:_) = HM.lookup key top
+    findInScope' _         = Nothing
 
 findImplsInScope :: Id -> Value -> Scoper [FunctionCase]
 findImplsInScope fname value = do
@@ -80,19 +80,13 @@ classForValue (VTypeInstance cname _ _) = Just cname
 classForValue _ = Nothing
 
 pushScopeBlock :: ScopeBlock -> Scoper ()
-pushScopeBlock block = do
-  scope <- get
-  put (block:scope)
+pushScopeBlock block = scope %= (block:)
 
 pushEmptyScopeBlock :: Scoper ()
 pushEmptyScopeBlock = pushScopeBlock HM.empty
 
 popScopeBlock :: Scoper ()
-popScopeBlock = do
-  scopes <- get
-  case scopes of 
-    []     -> pure ()
-    (_:xs) -> put xs
+popScopeBlock = scope %= drop 1
 
 runScopeWithSetup :: Scoper () -> Scoper Value -> Scoper Value
 runScopeWithSetup scopeSetup body = do
@@ -103,7 +97,7 @@ runScopeWithSetup scopeSetup body = do
   pure retVal
 
 runWithScope :: Scope -> Scoper Value -> Scoper Value
-runWithScope = runScopeWithSetup . put
+runWithScope s body = runScopeWithSetup (put $ Context s) body
 
 runWithTempScope :: Scoper Value -> Scoper Value
 runWithTempScope = runScopeWithSetup pushEmptyScopeBlock

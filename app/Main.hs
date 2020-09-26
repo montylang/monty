@@ -3,7 +3,6 @@ module Main where
 import System.Environment
 import Control.Monad.State.Strict
 import Control.Monad.Except
-import qualified Data.HashMap.Strict as HM
 import Text.Megaparsec
 
 import InteropPrelude
@@ -49,7 +48,7 @@ main = do
   putStrLn lineSep
   case parsedProgram of
     -- TODO: Show errors?
-    (Right prog) -> (runExceptT $ evalStateT (run prog) [HM.empty]) *> pure ()
+    (Right prog) -> (runExceptT $ evalStateT (run prog) emptyContext) *> pure ()
     (Left a) -> putStrLn $ errorBundlePretty a
   putStrLn lineSep
   pure ()

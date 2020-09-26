@@ -1,8 +1,7 @@
-module InstanceUtils  where
+module InstanceUtils where
 
 import Data.List
-import Lens.Micro
-import Lens.Micro.Extras
+import Lens.Micro.Platform
 
 import ParserTypes
 import RunnerTypes

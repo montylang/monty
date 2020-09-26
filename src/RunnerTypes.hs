@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module RunnerTypes where
 
 import Data.List (intercalate)
@@ -5,13 +6,21 @@ import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
 import Control.Monad.Except
 import ParserTypes
+import Lens.Micro.Platform
 
 type ScopeBlock = HM.HashMap Id Value
 type Scope      = [ScopeBlock]
 
 data ErrVal = ErrString String
 
-type Scoper = StateT Scope (ExceptT ErrVal IO)
+data Context = Context {
+  _scope :: Scope
+}
+
+emptyContext :: Context
+emptyContext = Context [HM.empty]
+
+type Scoper = StateT Context (ExceptT ErrVal IO)
 
 data FunctionCase
   = FunctionCase { fcaseArgs :: [Arg], fcaseBody :: [PExpr] }
@@ -75,3 +84,5 @@ instance Show Value where
   show (VList values) = show values
   show (VDict) = undefined
   show (VTuple) = undefined
+
+$(makeLenses ''Context)

@@ -24,7 +24,7 @@ dependencies:
 - unordered-containers
 - hashable
 - mtl
-- microlens
+- microlens-platform
 - directory
 - filepath
 

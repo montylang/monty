@@ -1,8 +1,7 @@
 module MontyRunner where
 
 import Data.Maybe
-import Lens.Micro
-import Lens.Micro.Extras
+import Lens.Micro.Platform
 import Control.Monad.State.Strict
 import Control.Monad.Except
 import Text.Megaparsec
@@ -263,10 +262,10 @@ evaluateCases cases params = runWithTempScope $ do
 runFcase :: FunctionCase -> Scoper Value
 runFcase (FunctionCase _ body) = do
     _            <- sequence $ evalP <$> beginning
-    scope        <- get
+    (Context s) <- get
     evaledReturn <- evalP returnExpr
     pure $ case evaledReturn of
-      (VFunction _) -> VScoped evaledReturn scope
+      (VFunction _) -> VScoped evaledReturn s
       _             -> evaledReturn
   where
     (beginning, returnExpr) = splitReturn body
