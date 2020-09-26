@@ -10,7 +10,11 @@ import ParserTypes
 import RunnerTypes
 import CallableUtils
 import RunnerUtils
-import Evaluators.All
+import Evaluators.Unwrap
+import Evaluators.Assignment
+import Evaluators.Condition
+import Evaluators.Infix
+import Evaluators.Types
 import ModuleLoader
 import InteropPrelude
 

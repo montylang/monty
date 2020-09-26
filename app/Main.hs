@@ -2,6 +2,7 @@ module Main where
 
 import System.Environment
 import Text.Megaparsec
+import Data.Bifunctor
 
 import MontyRunner (run)
 import MontyParser (rootBodyParser)
@@ -17,9 +18,6 @@ main = do
   -- FIXME: Opt parsing proprly
   parsedProgram <- parseFromFile rootBodyParser (head args)
   putStrLn lineSep
-  case parsedProgram of
-    -- TODO: Show errors?
-    (Right prog) -> run prog
-    (Left a) -> putStrLn $ errorBundlePretty a
+  _ <- sequence $ bimap (putStrLn . errorBundlePretty) run parsedProgram
   putStrLn lineSep
   pure ()
