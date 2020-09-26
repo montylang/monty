@@ -1,58 +1,25 @@
 module Main where
 
 import System.Environment
-import qualified Data.HashMap.Strict as HM
-import Control.Monad.State.Strict
-import Control.Monad.Except
 import Text.Megaparsec
 
-import InteropPrelude
-import RunnerTypes
-import RunnerUtils (addToScope, findInTopScope, addToStub, evalP)
-import ParserTypes
-import MontyRunner (evaluateP, evaluate)
+import MontyRunner (run)
 import MontyParser (rootBodyParser)
-import ModuleLoader
-
--- TODO: This entire file is waste
 
 parseFromFile p file = runParser p file <$> readFile file
-
-run :: [PExpr] -> Scoper ()
-run exprs = do
-    _ <- loadModule ["mylib", "prelude"]
-    _ <- sequence $ (uncurry3 addOrUpdateInterops) <$> preludeDefinitions
-    _ <- loadModule ["mylib", "postlude"]
-    _ <- sequence $ evalP <$> exprs
-    pure ()
-  where
-    uncurry3 :: (a -> b -> c -> d) -> ((a, b, c) -> d)
-    uncurry3 f ~(a, b, c) = f a b c
-
-    addOrUpdateInterops :: Id -> Id -> [FunctionCase] -> Scoper ()
-    addOrUpdateInterops cname name body = do
-      result <- findInTopScope name
-      folded <- case result of
-        Just a  -> foldM (flip $ addToStub cname) a body
-        Nothing -> pure $ VFunction body
-
-      addToScope name folded
 
 lineSep :: String
 lineSep = '-' <$ [1..80]
 
-emptyContext :: Context
-emptyContext = Context [HM.empty] (Executors evaluateP evaluate)
-
 main :: IO ()
 main = do
   args   <- getArgs
-  -- FIXME: You know what's wrong ;)
+  -- FIXME: Opt parsing proprly
   parsedProgram <- parseFromFile rootBodyParser (head args)
   putStrLn lineSep
   case parsedProgram of
     -- TODO: Show errors?
-    (Right prog) -> (runExceptT $ evalStateT (run prog) emptyContext) *> pure ()
+    (Right prog) -> run prog
     (Left a) -> putStrLn $ errorBundlePretty a
   putStrLn lineSep
   pure ()

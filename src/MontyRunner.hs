@@ -1,5 +1,6 @@
 module MontyRunner where
 
+import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
 import Control.Monad.Except
 import Text.Megaparsec
@@ -11,6 +12,7 @@ import CallableUtils
 import RunnerUtils
 import Evaluators.All
 import ModuleLoader
+import InteropPrelude
 
 evaluateP :: PExpr -> Scoper Value
 evaluateP (Pos pos expr) = catchError (eval expr) exitOnError
@@ -78,3 +80,31 @@ evaluate (ExprImport components) = do
   pure $ VInt 0
 
 evaluate other = stackTrace ("Error (unimplemented expr evaluate): " <> show other)
+
+run :: [PExpr] -> IO ()
+run prog = do
+    _ <- runExceptT $ evalStateT (run' prog) emptyContext
+    pure ()
+  where
+    run' :: [PExpr] -> Scoper ()
+    run' exprs = do
+      _ <- loadModule ["mylib", "prelude"]
+      _ <- sequence $ (uncurry3 addOrUpdateInterops) <$> preludeDefinitions
+      _ <- loadModule ["mylib", "postlude"]
+      _ <- sequence $ evalP <$> exprs
+      pure ()
+
+    emptyContext :: Context
+    emptyContext = Context [HM.empty] (Executors evaluateP evaluate)
+
+    uncurry3 :: (a -> b -> c -> d) -> ((a, b, c) -> d)
+    uncurry3 f ~(a, b, c) = f a b c
+
+    addOrUpdateInterops :: Id -> Id -> [FunctionCase] -> Scoper ()
+    addOrUpdateInterops cname name body = do
+      result <- findInTopScope name
+      folded <- case result of
+        Just a  -> foldM (flip $ addToStub cname) a body
+        Nothing -> pure $ VFunction body
+
+      addToScope name folded
