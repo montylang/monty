@@ -6,7 +6,7 @@ import Control.Monad.State.Strict
 import ParserTypes
 import RunnerTypes
 import RunnerUtils
-import MontyRunner
+import CallableUtils
 
 debugImpl :: [Value] -> Scoper Value
 debugImpl [input] = do

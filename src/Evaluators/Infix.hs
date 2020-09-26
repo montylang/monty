@@ -1,9 +1,43 @@
-module InfixUtils where
+module Evaluators.Infix (evalInfix) where
 
 import ParserTypes
 import RunnerTypes
-import TypeUtils
 import RunnerUtils
+import TypeUtils
+import CallableUtils
+
+evalInfix :: PExpr -> InfixOp -> PExpr -> Scoper Value
+evalInfix first op second = do
+  f <- evalP first
+  s <- evalP second
+  assert (typesEqual f s) "Cannot compare values of different types"
+
+  case f of
+    (VInt _) -> intInfixEval f op s
+    _        -> genericInfixEval f op s
+
+genericInfixEval :: Value -> InfixOp -> Value -> Scoper Value
+genericInfixEval first InfixEq second =
+  applyBinaryFun "equals" first second
+genericInfixEval first InfixNe second =
+  applyUnaryNot =<< applyBinaryFun "equals" first second
+genericInfixEval first InfixGt second = compareOrderable first InfixGt second
+genericInfixEval first InfixGe second = compareOrderable first InfixGe second
+genericInfixEval first InfixLt second = compareOrderable first InfixLt second
+genericInfixEval first InfixLe second = compareOrderable first InfixLe second
+genericInfixEval _ op _ = stackTrace ("Unimplemented generic infix " <> show op)
+
+compareOrderable :: Value -> InfixOp -> Value -> Scoper Value
+compareOrderable f op s =
+  (toBoolValue . opToComp op) <$> applyBinaryFun "compare" f s
+
+applyBinaryFun :: Id -> Value -> Value -> Scoper Value
+applyBinaryFun fname f s = do
+  impls <- findImplsInScope fname f
+
+  case impls of
+    []     -> stackTrace $ "No '" <> fname <> "' implementation for " <> show f
+    fcases -> evaluateCases fcases [f, s]
 
 intInfixEval :: Value -> InfixOp -> Value -> Scoper Value
 intInfixEval (VInt first) InfixAdd (VInt second) = pure $ VInt $ first + second
