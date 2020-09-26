@@ -102,7 +102,7 @@ evaluate other = stackTrace ("Error (unimplemented expr evaluate): " <> show oth
 
 run :: [PExpr] -> IO ()
 run prog = do
-    _ <- runExceptT $ evalStateT (run' prog) emptyContext
+    _ <- runExceptT (evalStateT (run' prog) emptyContext)
     pure ()
   where
     run' :: [PExpr] -> Scoper ()
@@ -122,8 +122,8 @@ run prog = do
     addOrUpdateInterops :: Id -> Id -> [FunctionCase] -> Scoper ()
     addOrUpdateInterops cname name body = do
       result <- findInTopScope name
-      folded <- case result of
+      newInterops <- case result of
         Just a  -> foldM (flip $ addToStub cname) a body
         Nothing -> pure $ VFunction body
 
-      addToScope name folded
+      addToScope name newInterops

@@ -40,6 +40,8 @@ argMatchesParam :: Arg -> Value -> Bool
 argMatchesParam (IdArg _) _ = True
 argMatchesParam (TypedIdArg _ t) (VTypeInstance cname _ _) = t == cname
 argMatchesParam (TypedIdArg _ "Int") (VInt _) = True
+argMatchesParam (TypedIdArg _ "String") (VString _) = True
+argMatchesParam (TypedIdArg _ "List") (VList _) = True
 argMatchesParam (PatternArg "Nil" _) (VList []) = True
 argMatchesParam (PatternArg "Cons" _) (VList (_:_)) = True
 argMatchesParam (PatternArg pname pargs) (VTypeInstance _ tname tvals) =

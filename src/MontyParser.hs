@@ -157,6 +157,7 @@ infixOpParser lhsParser = do
         ("==", InfixEq),
         ("is", InfixEq),
         ("!=", InfixNe),
+        ("<>", InfixMappend),
         (">", InfixGt),
         ("<", InfixLt),
         ("<=", InfixLe),

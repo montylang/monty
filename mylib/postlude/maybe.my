@@ -7,9 +7,7 @@ instance Maybe of Show:
     return "None"
 
   def str(Just(val)):
-    # TODO:!
-    #return "Just(" + str(val) + ")"
-    return "Just"
+    return "Just(" + val.str() + ")"
 
 instance Maybe of Functor:
   def map(Just(value), f):

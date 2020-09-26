@@ -10,11 +10,20 @@ evalInfix :: PExpr -> InfixOp -> PExpr -> Scoper Value
 evalInfix first op second = do
   f <- evalP first
   s <- evalP second
-  assert (typesEqual f s) "Cannot compare values of different types"
+  assert (typesEqual f s) "Cannot operate on values of different types"
 
   case f of
-    (VInt _) -> intInfixEval f op s
-    _        -> genericInfixEval f op s
+    (VInt _)    -> intInfixEval f op s
+    (VList _)   -> concatInfixEval f op s
+    (VString _) -> concatInfixEval f op s
+    _           -> genericInfixEval f op s
+
+concatInfixEval :: Value -> InfixOp -> Value -> Scoper Value
+concatInfixEval first@(VList _) InfixAdd second@(VList _) =
+  applyBinaryFun "append" first second
+concatInfixEval first@(VString _) InfixAdd second@(VString _) =
+  applyBinaryFun "append" first second
+concatInfixEval x op y = genericInfixEval x op y
 
 genericInfixEval :: Value -> InfixOp -> Value -> Scoper Value
 genericInfixEval first InfixEq second =
@@ -25,6 +34,7 @@ genericInfixEval first InfixGt second = compareOrderable first InfixGt second
 genericInfixEval first InfixGe second = compareOrderable first InfixGe second
 genericInfixEval first InfixLt second = compareOrderable first InfixLt second
 genericInfixEval first InfixLe second = compareOrderable first InfixLe second
+genericInfixEval first InfixMappend second = applyBinaryFun "append" first second
 genericInfixEval _ op _ = stackTrace ("Unimplemented generic infix " <> show op)
 
 compareOrderable :: Value -> InfixOp -> Value -> Scoper Value

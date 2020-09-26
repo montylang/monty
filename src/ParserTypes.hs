@@ -28,6 +28,7 @@ data InfixOp
   | InfixLogicAnd -- Logic: lor(a, b): bool
   | InfixLogicOr
   | InfixCons
+  | InfixMappend
   deriving (Show, Eq)
 
 data Arg

@@ -25,3 +25,6 @@ class Ordering:
 
 type Show:
   def str(self)
+
+type Semigroup:
+  def append(self, self)

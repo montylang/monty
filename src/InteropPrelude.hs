@@ -63,6 +63,16 @@ listWrapImpl [value] = pure $ VList [value]
 consImpl :: [Value] -> Scoper Value
 consImpl [cHead, (VList cTail)] = pure $ VList (cHead:cTail)
 
+listAppendImpl :: [Value] -> Scoper Value
+listAppendImpl [first@(VList xs), second@(VList ys)] = do
+  assert (typesEqual first second) "Lists must be of the same type"
+  pure $ VList (xs <> ys)
+listAppendImpl _ = stackTrace "You must append a list to a list"
+
+stringAppendImpl :: [Value] -> Scoper Value
+stringAppendImpl [(VString xs), (VString ys)] = pure $ VString (xs <> ys)
+stringAppendImpl _ = stackTrace "You may only append strings with other strings"
+
 intCompareImpl :: [Value] -> Scoper Value
 intCompareImpl [(VInt first), (VInt second)] =
     pure $ ordToVal $ compare first second
@@ -113,8 +123,13 @@ listDefinitions = [
     ]),
     ("List", "wrap", [
         generateInteropCase
-          [IdArg "value"]
+          [TypedIdArg "val" "List"]
           listWrapImpl
+    ]),
+    ("List", "append", [
+        generateInteropCase
+          [TypedIdArg "first" "List", TypedIdArg "second" "List"]
+          listAppendImpl
     ]),
     ("List", "Nil", [generateInteropCase [] (const . pure $ VList [])]),
     ("List", "Cons", [generateInteropCase [IdArg "head", IdArg "tail"] consImpl])
@@ -124,12 +139,20 @@ intDefinitions :: [(Id, Id, [FunctionCase])]
 intDefinitions = [
     ("Int", "compare", [
         generateInteropCase
-          [TypedIdArg "first"  "Int",
-           TypedIdArg "second" "Int"]
+          [TypedIdArg "first" "Int", TypedIdArg "second" "Int"]
           intCompareImpl
+    ])
+  ]
+
+stringDefinitions :: [(Id, Id, [FunctionCase])]
+stringDefinitions = [
+    ("String", "append", [
+        generateInteropCase
+          [TypedIdArg "first" "String", TypedIdArg "second" "String"]
+          stringAppendImpl
     ])
   ]
 
 preludeDefinitions :: [(Id, Id, [FunctionCase])]
 preludeDefinitions =
-  listDefinitions <> intDefinitions
+  listDefinitions <> intDefinitions <> stringDefinitions

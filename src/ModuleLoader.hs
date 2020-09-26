@@ -1,6 +1,7 @@
 module ModuleLoader (loadModule) where
 
 import System.Directory
+import System.Exit
 import System.FilePath
 import Data.List
 import Control.Monad.State.Strict
@@ -40,4 +41,4 @@ loadFiles paths = do
 
       case parsed of
         (Right exprs) -> (sequence $ evalP <$> exprs) *> pure () 
-        (Left a) -> stackTrace $ errorBundlePretty a
+        (Left a) -> liftIO $ die $ errorBundlePretty a
