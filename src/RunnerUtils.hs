@@ -16,6 +16,16 @@ assert :: Bool -> String -> Scoper ()
 assert False message = throwError $ ErrString message
 assert True _        = pure ()
 
+eval :: Expr -> Scoper Value
+eval expr = do
+  ex <- use (executors . evaluateExpr)
+  ex expr
+
+evalP :: PExpr -> Scoper Value
+evalP pexpr = do
+  ex <- use (executors . evaluatePExpr)
+  ex pexpr
+
 typesEqual :: Value -> Value -> Bool
 typesEqual (VTypeInstance t1 _ _) (VTypeInstance t2 _ _) = t1 == t2
 typesEqual (VInt _) (VInt _)       = True
@@ -97,7 +107,7 @@ runScopeWithSetup scopeSetup body = do
   pure retVal
 
 runWithScope :: Scope -> Scoper Value -> Scoper Value
-runWithScope s body = runScopeWithSetup (put $ Context s) body
+runWithScope s body = runScopeWithSetup (scope %= const s) body
 
 runWithTempScope :: Scoper Value -> Scoper Value
 runWithTempScope = runScopeWithSetup pushEmptyScopeBlock

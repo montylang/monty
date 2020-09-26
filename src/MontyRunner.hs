@@ -39,16 +39,16 @@ applyBinaryFun fname f s = do
     []     -> stackTrace $ "No '" <> fname <> "' implementation for " <> show f
     fcases -> evaluateCases fcases [f, s]
 
-evalP :: PExpr -> Scoper Value
-evalP (Pos pos expr) = catchError (eval expr) exitOnError
+evaluateP :: PExpr -> Scoper Value
+evaluateP (Pos pos expr) = catchError (eval expr) exitOnError
   where
     exitOnError :: ErrVal -> Scoper Value
     exitOnError (ErrString err) =
       liftIO $ die $ sourcePosPretty pos <> ": " <> err
 
-eval :: Expr -> Scoper Value
-eval (ExprId "_") = stackTrace "Cannot use black hole as variable"
-eval (ExprId name) = do
+evaluate :: Expr -> Scoper Value
+evaluate (ExprId "_") = stackTrace "Cannot use black hole as variable"
+evaluate (ExprId name) = do
     value <- findInScope name
     case toVScoped <$> value of
       Just val -> pure val
@@ -59,7 +59,7 @@ eval (ExprId name) = do
     toVScoped (VFunction cases, scope) = VScoped (VFunction cases) scope
     toVScoped (value, _) = value
 
-eval (ExprClass className constructors) = do
+evaluate (ExprClass className constructors) = do
     addToScope className (VClass consNames)
     unionTopScope $ convert <$> getPosValue <$> constructors
     pure $ VInt 0 -- TODO: Return... something other than an int :)
@@ -69,7 +69,7 @@ eval (ExprClass className constructors) = do
 
     consNames = getTypeConsName . getPosValue <$> constructors
 
-eval (ExprType typeName headers) = do
+evaluate (ExprType typeName headers) = do
     addToScope typeName typeDef
     unionTopScope $ defSigToKeyValue <$> getPosValue <$> headers
     pure $ VInt 0
@@ -81,7 +81,7 @@ eval (ExprType typeName headers) = do
       (functionName,  VTypeFunction tName functionName args [])
 
 -- TODO: Ban redefining instances for classes
-eval (ExprInstanceOf className typeName implementations) = do
+evaluate (ExprInstanceOf className typeName implementations) = do
     classDef <- findInScope className
     typeDef  <- findInScope typeName
     funcDefs <- functionDefs typeDef
@@ -100,10 +100,10 @@ eval (ExprInstanceOf className typeName implementations) = do
                       <$> getPosValue <$> implementations
       pure $ VInt 0 -- TODO: you know what you've done
 
-eval (ExprInt a) = pure $ VInt a
-eval (ExprString a) = pure $ VString a
+evaluate (ExprInt a) = pure $ VInt a
+evaluate (ExprString a) = pure $ VString a
 
-eval (ExprInfix first op second) = do
+evaluate (ExprInfix first op second) = do
   f <- evalP first
   s <- evalP second
   assert (typesEqual f s) "Cannot compare values of different types"
@@ -112,7 +112,7 @@ eval (ExprInfix first op second) = do
     (VInt _) -> intInfixEval f op s
     _        -> genericInfixEval f op s
 
-eval (ExprIfElse ifCond elifConds elseBody) = do
+evaluate (ExprIfElse ifCond elifConds elseBody) = do
      selectedBody <- pickBody (ifCond:elifConds)
      evalBody selectedBody
   where
@@ -131,8 +131,8 @@ eval (ExprIfElse ifCond elifConds elseBody) = do
       vals <- sequence $ evalP <$> exprs
       pure $ last vals
 
-eval (ExprList []) = pure $ VList []
-eval (ExprList (x:xs)) = do
+evaluate (ExprList []) = pure $ VList []
+evaluate (ExprList (x:xs)) = do
     headEvaled <- evalP x
     tailEvaled <- sequence $ enforceType headEvaled <$> xs
     pure $ VList (headEvaled:tailEvaled)
@@ -143,10 +143,10 @@ eval (ExprList (x:xs)) = do
       assert (typesEqual evaled headVal) "List must be of the same type"
       pure evaled
 
-eval (ExprDef args body) =
+evaluate (ExprDef args body) =
   pure $ VFunction [FunctionCase args body]
 
-eval (ExprAssignment name value) = do
+evaluate (ExprAssignment name value) = do
     evaledValue  <- evalP value
     inScopeValue <- findInTopScope name
     
@@ -179,12 +179,12 @@ eval (ExprAssignment name value) = do
       newName /= existingName || all (uncurry argFits) (zip newArgs existingArgs)
     argFits _ _ = False
 
-eval (ExprCall funExpr args) = do
+evaluate (ExprCall funExpr args) = do
     fun        <- evalP funExpr
     evaledArgs <- sequence $ evalP <$> args
     runFun fun evaledArgs
 
-eval (ExprUnwrap content) = do
+evaluate (ExprUnwrap content) = do
     evalUnwrap' Nothing content
   where
     evalUnwrap' :: Maybe Id -> [PExpr] -> Scoper Value
@@ -231,11 +231,11 @@ eval (ExprUnwrap content) = do
         []     -> stackTrace $ "No bind implementation for " <> className
         fcases -> evaluateCases fcases [expr, VFunction [lambda]]
 
-eval (ExprImport components) = do
-  loadModule evalP components
+evaluate (ExprImport components) = do
+  loadModule components
   pure $ VInt 0
 
-eval other = stackTrace ("Error (unimplemented expr eval): " <> show other)
+evaluate other = stackTrace ("Error (unimplemented expr evaluate): " <> show other)
 
 runFun :: Value -> [Value] -> Scoper Value
 runFun (VScoped func fscope) params = do
@@ -262,7 +262,7 @@ evaluateCases cases params = runWithTempScope $ do
 runFcase :: FunctionCase -> Scoper Value
 runFcase (FunctionCase _ body) = do
     _            <- sequence $ evalP <$> beginning
-    (Context s) <- get
+    s            <- use scope
     evaledReturn <- evalP returnExpr
     pure $ case evaledReturn of
       (VFunction _) -> VScoped evaledReturn s

@@ -13,12 +13,15 @@ type Scope      = [ScopeBlock]
 
 data ErrVal = ErrString String
 
-data Context = Context {
-  _scope :: Scope
+data Executors = Executors {
+  _evaluatePExpr :: PExpr -> Scoper Value,
+  _evaluateExpr :: Expr -> Scoper Value
 }
 
-emptyContext :: Context
-emptyContext = Context [HM.empty]
+data Context = Context {
+  _scope :: Scope,
+  _executors :: Executors
+}
 
 type Scoper = StateT Context (ExceptT ErrVal IO)
 
@@ -85,4 +88,5 @@ instance Show Value where
   show (VDict) = undefined
   show (VTuple) = undefined
 
+$(makeLenses ''Executors)
 $(makeLenses ''Context)

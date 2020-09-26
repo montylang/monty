@@ -1,15 +1,16 @@
 module Main where
 
 import System.Environment
+import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
 import Control.Monad.Except
 import Text.Megaparsec
 
 import InteropPrelude
 import RunnerTypes
-import RunnerUtils (addToScope, findInTopScope, addToStub)
+import RunnerUtils (addToScope, findInTopScope, addToStub, evalP)
 import ParserTypes
-import MontyRunner (evalP)
+import MontyRunner (evaluateP, evaluate)
 import MontyParser (rootBodyParser)
 import ModuleLoader
 
@@ -19,9 +20,9 @@ parseFromFile p file = runParser p file <$> readFile file
 
 run :: [PExpr] -> Scoper ()
 run exprs = do
-    _ <- loadModule evalP ["mylib", "prelude"]
+    _ <- loadModule ["mylib", "prelude"]
     _ <- sequence $ (uncurry3 addOrUpdateInterops) <$> preludeDefinitions
-    _ <- loadModule evalP ["mylib", "postlude"]
+    _ <- loadModule ["mylib", "postlude"]
     _ <- sequence $ evalP <$> exprs
     pure ()
   where
@@ -39,6 +40,9 @@ run exprs = do
 
 lineSep :: String
 lineSep = '-' <$ [1..80]
+
+emptyContext :: Context
+emptyContext = Context [HM.empty] (Executors evaluateP evaluate)
 
 main :: IO ()
 main = do

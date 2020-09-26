@@ -6,21 +6,20 @@ import Data.List
 import Control.Monad.State.Strict
 import Text.Megaparsec
 
-import ParserTypes
 import RunnerTypes
 import RunnerUtils
 import MontyParser (rootBodyParser)
 
-loadModule :: (PExpr -> Scoper Value) -> [String] -> Scoper ()
-loadModule evaler components = do
+loadModule :: [String] -> Scoper ()
+loadModule components = do
     isFile <- liftIO $ doesFileExist (path <> ".my")
     isDir  <- liftIO $ doesDirectoryExist path
 
     if isFile then
-      loadFiles evaler [path <> ".my"]
+      loadFiles [path <> ".my"]
     else if isDir then do
       content <- (liftIO $ listDirectory path)
-      loadFiles evaler $ constructPath <$> filter isMontyFile content
+      loadFiles $ constructPath <$> filter isMontyFile content
     else
       stackTrace $ "Could not find module " <> intercalate "." components
   where
@@ -28,8 +27,8 @@ loadModule evaler components = do
     constructPath = (<>) $ path <> [pathSeparator]
     isMontyFile = (== ".my") . takeExtension
 
-loadFiles :: (PExpr -> Scoper Value) -> [FilePath] -> Scoper ()
-loadFiles evaler paths = do
+loadFiles :: [FilePath] -> Scoper ()
+loadFiles paths = do
     _ <- sequence (loadFile <$> paths)
     pure ()
   where
@@ -40,5 +39,5 @@ loadFiles evaler paths = do
       parsed <- liftIO $ parseFromFile rootBodyParser path
 
       case parsed of
-        (Right exprs) -> (sequence $ evaler <$> exprs) *> pure () 
+        (Right exprs) -> (sequence $ evalP <$> exprs) *> pure () 
         (Left a) -> stackTrace $ errorBundlePretty a
