@@ -5,6 +5,8 @@ import Control.Monad.State.Strict
 import Control.Monad.Except
 import Text.Megaparsec
 import System.Exit
+import Data.List
+import Lens.Micro.Platform
 
 import ParserTypes
 import RunnerTypes
@@ -22,8 +24,14 @@ evaluateP :: PExpr -> Scoper Value
 evaluateP (Pos pos expr) = catchError (eval expr) exitOnError
   where
     exitOnError :: ErrVal -> Scoper Value
-    exitOnError (ErrString err) =
-      liftIO $ die $ sourcePosPretty pos <> ": " <> err
+    exitOnError (ErrString err) = do
+      stack <- use callStack
+      liftIO $ die $
+        sourcePosPretty pos <> ": " <> err <> "\n" <> showCallStack stack
+
+    showCallStack :: [SourcePos] -> String
+    showCallStack positions = intercalate "\n" $
+      ("    " <>) <$> sourcePosPretty <$> positions
 
 evaluate :: Expr -> Scoper Value
 evaluate (ExprId "_") = stackTrace "Cannot use black hole as variable"
@@ -73,9 +81,16 @@ evaluate (ExprDef args body) =
 evaluate (ExprAssignment name value) = evalAssignment name value
 
 evaluate (ExprCall funExpr args) = do
-  fun        <- evalP funExpr
-  evaledArgs <- sequence $ evalP <$> args
-  runFun fun evaledArgs
+    pushToCallStack funExpr
+    fun        <- evalP funExpr
+    evaledArgs <- sequence $ evalP <$> args
+    runFun fun evaledArgs <* popFromCallStack
+  where
+    pushToCallStack :: PExpr -> Scoper ()
+    pushToCallStack (Pos p _) = callStack %= (p:)
+
+    popFromCallStack :: Scoper ()
+    popFromCallStack = callStack %= (drop 1)
 
 evaluate (ExprUnwrap content) = evalUnwrap content
 
@@ -99,7 +114,7 @@ run prog = do
       pure ()
 
     emptyContext :: Context
-    emptyContext = Context [HM.empty] (Executors evaluateP evaluate)
+    emptyContext = Context [HM.empty] (Executors evaluateP evaluate) []
 
     uncurry3 :: (a -> b -> c -> d) -> ((a, b, c) -> d)
     uncurry3 f ~(a, b, c) = f a b c

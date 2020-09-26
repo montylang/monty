@@ -8,7 +8,6 @@ import RunnerUtils
 import RunnerTypes
 import ParserTypes
 
-
 evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
 evaluateCases cases params = runWithTempScope $ do
   fcase <- pickFun cases params

@@ -7,6 +7,7 @@ import Control.Monad.State.Strict
 import Control.Monad.Except
 import ParserTypes
 import Lens.Micro.Platform
+import Text.Megaparsec hiding (Pos)
 
 type ScopeBlock = HM.HashMap Id Value
 type Scope      = [ScopeBlock]
@@ -20,7 +21,8 @@ data Executors = Executors {
 
 data Context = Context {
   _scope :: Scope,
-  _executors :: Executors
+  _executors :: Executors,
+  _callStack :: [SourcePos]
 }
 
 type Scoper = StateT Context (ExceptT ErrVal IO)

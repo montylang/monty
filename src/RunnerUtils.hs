@@ -17,14 +17,10 @@ assert False message = throwError $ ErrString message
 assert True _        = pure ()
 
 eval :: Expr -> Scoper Value
-eval expr = do
-  ex <- use (executors . evaluateExpr)
-  ex expr
+eval expr = use (executors . evaluateExpr) >>= ($ expr)
 
 evalP :: PExpr -> Scoper Value
-evalP pexpr = do
-  ex <- use (executors . evaluatePExpr)
-  ex pexpr
+evalP pexpr = use (executors . evaluatePExpr) >>= ($ pexpr)
 
 typesEqual :: Value -> Value -> Bool
 typesEqual (VTypeInstance t1 _ _) (VTypeInstance t2 _ _) = t1 == t2

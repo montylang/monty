@@ -38,16 +38,16 @@ evalInstanceOf className typeName implementations = do
     funcDefs <- functionDefs typeDef
     
     case classDef of
-      Just (VClass consNames, _) -> addAllImplementations className consNames funcDefs
+      Just (VClass consNames, _) -> addAllImplementations consNames funcDefs
       _ -> stackTrace $ "Attempted to use undefined class: " <> className
   where
     functionDefs :: Maybe (Value, Scope) -> Scoper [DefSignature]
     functionDefs (Just (VTypeDef _ sigs, _)) = pure sigs
     functionDefs _ = stackTrace $ "Type " <> typeName <> " not found"
 
-    addAllImplementations :: Id -> [Id] -> [DefSignature] -> Scoper Value
-    addAllImplementations cname consNames funcDefs = do
-      _ <- sequence $ (addImplementation cname consNames funcDefs)
+    addAllImplementations :: [Id] -> [DefSignature] -> Scoper Value
+    addAllImplementations consNames funcDefs = do
+      _ <- sequence $ (addImplementation className consNames funcDefs)
                       <$> getPosValue <$> implementations
       pure $ VInt 0 -- TODO: you know what you've done
 
