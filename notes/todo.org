@@ -25,7 +25,7 @@
   - [X] if/elif/else
   - [X] While
 ** Advanced
-  - [ ] Infix precedence
+  - [X] Infix precedence
   - [-] Pattern matching
     - [X] In function sigs
     - [ ] Match statement

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6cedc917896034aa9b7b19f308a7bef770c7a7e41104d28f98fabaf382257bad
+-- hash: 35a0aef6b45d22b3a756af8a7d2de0327ac96b2f4c33c0c0257776f114aba81d
 
 name:           copenhagen
 version:        0.1.0.0
@@ -36,6 +36,7 @@ library
       ModuleLoader
       MontyParser
       MontyRunner
+      MorphUtils
       ParserTypes
       RunnerTypes
       RunnerUtils
@@ -52,6 +53,7 @@ library
     , megaparsec
     , microlens-platform
     , mtl
+    , parser-combinators
     , unordered-containers
   default-language: Haskell2010
 
@@ -71,6 +73,7 @@ executable copenhagen-exe
     , megaparsec
     , microlens-platform
     , mtl
+    , parser-combinators
     , unordered-containers
   default-language: Haskell2010
 
@@ -92,5 +95,6 @@ test-suite copenhagen-test
     , megaparsec
     , microlens-platform
     , mtl
+    , parser-combinators
     , unordered-containers
   default-language: Haskell2010

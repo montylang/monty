@@ -1,2 +1,1 @@
-def hello():
-  return "hello"
+debug(3 - 3 * 2)

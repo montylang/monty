@@ -5,8 +5,10 @@ import Data.Maybe
 import Text.Megaparsec hiding (Pos)
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer
+import Lens.Micro.Platform
 
 import ParserTypes
+import MorphUtils
 
 rword :: String -> Parser ()
 rword w = string w *> notFollowedBy alphaNumChar <* ws
@@ -140,24 +142,22 @@ ifParser indent = do
       string indent *> rword "else" *> char ':' *> eol1 *>
       bodyParser indent
 
-infixOpParser :: Parser PExpr -> Parser (PExpr -> Expr)
-infixOpParser lhsParser = do
-    lhs <- lhsParser <* ws
-    op  <- (choice $ opParser <$> arr) <* ws
-    pure $ ExprInfix lhs op
+infixParser :: Indent -> Parser PExpr
+infixParser indent = do
+    first <- try $ exprParser' indent <* ws <* (lookAhead allOpParser)
+    rest  <- many partialOpParser
+    pure $ groupByPrecedence (((view _2) <$> arr)) ((Nothing, first):rest)
   where
-    opParser :: (String, InfixOp) -> Parser InfixOp
-    opParser (s, o) = string s *> pure o
     arr = [
+        ("<>", InfixMappend),
         ("+", InfixAdd),
         ("-", InfixSub),
         ("*", InfixMul),
         ("/", InfixDiv),
         ("%", InfixMod),
+        ("!=", InfixNe),
         ("==", InfixEq),
         ("is", InfixEq),
-        ("!=", InfixNe),
-        ("<>", InfixMappend),
         (">", InfixGt),
         ("<", InfixLt),
         ("<=", InfixLe),
@@ -166,11 +166,32 @@ infixOpParser lhsParser = do
         ("or", InfixLogicOr)
       ]
 
-infixParser :: Indent -> Parser PExpr
-infixParser indent = do
-  first  <- try $ infixOpParser $ exprParser' indent
-  second <- exprParser indent
-  addPos $ first second
+    -- What a mess
+    groupByPrecedence :: [InfixOp] -> [(Maybe InfixOp, PExpr)] -> PExpr
+    groupByPrecedence _ [(_, x)] = x
+    groupByPrecedence (o:os) xs  = joinHeadOp subCases
+      where
+        subCases :: [PExpr]
+        subCases = groupByPrecedence os <$>
+          (splitWhen ((== (Just o)) . (view _1)) xs)
+
+        joinHeadOp :: [PExpr] -> PExpr
+        joinHeadOp [y] = y
+        joinHeadOp (y:ys) = foldl folderHeadOp y ys
+
+        folderHeadOp :: PExpr -> PExpr -> PExpr
+        folderHeadOp acc it = Pos (getPos it) $ ExprInfix acc o it
+
+    opParser :: (String, InfixOp) -> Parser InfixOp
+    opParser (s, o) = string s *> pure o
+
+    allOpParser = choice $ opParser <$> arr
+
+    partialOpParser :: Parser (Maybe InfixOp, PExpr)
+    partialOpParser = do
+      op  <- try $ ws *> allOpParser <* ws
+      rhs <- exprParser' indent <* ws
+      pure (Just op, rhs)
 
 varIdParser :: Indent -> Parser Id
 varIdParser _ = do

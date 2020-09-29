@@ -27,6 +27,7 @@ dependencies:
 - microlens-platform
 - directory
 - filepath
+- parser-combinators
 
 library:
   source-dirs: src
