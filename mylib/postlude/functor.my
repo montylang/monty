@@ -1,0 +1,2 @@
+def mapConst(functor, value):
+  return functor.map(const(value))

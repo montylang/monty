@@ -80,6 +80,7 @@ evaluate (ExprDef args body) =
 
 evaluate (ExprAssignment name value) = evalAssignment name value
 
+-- TODO: Determine if this is a partial application or not
 evaluate (ExprCall funExpr args) = do
     pushToCallStack funExpr
     fun        <- evalP funExpr
@@ -108,9 +109,9 @@ run prog = do
     run' :: [PExpr] -> Scoper ()
     run' exprs = do
       _ <- loadModule ["mylib", "prelude"]
-      _ <- sequence $ (uncurry3 addOrUpdateInterops) <$> preludeDefinitions
+      sequence_ $ (uncurry3 addOrUpdateInterops) <$> preludeDefinitions
       _ <- loadModule ["mylib", "postlude"]
-      _ <- sequence $ evalP <$> exprs
+      sequence_ $ evalP <$> exprs
       pure ()
 
     emptyContext :: Context

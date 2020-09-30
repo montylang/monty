@@ -68,3 +68,23 @@ instance Maybe of Ordered:
 
   def compare(_, None):
     return GT
+
+instance Maybe of Semigroup:
+  def append(Just(a), Just(b)):
+    return Just(a <> b)
+
+  def append(Just(a), None):
+    return Just(a)
+
+  def append(_, b):
+    return b
+
+instance Maybe of Alternative:
+  def alt(Just(a), _):
+    return Just(a)
+
+  def alt(_, Just(b)):
+    return Just(b)
+
+  def alt(_, _):
+    return None

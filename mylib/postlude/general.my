@@ -1,0 +1,14 @@
+def id(x):
+  return x
+
+def const(value):
+  return (_): value
+
+def flip(f):
+  return (a, b): f(b, a)
+
+def until(initial, predicate, func):
+  return if predicate(initial):
+    initial
+  else:
+    until(func(initial), predicate, func)

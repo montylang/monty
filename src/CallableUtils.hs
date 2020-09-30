@@ -16,7 +16,7 @@ evaluateCases cases params = runWithTempScope $ do
 
 runFcase :: FunctionCase -> Scoper Value
 runFcase (FunctionCase _ body) = do
-    _            <- sequence $ evalP <$> beginning
+    sequence_ $ evalP <$> beginning
     s            <- use scope
     evaledReturn <- evalP returnExpr
     pure $ case evaledReturn of
@@ -56,7 +56,7 @@ splitReturn exprs =
 addArgsToScope :: [Arg] -> [Value] -> Scoper ()
 addArgsToScope fargs values = do
   assert (length fargs == length values) "Mismatched argument length"
-  _ <- sequence $ addArg <$> zip fargs values
+  sequence_ $ addArg <$> zip fargs values
   pure ()
 
 addArg :: (Arg, Value) -> Scoper ()
@@ -79,15 +79,14 @@ addArg (PatternArg pname pargs, VTypeInstance _ tname tvals) = do
   assert (length pargs == length tvals) $
     "Mismatched argument length for pattern match of " <> pname
 
-  _ <- sequence $ addArg <$> (zip pargs tvals)
+  sequence_ $ addArg <$> (zip pargs tvals)
   pure ()
 
 addArg _ = stackTrace "Bad call to pattern matched function"
 
 runFun :: Value -> [Value] -> Scoper Value
-runFun (VScoped func fscope) params = do
-  result <- runScopedFun func params
-  runWithScope fscope (pure result)
+runFun (VScoped func fscope) params =
+  runWithScope fscope $ runScopedFun func params
 runFun (VTypeCons className consName cargs) params = do
   assert ((length cargs) == (length params)) ("Bad type cons call to " <> consName)
   pure $ VTypeInstance className consName params

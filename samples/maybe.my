@@ -19,3 +19,14 @@ debug(Just(True).compare(None))
 debug(Just(1) > Just(2))
 debug(1 > 2)
 debug(-2 < 3)
+
+debug(join(Just(Just(1))))
+debug(join(None))
+
+debug(None.mapConst(3))
+debug(Just("hi").mapConst(3))
+
+debug(Just(1).applyr(Just(4)))
+debug(Just(1).applyl(Just(4)))
+
+debug(until(-9, ((x): x > 0), ((x): x + 3)))

@@ -30,7 +30,7 @@ loadModule components = do
 
 loadFiles :: [FilePath] -> Scoper ()
 loadFiles paths = do
-    _ <- sequence (loadFile <$> paths)
+    sequence_ (loadFile <$> paths)
     pure ()
   where
     parseFromFile p file = runParser p file <$> readFile file

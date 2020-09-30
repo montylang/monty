@@ -61,3 +61,13 @@ instance Either of Ordered:
 
   def compare(_, Left(_)):
     return GT
+
+instance Either of Alternative:
+  def alt(Right(a), _):
+    return Right(a)
+
+  def alt(_, Right(b)):
+    return Right(b)
+
+  def alt(_, b):
+    return b

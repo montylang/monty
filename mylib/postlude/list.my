@@ -1,0 +1,23 @@
+def filter(Nil, _):
+  return Nil
+
+def filter(head|tail, f):
+  return if f(head):
+    head|filter(tail, f)
+  else:
+    filter(tail, f)
+
+def head(Nil):
+  return None
+
+def head(head|tail):
+  return Just(head)
+
+def tail(Nil):
+  return None
+
+def tail(head|tail):
+  return Just(tail)
+
+def reverse(l):
+  return l.foldl([], (acc, it): [it] <> acc)

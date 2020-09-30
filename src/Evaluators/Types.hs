@@ -47,8 +47,8 @@ evalInstanceOf className typeName implementations = do
 
     addAllImplementations :: [Id] -> [DefSignature] -> Scoper Value
     addAllImplementations consNames funcDefs = do
-      _ <- sequence $ (addImplementation className consNames funcDefs)
-                      <$> getPosValue <$> implementations
+      sequence_ $ (addImplementation className consNames funcDefs)
+        <$> getPosValue <$> implementations
       pure $ VInt 0 -- TODO: you know what you've done
 
 addImplementation :: Id -> [Id] -> [DefSignature] -> Expr -> Scoper ()

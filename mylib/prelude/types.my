@@ -28,3 +28,6 @@ type Show:
 
 type Semigroup:
   def append(self, self)
+
+type Alternative:
+  def alt(self, self)

@@ -31,7 +31,7 @@ singleEol = ws *> optional commentEater *> char '\n' *> pure ()
 
 commentableEof :: Parser ()
 commentableEof = pure () <* many (try singleEol) <*
-  (optional commentEater *> eof)
+  (ws *> optional commentEater *> eof)
 
 eol1 :: Parser ()
 eol1 = singleEol <* (many $ try singleEol)
@@ -360,7 +360,6 @@ blockParser base parser = do
 bodyParser :: Indent -> Parser [PExpr]
 bodyParser base = blockParser base exprParser
 
--- import PackageName
 importParser :: Parser PExpr
 importParser = do
   _    <- try (rword "import")
@@ -372,15 +371,15 @@ rootBodyParser = do
     _ <- many $ try singleEol
     imports <- many (importParser <* eol1)
     _ <- many $ try singleEol
-    first <- exprParser "" <* lookAhead singleEol
+    first <- exprParser "" <* lookAhead (try singleEol <|> eof)
     rest  <- many stmt <* commentableEof
     pure $ imports <> (first:(catMaybes rest))
   where
     stmt :: Parser (Maybe PExpr)
-    stmt = try blankLine <|> something
-      where
-        blankLine :: Parser (Maybe PExpr)
-        blankLine = eol1 *> pure Nothing
+    stmt = try blankLine <|> rootExpr
 
-        something :: Parser (Maybe PExpr)
-        something = Just <$> exprParser ""
+    blankLine :: Parser (Maybe PExpr)
+    blankLine = eol1 *> pure Nothing
+
+    rootExpr :: Parser (Maybe PExpr)
+    rootExpr = Just <$> exprParser ""
