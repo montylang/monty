@@ -1,4 +1,4 @@
-import samples.test
+#import samples.test
 
 def add1If3(x):
   return if x == 3:

@@ -29,6 +29,10 @@ commentEater = char '#' *> many (noneOf "\n") *> pure ()
 singleEol :: Parser ()
 singleEol = ws *> optional commentEater *> char '\n' *> pure ()
 
+commentableEof :: Parser ()
+commentableEof = pure () <* many (try singleEol) <*
+  (optional commentEater *> eof)
+
 eol1 :: Parser ()
 eol1 = singleEol <* (many $ try singleEol)
 
@@ -369,7 +373,7 @@ rootBodyParser = do
     imports <- many (importParser <* eol1)
     _ <- many $ try singleEol
     first <- exprParser "" <* lookAhead singleEol
-    rest  <- many stmt <* eof
+    rest  <- many stmt <* commentableEof
     pure $ imports <> (first:(catMaybes rest))
   where
     stmt :: Parser (Maybe PExpr)
