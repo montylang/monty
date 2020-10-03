@@ -1,12 +1,40 @@
-module CallableUtils where
+module CallableUtils (runFun, evaluateCases) where
 
 import Prelude
 import Data.List
+import Data.Maybe
 import Lens.Micro.Platform
+import Debug.Trace
 
 import RunnerUtils
 import RunnerTypes
 import ParserTypes
+
+evaluateTf :: DefSignature -> [FunctionCase] -> [Value] -> Scoper Value
+evaluateTf (DefSignature tname fname args retSelf) cases params = do
+    case findInferredType args params of
+      Just cname -> do
+        inferredParams <- inferValues cname params
+        funRet <- evaluateCases cases inferredParams
+        case (funRet, retSelf) of
+          (v@(VInferred _ _ _), True) -> applyInferredType cname v
+          (v, _)                      -> pure v
+      Nothing    -> pure $ VInferred fname tname params
+  where
+    inferValues :: Id -> [Value] -> Scoper [Value]
+    inferValues cname vals =
+      sequence $ applyInferredType cname <$> vals
+    
+    applyInferredType :: Id -> Value -> Scoper Value
+    applyInferredType cname (VInferred ifname _ iparams) = do
+      impls <- implForClass cname ifname
+      evaluateCases impls iparams
+    applyInferredType _ value = pure value
+
+    findInferredType :: [Arg] -> [Value] -> Maybe Id
+    findInferredType cargs values = listToMaybe $
+      (maybeToList . classForValue . (view _2)) =<<
+        (filter ((== SelfArg) . (view _1)) $ zip cargs values)
 
 evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
 evaluateCases cases params = runWithTempScope $ do
@@ -94,7 +122,12 @@ runFun expr params = runScopedFun expr params
 
 runScopedFun :: Value -> [Value] -> Scoper Value
 runScopedFun (VFunction cases) params = evaluateCases cases params
-runScopedFun (VTypeFunction _ _ _ tcases) params = evaluateCases cases params
+runScopedFun (VTypeFunction defSig tcases) params =
+    if elem SelfArg (getDefSigArgs defSig) then
+      evaluateTf defSig cases params
+    else
+      pure $ VInferred (getDefSigFunName defSig) (getDefSigTypeName defSig) params
   where
     cases = (view _2) <$> tcases
+
 runScopedFun _ _ = stackTrace "Error: Bad function call"

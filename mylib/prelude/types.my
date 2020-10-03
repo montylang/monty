@@ -6,11 +6,12 @@ type Foldable:
   def len(self)
 
 type Applicative:
-  def apply(self, input)
+  # Second parameter: Expects a function inside
+  def apply(self, self) -> self
 
 type Monad:
-  def bind(self, function)
-  def wrap(value)
+  def bind(self, function) -> self
+  def wrap(value) -> self
 
 type Equal:
   def equals(self, self)
@@ -27,7 +28,10 @@ type Show:
   def str(self)
 
 type Semigroup:
-  def append(self, self)
+  def append(self, self) -> self
+
+type Monoid:
+  def mempty() -> self
 
 type Alternative:
-  def alt(self, self)
+  def alt(self, self) -> self

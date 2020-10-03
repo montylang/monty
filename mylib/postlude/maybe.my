@@ -80,10 +80,10 @@ instance Maybe of Semigroup:
     return b
 
 instance Maybe of Alternative:
-  def alt(Just(a), _):
+  def alt(Just(a), s):
     return Just(a)
 
-  def alt(_, Just(b)):
+  def alt(s, Just(b)):
     return Just(b)
 
   def alt(_, _):

@@ -80,6 +80,9 @@ intCompareImpl [(VInt first), (VInt second)] =
     ordToVal :: Ordering -> Value
     ordToVal a = VTypeInstance "Ordering" (show a) []
 
+intStrImpl :: [Value] -> Scoper Value
+intStrImpl [(VInt value)] = pure $ VString $ show value
+
 listDefinitions :: [(Id, Id, [FunctionCase])]
 listDefinitions = [
     ("List", "debug", [generateInteropCase [IdArg "value"] debugImpl]),
@@ -141,6 +144,11 @@ intDefinitions = [
         generateInteropCase
           [TypedIdArg "first" "Int", TypedIdArg "second" "Int"]
           intCompareImpl
+    ]),
+    ("Int", "str", [
+        generateInteropCase
+          [TypedIdArg "value" "Int"]
+          intStrImpl
     ])
   ]
 

@@ -42,6 +42,11 @@ data Value
   = VInt Int
   | VString String
   | VFunction [FunctionCase]
+  | VInferred {
+      iFuncName :: Id,
+      iTypeName :: Id,
+      iValues :: [Value]
+    }
   | VTypeCons {
       getVTypeConsClass :: Id,
       getVTypeConsName :: Id,
@@ -56,9 +61,7 @@ data Value
   -- Arg must contain _one_ instance of the word "self", for pattern matching
   | VTypeDef Id [DefSignature]
   | VTypeFunction {
-      fTypeName :: Id,
-      fFuncName :: Id,
-      fArgs :: [Arg],
+      fDefSig :: DefSignature,
       fFuncCases :: [(Id, FunctionCase)]
     }
   | VScoped Value Scope
@@ -83,12 +86,14 @@ instance Show Value where
       then ""
       else "(" <> intercalate "," (show <$> vals) <> ")"
   show (VTypeDef name _) = "<type " <> name <> ">"
-  show (VTypeFunction _ _ _ _) = "<function>"
+  show (VTypeFunction _ _) = "<function>"
   show (VScoped value _) = show value
   show (VClass _) = "<class>"
   show (VList values) = show values
   show (VDict) = undefined
   show (VTuple) = undefined
+  show (VInferred fname tname vals) =
+    "VInferred " <> fname <> " " <> tname <> " " <> show vals
 
 $(makeLenses ''Executors)
 $(makeLenses ''Context)

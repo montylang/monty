@@ -27,8 +27,8 @@ evalType typeName headers = do
     typeDef = VTypeDef typeName $ getPosValue <$> headers
 
     defSigToKeyValue :: DefSignature -> (Id, Value)
-    defSigToKeyValue (DefSignature tName functionName args) =
-      (functionName,  VTypeFunction tName functionName args [])
+    defSigToKeyValue defSig =
+      (getDefSigFunName defSig,  VTypeFunction defSig [])
 
 -- TODO: Ban redefining instances for classes
 evalInstanceOf :: Id -> Id -> [PExpr] -> Scoper Value

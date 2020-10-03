@@ -267,9 +267,15 @@ typeParser indent = do
   where
     typeBodyParser :: Id -> Indent -> Parser (Pos DefSignature)
     typeBodyParser typeName ind = do
-      name <- string "def" *> ws1 *> varIdParser ind
-      args <- multiParenParser '(' ')' (varIdParser ind)
-      addPos $ DefSignature typeName name (nameToArg <$> args)
+      name    <- string "def" *> ws1 *> varIdParser ind
+      args    <- multiParenParser '(' ')' (varIdParser ind)
+      retSelf <- mustReturnSelfP
+      addPos $ DefSignature typeName name (nameToArg <$> args) retSelf
+
+    mustReturnSelfP :: Parser Bool
+    mustReturnSelfP = do
+      ret <- optional $ ws *> string "->" *> ws *> string "self"
+      pure (maybe False (== "self") ret)
 
     nameToArg :: Id -> Arg
     nameToArg "self" = SelfArg

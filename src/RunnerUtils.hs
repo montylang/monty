@@ -63,23 +63,28 @@ findInTopScope key = findInScope' <$> use scope
     findInScope' (top:_) = HM.lookup key top
     findInScope' _         = Nothing
 
-findImplsInScope :: Id -> Value -> Scoper [FunctionCase]
-findImplsInScope fname value = do
+implForClass :: Id -> Id -> Scoper [FunctionCase]
+implForClass cname fname = do
     fnameImplsMaybe <- findInScope fname
 
     pure $ fromMaybe [] $ do
-      cname      <- classForValue value
       fnameImpls <- view _1 <$> fnameImplsMaybe
       cases      <- toCases fnameImpls
       pure $ findImpls cname cases
   where
     toCases :: Value -> Maybe [(Id, FunctionCase)]
-    toCases (VTypeFunction _ _ _ cases) = Just cases
-    toCases _                           = Nothing
+    toCases (VTypeFunction _ cases) = Just cases
+    toCases _                       = Nothing
 
     findImpls :: Id -> [(Id, FunctionCase)] -> [FunctionCase]
     findImpls monadClass cases =
       (view _2) <$> filter ((monadClass ==) . (view _1)) cases
+
+findImplsInScope :: Id -> Value -> Scoper [FunctionCase]
+findImplsInScope fname value =
+  case classForValue value of
+    Just cname -> implForClass cname fname
+    Nothing    -> pure []
 
 classForValue :: Value -> Maybe Id
 classForValue (VList _)   = Just "List"
@@ -129,6 +134,6 @@ generateInteropCase args fun = InteropCase args $ do
         ids = cargs >>= idsInArg
 
 addToStub :: Id -> FunctionCase -> Value -> Scoper Value
-addToStub cname newCase (VTypeFunction tname fname args cases) =
-  pure $ VTypeFunction tname fname args (cases ++ [(cname, newCase)])
+addToStub cname newCase (VTypeFunction defSig cases) =
+  pure $ VTypeFunction defSig (cases ++ [(cname, newCase)])
 addToStub _ _ _ = stackTrace "Cannot add stub case to non v-type function"

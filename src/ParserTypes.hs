@@ -63,7 +63,8 @@ data Expr
 data DefSignature = DefSignature {
     getDefSigTypeName :: Id,
     getDefSigFunName :: Id,
-    getDefSigArgs :: [Arg]
+    getDefSigArgs :: [Arg],
+    getReturnsSelf :: Bool 
   }
   deriving (Show, Eq)
 

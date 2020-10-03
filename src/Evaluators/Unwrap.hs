@@ -24,14 +24,25 @@ evalUnwrap' _ [_] =
 
 evalUnwrap' (Just className) ((Pos _ (ExprBind var expr)):xs) = do
   evaled <- evalP expr
+  inferred <- cuuuuuum evaled
+  -- Infer evaled type from className, if it's a vinferred
 
-  if (Just className) == classForValue evaled
-    then unwrapWithClassname className var evaled xs
+  if (Just className) == reeee inferred
+    then unwrapWithClassname className var inferred xs
     else stackTrace $
       "All binds in unwrap must be of same monad type. " <>
       "Expected '" <> className <> "' got '" <>
-      (fromMaybe "<primitive>" (classForValue evaled)) <>
+      (fromMaybe "<primitive>" (reeee inferred)) <>
       "'"
+
+  where
+    cuuuuuum :: Value -> Scoper Value
+    cuuuuuum (VInferred _ _ _) = undefined -- INfer stuff here
+    cuuuuuum v                 = pure v
+
+    reeee :: Value -> Maybe Id
+    reeee (VInferred _ _ _) = Just className
+    reeee v                 = classForValue v
 
 evalUnwrap' Nothing ((Pos _ (ExprBind var expr)):xs) = do
   evaledExpr <- evalP expr

@@ -1,1 +1,21 @@
 debug(3 - 3 * 2)
+debug(Just(4).alt(wrap(3)))
+debug(wrap(4).alt(Just(3)))
+debug(Just(4).alt(Just(3)))
+debug(None.alt(wrap(3)))
+debug(wrap(4).alt(wrap(5)))
+
+# debug(unwrap:
+#   a <- [1, 2, 3]
+#   b <- wrap(7)
+#   wrap([a, b]))
+
+debug([1, 2, 3].bind((x): [7, x * 7]))
+debug(Just(3).bind((x): Just(4)))
+debug(Just(3).bind((x): Just(4).bind((y): wrap(x + y))))
+
+# TODO:
+# debug(unwrap:
+#   a <- wrap(3)
+#   b <- wrap(7)
+#   wrap(b))
