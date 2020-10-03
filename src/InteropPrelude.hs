@@ -46,8 +46,9 @@ consBindImpl [consHead, consTail, func] = do
       _            -> stackTrace "Result of map in bind wasn't a list"
   where
     unList :: Value -> Scoper [Value]
-    unList (VList vals) = pure vals
-    unList _            = stackTrace "Result of bind on list must be a list"
+    unList (VList vals)               = pure vals
+    unList (VInferred "wrap" _ [val]) = pure [val]
+    unList _ = stackTrace "Result of bind on list must be a list"
 
     joinValues :: [Value] -> Scoper Value
     joinValues values = do

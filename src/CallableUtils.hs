@@ -1,4 +1,4 @@
-module CallableUtils (runFun, evaluateCases) where
+module CallableUtils (runFun, evaluateCases, applyInferredType) where
 
 import Prelude
 import Data.List
@@ -25,16 +25,16 @@ evaluateTf (DefSignature tname fname args retSelf) cases params = do
     inferValues cname vals =
       sequence $ applyInferredType cname <$> vals
     
-    applyInferredType :: Id -> Value -> Scoper Value
-    applyInferredType cname (VInferred ifname _ iparams) = do
-      impls <- implForClass cname ifname
-      evaluateCases impls iparams
-    applyInferredType _ value = pure value
-
     findInferredType :: [Arg] -> [Value] -> Maybe Id
     findInferredType cargs values = listToMaybe $
       (maybeToList . classForValue . (view _2)) =<<
         (filter ((== SelfArg) . (view _1)) $ zip cargs values)
+
+applyInferredType :: Id -> Value -> Scoper Value
+applyInferredType cname (VInferred ifname _ iparams) = do
+  impls <- implForClass cname ifname
+  evaluateCases impls iparams
+applyInferredType _ value = pure value
 
 evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
 evaluateCases cases params = runWithTempScope $ do

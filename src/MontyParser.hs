@@ -1,5 +1,6 @@
 module MontyParser where
 
+import Debug.Trace
 import Data.Char
 import Data.Maybe
 import Text.Megaparsec hiding (Pos)
@@ -172,7 +173,11 @@ infixParser indent = do
 
     -- What a mess
     groupByPrecedence :: [InfixOp] -> [(Maybe InfixOp, PExpr)] -> PExpr
-    groupByPrecedence _ [(_, x)] = x
+    groupByPrecedence [] [] = trace "How did I get here?" undefined
+    groupByPrecedence [] [(_, x)] = x
+    groupByPrecedence [] ((Just op, (Pos p x)):xs) =
+      -- TODO: Nothing about this is ok
+      Pos p $ ExprInfix (Pos p x) op $ groupByPrecedence [] xs
     groupByPrecedence (o:os) xs  = joinHeadOp subCases
       where
         subCases :: [PExpr]
@@ -281,12 +286,6 @@ typeParser indent = do
     nameToArg "self" = SelfArg
     nameToArg  name  = IdArg name
 
-wrapParser :: Indent -> Parser PExpr
-wrapParser indent = do
-  _      <- try $ string "wrap" <* ws <* char '('
-  toWrap <- exprParser indent <* char ')'
-  addPos $ ExprWrap toWrap
-
 unwrapParser :: Indent -> Parser PExpr
 unwrapParser indent = do
     _       <- try $ string "unwrap" <* ws <* char ':' <* eol1
@@ -294,7 +293,7 @@ unwrapParser indent = do
     addPos $ ExprUnwrap content
   where
     wrappableParser :: Indent -> Parser PExpr
-    wrappableParser ind = wrapParser ind <|> bindParser ind
+    wrappableParser ind = bindParser ind <|> exprParser' ind
 
     bindParser :: Indent -> Parser PExpr
     bindParser ind = do

@@ -1,5 +1,7 @@
 module Evaluators.Infix (evalInfix) where
 
+import Data.Tuple
+
 import ParserTypes
 import RunnerTypes
 import RunnerUtils
@@ -8,8 +10,10 @@ import CallableUtils
 
 evalInfix :: PExpr -> InfixOp -> PExpr -> Scoper Value
 evalInfix first op second = do
-  f <- evalP first
-  s <- evalP second
+  -- TODO: Infer lhs on rhs, vice versa
+  f' <- evalP first
+  s' <- evalP second
+  (f, s) <- inferTypes f' s'
   assert (typesEqual f s) "Cannot operate on values of different types"
 
   case f of
@@ -17,6 +21,22 @@ evalInfix first op second = do
     (VList _)   -> concatInfixEval f op s
     (VString _) -> concatInfixEval f op s
     _           -> genericInfixEval f op s
+
+  where
+    inferTypes :: Value -> Value -> Scoper (Value, Value)
+    inferTypes v@(VInferred _ _ _) other = inferFromOther v other
+    inferTypes other v@(VInferred _ _ _) = swap <$> inferFromOther v other
+    inferTypes v1 v2 = pure (v1, v2)
+
+    inferFromOther :: Value -> Value -> Scoper (Value, Value)
+    inferFromOther vinf val = 
+      case classForValue val of
+        Just cname -> do
+          inferred <- applyInferredType cname vinf
+          pure (inferred, val)
+        -- TODO: You can do better than this with your life
+        Nothing    -> stackTrace "Types cannot be inferred from context"
+      
 
 concatInfixEval :: Value -> InfixOp -> Value -> Scoper Value
 concatInfixEval first@(VList _) InfixAdd second@(VList _) =
