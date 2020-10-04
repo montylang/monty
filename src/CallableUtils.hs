@@ -12,23 +12,30 @@ import ParserTypes
 
 evaluateTf :: DefSignature -> [FunctionCase] -> [Value] -> Scoper Value
 evaluateTf (DefSignature tname fname args retSelf) cases params = do
-    case findInferredType args params of
+    case inferredType of
       Just cname -> do
-        inferredParams <- inferValues cname params
+        inferredParams <- inferValues cname
         funRet <- evaluateCases cases inferredParams
         case (funRet, retSelf) of
           (v@(VInferred _ _ _), True) -> applyInferredType cname v
           (v, _)                      -> pure v
       Nothing    -> pure $ VInferred fname tname params
   where
-    inferValues :: Id -> [Value] -> Scoper [Value]
-    inferValues cname vals =
-      sequence $ applyInferredType cname <$> vals
+    argVals :: [(Arg, Value)]
+    argVals = zip args params
+
+    inferValues :: Id -> Scoper [Value]
+    inferValues cname =
+      sequence $ inferSelfArg cname <$> argVals
     
-    findInferredType :: [Arg] -> [Value] -> Maybe Id
-    findInferredType cargs values = listToMaybe $
+    inferredType :: Maybe Id
+    inferredType = listToMaybe $
       (maybeToList . classForValue . (view _2)) =<<
-        (filter ((== SelfArg) . (view _1)) $ zip cargs values)
+        (filter ((== SelfArg) . (view _1)) argVals)
+
+    inferSelfArg :: Id -> (Arg, Value) -> Scoper Value
+    inferSelfArg cname (SelfArg, value) = applyInferredType cname value
+    inferSelfArg _ (_, value) = pure value
 
 applyInferredType :: Id -> Value -> Scoper Value
 applyInferredType cname (VInferred ifname _ iparams) = do
@@ -115,19 +122,65 @@ addArg _ = stackTrace "Bad call to pattern matched function"
 runFun :: Value -> [Value] -> Scoper Value
 runFun (VScoped func fscope) params =
   runWithScope fscope $ runScopedFun func params
-runFun (VTypeCons className consName cargs) params = do
-  assert ((length cargs) == (length params)) ("Bad type cons call to " <> consName)
-  pure $ VTypeInstance className consName params
+runFun og@(VTypeCons className consName cargs) params =
+  curryWrapper
+    og
+    (pure $ VTypeInstance className consName params)
+    ("Too many args passed to type cons: " <> consName)
+    params
 runFun expr params = runScopedFun expr params
 
-runScopedFun :: Value -> [Value] -> Scoper Value
-runScopedFun (VFunction cases) params = evaluateCases cases params
-runScopedFun (VTypeFunction defSig tcases) params =
-    if elem SelfArg (getDefSigArgs defSig) then
-      evaluateTf defSig cases params
-    else
-      pure $ VInferred (getDefSigFunName defSig) (getDefSigTypeName defSig) params
+handleCurrying :: Int -> [Value] -> Value -> Value
+handleCurrying expectedLen params thingToCurry = 
+    VFunction [
+        generateInteropCase newArgs
+          (\rest -> runFun thingToCurry (newParams <> rest))
+      ]
   where
+    actualLen   = length params
+    newArgs     = (IdArg . (<> "#") . show) <$> [1..diff]
+    diff        = expectedLen - actualLen
+    newParams   = take (diff + 1) params
+
+curryWrapper :: Value -> Scoper Value -> String -> [Value] -> Scoper Value
+curryWrapper og evaluator errMessage params =
+  case compare expectedLen (length params) of
+    EQ -> evaluator
+    LT -> stackTrace errMessage
+    GT -> pure $ handleCurrying expectedLen params og
+  where
+    expectedLen = argLenForFuncLike og
+
+    argLenForFuncLike :: Value -> Int
+    argLenForFuncLike (VTypeCons _ _ cargs) =
+      length cargs
+    argLenForFuncLike (VTypeFunction (DefSignature _ _ args _) _) =
+      length args
+    argLenForFuncLike (VFunction (x:_)) =
+      length $ fcaseArgs x
+    argLenForFuncLike v = trace ("Not a func-like: " <> show v) undefined
+
+runScopedFun :: Value -> [Value] -> Scoper Value
+runScopedFun og@(VFunction cases) params =
+  curryWrapper
+    og
+    (evaluateCases cases params)
+    "Too many args passed to function"
+    params
+runScopedFun og@(VTypeFunction defSig tcases) params =
+    curryWrapper
+      og
+      evaluator
+      "Too many args passed to function"
+      params
+  where
+    evaluator = if elem SelfArg (getDefSigArgs defSig)
+      then evaluateTf defSig cases params
+      else pure $ VInferred
+                    (getDefSigFunName defSig)
+                    (getDefSigTypeName defSig)
+                    params
+    
     cases = (view _2) <$> tcases
 
 runScopedFun _ _ = stackTrace "Error: Bad function call"

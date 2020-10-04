@@ -31,3 +31,63 @@ debug(unwrap:
 
 debug("hello" <> " world" <> " yeet")
 debug(Just(" world") <> wrap(" woot") <> Just(" whauuuuu"))
+
+class SumMonoid:
+  Sum(value)
+
+instance SumMonoid of Semigroup:
+  def append(Sum(first), Sum(second)):
+    return Sum(first + second)
+
+instance SumMonoid of Monoid:
+  def mempty():
+    return Sum(0)
+
+instance SumMonoid of Show:
+  def str(Sum(value)):
+    return str(value)
+
+instance SumMonoid of IntCastable:
+  def int(Sum(value)):
+    return value
+
+class ProductMonoid:
+  Product(value)
+
+instance ProductMonoid of Semigroup:
+  def append(Product(first), Product(second)):
+    return Product(first * second)
+
+instance ProductMonoid of Monoid:
+  def mempty():
+    return Product(1)
+
+instance ProductMonoid of Show:
+  def str(Product(value)):
+    return str(value)
+
+instance ProductMonoid of IntCastable:
+  def int(Product(value)):
+    return value
+
+debug(Product(4) <> Product(3))
+debug(Sum(4) <> Sum(3))
+debug(Sum(4) <> mempty())
+
+debug([1] <> mempty())
+debug([1, 2, 3, 4].map(Sum).foldl(mempty(), append).int())
+
+a = Just
+debug(a(3))
+
+class Blitzmax:
+  Blitz(a, b, c, d, e)
+
+b = Blitz(1, 2, 3)
+debug(b(4, 5))
+
+def foo(a, b):
+  return a + b
+
+debug(debug(append([1]))([4, 5]))
+debug([1, 2, 3].map(add(1)))

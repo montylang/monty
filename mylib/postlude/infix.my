@@ -1,0 +1,35 @@
+def add(x, y):
+  return x + y
+
+def sub(x, y):
+  return x - y
+
+def multiply(x, y):
+  return x * y
+
+def divide(x, y):
+  return x / y
+
+def mod(x, y):
+  return x % y
+
+def notEquals(x, y):
+  return x != y
+
+def gt(x, y):
+  return x > y
+
+def lt(x, y):
+  return x < y
+
+def ge(x, y):
+  return x >= y
+
+def le(x, y):
+  return x <= y
+
+def and(x, y):
+  return x and y
+
+def or(x, y):
+  return x or y

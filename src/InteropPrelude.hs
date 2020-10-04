@@ -70,6 +70,9 @@ listAppendImpl [first@(VList xs), second@(VList ys)] = do
   pure $ VList (xs <> ys)
 listAppendImpl _ = stackTrace "You must append a list to a list"
 
+listMemptyImpl :: [Value] -> Scoper Value
+listMemptyImpl [] = pure $ VList []
+
 stringAppendImpl :: [Value] -> Scoper Value
 stringAppendImpl [(VString xs), (VString ys)] = pure $ VString (xs <> ys)
 stringAppendImpl _ = stackTrace "You may only append strings with other strings"
@@ -134,6 +137,11 @@ listDefinitions = [
         generateInteropCase
           [TypedIdArg "first" "List", TypedIdArg "second" "List"]
           listAppendImpl
+    ]),
+    ("List", "mempty", [
+        generateInteropCase
+          []
+          listMemptyImpl
     ]),
     ("List", "Nil", [generateInteropCase [] (const . pure $ VList [])]),
     ("List", "Cons", [generateInteropCase [IdArg "head", IdArg "tail"] consImpl])

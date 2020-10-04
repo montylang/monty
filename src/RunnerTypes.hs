@@ -41,6 +41,7 @@ instance Eq FunctionCase where
 data Value
   = VInt Int
   | VString String
+  | VCurried Value [Value]
   | VFunction [FunctionCase]
   | VInferred {
       iFuncName :: Id,

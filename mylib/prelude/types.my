@@ -27,6 +27,9 @@ class Ordering:
 type Show:
   def str(self)
 
+type IntCastable:
+  def int(self)
+
 type Semigroup:
   def append(self, self) -> self
 

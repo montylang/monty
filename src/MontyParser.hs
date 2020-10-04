@@ -163,10 +163,10 @@ infixParser indent = do
         ("!=", InfixNe),
         ("==", InfixEq),
         ("is", InfixEq),
-        (">", InfixGt),
-        ("<", InfixLt),
         ("<=", InfixLe),
         (">=", InfixGe),
+        (">", InfixGt),
+        ("<", InfixLt),
         ("and", InfixLogicAnd),
         ("or", InfixLogicOr)
       ]
