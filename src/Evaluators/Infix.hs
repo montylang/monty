@@ -10,7 +10,6 @@ import CallableUtils
 
 evalInfix :: PExpr -> InfixOp -> PExpr -> Scoper Value
 evalInfix first op second = do
-  -- TODO: Infer lhs on rhs, vice versa
   f' <- evalP first
   s' <- evalP second
   (f, s) <- inferTypes f' s'
@@ -34,7 +33,6 @@ evalInfix first op second = do
         Just cname -> do
           inferred <- applyInferredType cname vinf
           pure (inferred, val)
-        -- TODO: You can do better than this with your life
         Nothing    -> stackTrace "Types cannot be inferred from context"
       
 

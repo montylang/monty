@@ -38,3 +38,6 @@ type Monoid:
 
 type Alternative:
   def alt(self, self) -> self
+
+type Traversable:
+  def traverse(self, function)

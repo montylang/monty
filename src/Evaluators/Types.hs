@@ -64,7 +64,7 @@ getSigArgs :: Id -> [DefSignature] -> Scoper [Arg]
 getSigArgs cname cavailable =
   case find ((cname ==) . getDefSigFunName) cavailable of
     Just sig -> pure $ getDefSigArgs sig
-    Nothing  -> stackTrace $ -- TODO: Types must currently have at least one function
+    Nothing  -> stackTrace $
       cname <> " is not part of type " <> (getDefSigTypeName $ head cavailable)
 
 updateStub :: Id -> Value -> [Arg] -> [PExpr] -> Scoper Value

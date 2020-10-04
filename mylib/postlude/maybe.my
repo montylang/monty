@@ -88,3 +88,60 @@ instance Maybe of Alternative:
 
   def alt(_, _):
     return None
+
+instance Maybe of Traversable:
+  def traverse(None, _):
+    return wrap(None)
+
+  def traverse(Just(x), fun):
+    return fun(x).map(Just)
+
+
+def maybe(Just(x), _, transformer):
+  return transformer(x)
+
+def maybe(None, default, _):
+  return default 
+
+
+def isJust(Just(_)):
+  return True
+
+def isJust(_):
+  return False
+
+
+def isNone(None):
+  return True
+
+def isNone(_):
+  return False
+
+
+def fromMaybe(None, default):
+  return default
+
+def fromMaybe(Just(x), _):
+  return x
+
+
+def listToMaybe(Nil):
+  return None
+
+def listToMaybe(head|_):
+  return Just(head)
+
+
+def maybeToList(None):
+  return []
+
+def maybeToList(Just(x)):
+  return [x]
+
+
+def catMaybes(maybeList):
+  return maybeList.bind(maybeToList)
+
+
+def mapMaybe(inputList, fun):
+  return inputList.map(fun).catMaybes()

@@ -80,7 +80,6 @@ evaluate (ExprDef args body) =
 
 evaluate (ExprAssignment name value) = evalAssignment name value
 
--- TODO: Determine if this is a partial application or not
 evaluate (ExprCall funExpr args) = do
     pushToCallStack funExpr
     fun        <- evalP funExpr

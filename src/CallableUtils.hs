@@ -65,7 +65,8 @@ pickFun :: [FunctionCase] -> [Value] -> Scoper FunctionCase
 pickFun cases params = do
   case find (funCaseMatchesParams params) cases of
     Just funCase -> pure funCase 
-    Nothing      -> stackTrace $ "No function defined for " <> show params
+    Nothing      -> stackTrace $
+      "No function defined for arguments (" <> intercalate ", " (show <$> params) <> ")"
 
 funCaseMatchesParams :: [Value] -> FunctionCase -> Bool
 funCaseMatchesParams params fcase =

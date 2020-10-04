@@ -91,3 +91,16 @@ def foo(a, b):
 
 debug(debug(append([1]))([4, 5]))
 debug([1, 2, 3].map(add(1)))
+
+debug(catMaybes([Just(3), Just(4), None, Just(7)]))
+debug([1, 2, 3, 4, 5].mapMaybe(
+  def (x):
+    return if x < 3:
+      Just(x)
+    else:
+      None
+))
+
+debug(Just(3).traverse((x): [x, x + 1]))
+#debug(append(None.traverse((x): [x, x + 1]), [Just(3)]))
+
