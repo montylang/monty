@@ -9,13 +9,23 @@ import MontyParser
 testParser :: (Indent -> Parser a) -> String -> Either (ParseErrorBundle String Void) a
 testParser p input = parse (p "" <* (try $ many $ try singleEol) <* eof) "" input
 
+mkStrExpr = ExprList . fmap (pure . ExprChar)
+
 main :: IO ()
 main = hspec $ do
   describe "SingleEol parser" $ do
     it "Parses EOLs" $ do
-      parse (singleEol <* eof) "" "  \n" `shouldBe` (Right ()) 
-      parse (singleEol <* eof) "" "  # \n" `shouldBe` (Right ()) 
-      parse (singleEol <* eof) "" "  #  sntaoehusnthoea \n" `shouldBe` (Right ()) 
+      parse (singleEol <* eof) "" "  \n" `shouldBe` (Right ())
+      parse (singleEol <* eof) "" "  # \n" `shouldBe` (Right ())
+      parse (singleEol <* eof) "" "  #  sntaoehusnthoea \n" `shouldBe` (Right ())
+
+  describe "Import parser" $ do
+    it "Parses imports" $ do
+      (parse (importParser <* eof) "" "import foo") `shouldBe`
+        (Right $ pure $ ExprImport ["foo"])
+      (parse (importParser <* eof) "" "import foo.bar.it") `shouldBe`
+        (Right $ pure $ ExprImport ["foo", "bar", "it"])
+      (parse (importParser <* eof) "" "import foo.") `shouldSatisfy` isLeft
 
   describe "Id parser" $ do
     it "Parses ids" $ do
@@ -31,15 +41,31 @@ main = hspec $ do
 
   describe "String parser" $ do
     it "Parses strings" $ do
-      (testParser exprParser "\"test\"") `shouldBe` (Right $ pure $ ExprString "test")
-      (testParser exprParser "'test'") `shouldBe` (Right $ pure $ ExprString "test")
-      (testParser exprParser "'\"\"\"'") `shouldBe` (Right $ pure $ ExprString "\"\"\"")
-      (testParser exprParser "\"'''\"") `shouldBe` (Right $ pure $ ExprString "'''")
+      (testParser exprParser "\"test\"") `shouldBe` (Right $ pure $ mkStrExpr "test")
+      (testParser exprParser "\"'''\"") `shouldBe` (Right $ pure $ mkStrExpr "'''")
+      (testParser exprParser "'test'") `shouldSatisfy` isLeft
+      (testParser exprParser "'\"\"\"'") `shouldSatisfy` isLeft
       (testParser exprParser "\"test'") `shouldSatisfy` isLeft
       (testParser exprParser "'test\"") `shouldSatisfy` isLeft
 
-  describe "Expr parser" $ do
-    it "Infix ops" $ do
+  describe "Char parser" $ do
+    it "Parses chars" $ do
+      (testParser exprParser "'c'") `shouldBe` (Right $ pure $ ExprChar 'c')
+      (testParser exprParser "''") `shouldSatisfy` isLeft
+      (testParser exprParser "'cc'") `shouldSatisfy` isLeft
+
+  describe "List parser" $ do
+    it "Parses lists" $ do
+      (testParser exprParser "[1, 2]") `shouldBe`
+        (Right $ pure $ ExprList [pure $ ExprInt 1, pure $ ExprInt 2])
+      (testParser exprParser "[\"a\", \"b\"]") `shouldBe`
+        (Right $ pure $ ExprList [pure $ mkStrExpr "a", pure $ mkStrExpr "b"])
+      (testParser exprParser "[1, \"b\"]") `shouldBe`
+        (Right $ pure $ ExprList [pure $ ExprInt 1, pure $ mkStrExpr "b"])
+      (testParser exprParser "[1, ]") `shouldSatisfy` isLeft
+
+  describe "Infix parser" $ do
+    it "Simple infix ops" $ do
       (testParser exprParser "a + b") `shouldBe`
         (Right $ pure $ ExprInfix (pure $ ExprId "a") InfixAdd (pure $ ExprId "b"))
 
@@ -49,6 +75,27 @@ main = hspec $ do
          InfixAdd
          (pure $ ExprInfix (pure $ ExprId "b") InfixAdd (pure $ ExprId "c")))
 
+    it "Precedence" $ do
+      (testParser exprParser "a + b * c") `shouldBe`
+        (Right $ pure $ ExprInfix
+         (pure $ ExprId "a")
+         InfixAdd
+         (pure $ ExprInfix (pure $ ExprId "b") InfixMul (pure $ ExprId "c")))
+
+      (testParser exprParser "a + b * c + d") `shouldBe`
+        (Right $ pure $
+            ExprInfix
+                (pure $ ExprId "a")
+                InfixAdd
+                (pure $ ExprInfix
+                        (pure $ ExprInfix
+                                (pure $ ExprId "b")
+                                InfixMul
+                                (pure $ ExprId "c"))
+                        InfixAdd
+                        (pure $ ExprId "d")))
+
+  describe "Expr parser" $ do
     it "Paren eater" $ do
       (testParser exprParser "(a)") `shouldBe`
         (Right $ pure $ (ExprId "a"))
@@ -213,7 +260,7 @@ main = hspec $ do
            []
            [pure $ ExprInt 5])
          )
- 
+
   describe "Def" $ do
     it "Anonymous def" $ do
       (testParser exprParser $ unlines ["def (a, b)  : ", "  4"]) `shouldBe`
@@ -267,6 +314,11 @@ main = hspec $ do
       (testParser exprParser $ "foo()()") `shouldBe`
         (Right $ pure $ ExprCall (pure $ ExprCall (pure $ ExprId "foo") []) [])
 
+    it "Sugar syntax" $ do
+      (testParser exprParser $ "foo.bar(it)") `shouldBe`
+        (Right $ pure $
+            ExprCall (pure $ ExprId "bar") [pure $ ExprId "foo", pure $ ExprId "it"])
+
   describe "Classes but really just data" $ do
     it "Constructs" $ do
       (testParser exprParser $ unlines [
@@ -290,4 +342,31 @@ main = hspec $ do
               pure $ ExprAssignment
                 "bar"
                 (pure $ ExprDef [] [pure $ ExprReturn (pure $ ExprInt 0)])
+            ])
+
+  describe "Unwrap parser" $ do
+    it "Parses uwrap statements" $ do
+      (testParser unwrapParser $ unlines [
+            "unwrap:",
+            "  foo <- bar",
+            "  it"
+          ]) `shouldBe`
+        (Right $ pure $ ExprUnwrap [
+              pure $ ExprBind "foo" (pure $ ExprId "bar"),
+              pure $ ExprId "it"
+            ])
+
+      (testParser unwrapParser $ unlines [
+            "unwrap:",
+            "  foo <- bar",
+            "  it",
+            "  larry",
+            "  curly <- 3 + 3"
+          ]) `shouldBe`
+        (Right $ pure $ ExprUnwrap [
+              pure $ ExprBind "foo" (pure $ ExprId "bar"),
+              pure $ ExprId "it",
+              pure $ ExprId "larry",
+              pure $ ExprBind "curly"
+                (pure $ ExprInfix (pure $ ExprInt 3) InfixAdd (pure $ ExprInt 3))
             ])
