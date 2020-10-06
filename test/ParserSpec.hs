@@ -73,9 +73,9 @@ spec = do
 
       (testParser exprParser "a + b + c") `shouldBe`
         (Right $ pure $ ExprInfix
-         (pure $ ExprId "a")
+         (pure $ ExprInfix (pure $ ExprId "a") InfixAdd (pure $ ExprId "b"))
          InfixAdd
-         (pure $ ExprInfix (pure $ ExprId "b") InfixAdd (pure $ ExprId "c")))
+         (pure $ ExprId "c"))
 
     it "Precedence" $ do
       (testParser exprParser "a + b * c") `shouldBe`
@@ -87,15 +87,15 @@ spec = do
       (testParser exprParser "a + b * c + d") `shouldBe`
         (Right $ pure $
             ExprInfix
-                (pure $ ExprId "a")
-                InfixAdd
                 (pure $ ExprInfix
-                        (pure $ ExprInfix
-                                (pure $ ExprId "b")
-                                InfixMul
-                                (pure $ ExprId "c"))
-                        InfixAdd
-                        (pure $ ExprId "d")))
+                            (pure $ ExprId "a")
+                            InfixAdd
+                            (pure $ ExprInfix
+                                    (pure $ ExprId "b")
+                                    InfixMul
+                                    (pure $ ExprId "c")))
+                InfixAdd
+                (pure $ ExprId "d"))
 
   describe "Expr parser" $ do
     it "Paren eater" $ do

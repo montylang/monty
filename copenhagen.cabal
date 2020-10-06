@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e3f0172b66f16697e372a0b1e043cad0a590d0de690295d8e2f7496692651517
+-- hash: 026d4519066bf677ad6860f929193e7edcaf67c441e0272e7e77fba2873a7864
 
 name:           copenhagen
 version:        0.1.0.0
@@ -81,7 +81,7 @@ test-suite copenhagen-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      AutoParserSpec
+      HelperSpec
       ParserSpec
       Paths_copenhagen
   hs-source-dirs:

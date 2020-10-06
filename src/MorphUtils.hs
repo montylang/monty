@@ -1,10 +1,17 @@
 module MorphUtils where
 
-splitWhen :: (a -> Bool) -> [a] -> [[a]]
-splitWhen _ []  = []
-splitWhen _ [x] = [[x]]
-splitWhen f xs  =
-  let (ys, rest) = span (not . f) xs
-  in case ys of
-    [] -> [rest]
-    zs -> [zs] <> (splitWhen f rest)
+import Lens.Micro.Platform
+import Debug.Trace
+
+multiSpan :: (a -> Bool) -> [a] -> [[a]]
+multiSpan _ []  = []
+multiSpan _ [x] = [[x]]
+multiSpan f (x:xs) =
+    let (ys, rest) = (multiSpan' . span (not . f)) remainder
+      in [header <> ys] <> rest
+  where
+    multiSpan' (xs, ys) = (xs, multiSpan f ys)
+
+    cond = f x
+    remainder = if cond then xs else (x:xs)
+    header = if cond then [x] else []

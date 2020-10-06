@@ -182,7 +182,7 @@ infixParser indent = do
       where
         subCases :: [PExpr]
         subCases = groupByPrecedence os <$>
-          (splitWhen ((== (Just o)) . (view _1)) xs)
+          (multiSpan ((== (Just o)) . (view _1)) xs)
 
         joinHeadOp :: [PExpr] -> PExpr
         joinHeadOp [y] = y
