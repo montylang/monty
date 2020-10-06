@@ -25,7 +25,7 @@ evalP pexpr = use (executors . evaluatePExpr) >>= ($ pexpr)
 typesEqual :: Value -> Value -> Bool
 typesEqual (VTypeInstance t1 _ _) (VTypeInstance t2 _ _) = t1 == t2
 typesEqual (VInt _) (VInt _)           = True
-typesEqual (VString _) (VString _)     = True
+typesEqual (VChar _) (VChar _)         = True
 typesEqual (VList (x:_)) (VList (y:_)) = typesEqual x y
 typesEqual (VList _) (VList _)         = True
 typesEqual _ _                         = False
@@ -89,7 +89,7 @@ findImplsInScope fname value =
 classForValue :: Value -> Maybe Id
 classForValue (VList _)   = Just "List"
 classForValue (VInt _)    = Just "Int"
-classForValue (VString _) = Just "String"
+classForValue (VChar _)   = Just "Char"
 classForValue (VTypeInstance cname _ _) = Just cname
 classForValue _ = Nothing
 

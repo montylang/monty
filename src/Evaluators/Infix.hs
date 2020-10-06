@@ -18,7 +18,6 @@ evalInfix first op second = do
   case f of
     (VInt _)    -> intInfixEval f op s
     (VList _)   -> concatInfixEval f op s
-    (VString _) -> concatInfixEval f op s
     _           -> genericInfixEval f op s
 
   where
@@ -38,8 +37,6 @@ evalInfix first op second = do
 
 concatInfixEval :: Value -> InfixOp -> Value -> Scoper Value
 concatInfixEval first@(VList _) InfixAdd second@(VList _) =
-  applyBinaryFun "append" first second
-concatInfixEval first@(VString _) InfixAdd second@(VString _) =
   applyBinaryFun "append" first second
 concatInfixEval x op y = genericInfixEval x op y
 

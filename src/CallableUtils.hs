@@ -76,7 +76,7 @@ argMatchesParam :: Arg -> Value -> Bool
 argMatchesParam (IdArg _) _ = True
 argMatchesParam (TypedIdArg _ t) (VTypeInstance cname _ _) = t == cname
 argMatchesParam (TypedIdArg _ "Int") (VInt _) = True
-argMatchesParam (TypedIdArg _ "String") (VString _) = True
+argMatchesParam (TypedIdArg _ "Char") (VChar _) = True
 argMatchesParam (TypedIdArg _ "List") (VList _) = True
 argMatchesParam (PatternArg "Nil" _) (VList []) = True
 argMatchesParam (PatternArg "Cons" _) (VList (_:_)) = True
@@ -184,4 +184,4 @@ runScopedFun og@(VTypeFunction defSig tcases) params =
     
     cases = (view _2) <$> tcases
 
-runScopedFun _ _ = stackTrace "Error: Bad function call"
+runScopedFun og _ = stackTrace $ "Error: Bad function call (" <> show og <> ")"

@@ -37,7 +37,9 @@ evalInstanceOf className typeName implementations = do
     typeDef  <- findInScope typeName
     funcDefs <- functionDefs typeDef
     
-    case classDef of
+    if className == "List" then
+      addAllImplementations [] funcDefs
+    else case classDef of
       Just (VClass consNames, _) -> addAllImplementations consNames funcDefs
       _ -> stackTrace $ "Attempted to use undefined class: " <> className
   where

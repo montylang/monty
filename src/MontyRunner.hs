@@ -56,7 +56,7 @@ evaluate (ExprInstanceOf className typeName implementations) =
   evalInstanceOf className typeName implementations
 
 evaluate (ExprInt a) = pure $ VInt a
-evaluate (ExprString a) = pure $ VString a
+evaluate (ExprChar a) = pure $ VChar a
 
 evaluate (ExprInfix first op second) = evalInfix first op second
 

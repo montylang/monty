@@ -43,7 +43,7 @@ type PExpr = Pos Expr
 data Expr
   = ExprId Id
   | ExprInt Int
-  | ExprString String
+  | ExprChar Char
   | ExprIfElse CondBlock [CondBlock] [PExpr]
   | ExprInfix PExpr InfixOp PExpr
   | ExprAssignment Id (PExpr)

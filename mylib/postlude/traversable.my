@@ -1,0 +1,2 @@
+def sequence(x):
+  return x.traverse(id)

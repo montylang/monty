@@ -28,3 +28,6 @@ debug([1, 2, 3].reverse())
 debug([3].reverse())
 
 [1] <> wrap(3)
+
+debug(traverse([1, 2, 3], Just))
+debug(sequence([Just(1), Just(2), None]))

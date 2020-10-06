@@ -232,12 +232,16 @@ exprTypeConsParser indent = do
 intParser :: Indent -> Parser PExpr
 intParser _ = ExprInt <$> signed sc decimal >>= addPos
 
+charParser :: Indent -> Parser PExpr
+charParser _ = do
+  inner <- char '\'' *> (noneOf ['\'']) <* char '\''
+  addPos $ ExprChar inner
+
 stringParser :: Indent -> Parser PExpr
 stringParser _ = do
-  startQuote <- oneOf "\"'"
-  inner      <- many $ noneOf [startQuote]
-  _          <- char startQuote
-  addPos $ ExprString inner
+  pos   <- getSourcePos
+  inner <- char '"' *> (many $ noneOf ['"']) <* char '"'
+  addPos $ ExprList (Pos pos . ExprChar <$> inner)
 
 -- TODO: Only allow in root scopes
 classParser :: Indent -> Parser PExpr
@@ -340,6 +344,7 @@ exprParser' indent = chainableParser indent =<<
         exprTypeConsParser,
         intParser,
         listParser,
+        charParser,
         stringParser
       ]
 

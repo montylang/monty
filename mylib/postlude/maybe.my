@@ -36,15 +36,15 @@ instance Maybe of Applicative:
   def apply(None, _):
     return None
 
+  def wrap(value):
+    return Just(value)
+
 instance Maybe of Monad:
   def bind(Just(value), f):
     return f(value)
 
   def bind(None, _):
     return None
-
-  def wrap(value):
-    return Just(value)
 
 instance Maybe of Equal:
   def equals(None, None):

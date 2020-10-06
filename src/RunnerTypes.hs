@@ -40,7 +40,7 @@ instance Eq FunctionCase where
 
 data Value
   = VInt Int
-  | VString String
+  | VChar { chr :: Char }
   | VCurried Value [Value]
   | VFunction [FunctionCase]
   | VInferred {
@@ -74,7 +74,7 @@ data Value
 
 instance Show Value where
   show (VInt value) = show value
-  show (VString value) = show value
+  show (VChar value) = show value
   show (VFunction _) = show "<function>"
   show (VTypeCons _ name args) =
     name <>
@@ -90,6 +90,7 @@ instance Show Value where
   show (VTypeFunction _ _) = "<function>"
   show (VScoped value _) = show value
   show (VClass _) = "<class>"
+  show (VList values@((VChar _):_)) = show $ chr <$> values
   show (VList values) = show values
   show (VDict) = undefined
   show (VTuple) = undefined

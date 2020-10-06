@@ -29,15 +29,15 @@ instance Either of Applicative:
   def apply(l, _):
     return l
 
+  def wrap(value):
+    return Right(value)
+
 instance Either of Monad:
   def bind(Right(value), f):
     return f(value)
 
   def bind(l, _):
     return l
-
-  def wrap(value):
-    return Right(value)
 
 instance Either of Equal:
   def equals(Left(val1), Left(val2)):

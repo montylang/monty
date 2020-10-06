@@ -8,10 +8,10 @@ type Foldable:
 type Applicative:
   # Second parameter: Expects a function inside
   def apply(self, self) -> self
+  def wrap(value) -> self
 
 type Monad:
   def bind(self, function) -> self
-  def wrap(value) -> self
 
 type Equal:
   def equals(self, self)
@@ -38,6 +38,8 @@ type Monoid:
 
 type Alternative:
   def alt(self, self) -> self
+  # TODO:
+  #def empty() -> self
 
 type Traversable:
   def traverse(self, function)

@@ -1,3 +1,12 @@
+instance List of Traversable:
+  def traverse(l, f):
+    def consF(x, ys):
+      return liftA2(Cons, f(x), ys)
+    return l.foldr(wrap([]), consF)
+ # http://hackage.haskell.org/package/base-4.14.0.0/docs/src/Data.Traversable.html#traverse
+ # traverse f = List.foldr cons_f (pure [])
+ #   where cons_f x ys = liftA2 (:) (f x) ys
+
 def filter(Nil, _):
   return Nil
 
@@ -21,3 +30,4 @@ def tail(head|tail):
 
 def reverse(l):
   return l.foldl([], (acc, it): [it] <> acc)
+

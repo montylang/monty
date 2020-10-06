@@ -5,5 +5,5 @@ def applyl(a1, a2):
   return liftA2(const, a1, a2)
 
 def liftA2(f, a1, a2):
-  return a1.map(f).apply(a2)
+  return apply(a1.map(f), a2)
 

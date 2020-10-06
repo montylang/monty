@@ -27,7 +27,7 @@ debug(unwrap:
 #   a <- wrap(3)
 #   b <- wrap(7)
 #   wrap(b))
-    
+
 
 debug("hello" <> " world" <> " yeet")
 debug(Just(" world") <> wrap(" woot") <> Just(" whauuuuu"))
@@ -104,3 +104,18 @@ debug([1, 2, 3, 4, 5].mapMaybe(
 debug(Just(3).traverse((x): [x, x + 1]))
 #debug(append(None.traverse((x): [x, x + 1]), [Just(3)]))
 
+def replaceChar(unwanted, wanted, actual):
+  return if unwanted == actual:
+    wanted
+  else:
+    actual
+
+debug("hello".map(replaceChar('h', 'm')))
+
+def shitPants(num):
+  return if num == 3:
+    -5
+  else:
+    num + 1
+
+debug([1, 2, 3, 4].map(shitPants).map(shitPants).map(shitPants))
