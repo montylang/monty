@@ -54,3 +54,4 @@ tests:
     dependencies:
     - copenhagen
     - hspec
+    - QuickCheck
