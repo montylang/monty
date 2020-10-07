@@ -7,6 +7,7 @@ import Text.Megaparsec
 import System.Exit
 import Data.List
 import Lens.Micro.Platform
+import Debug.Trace
 
 import ParserTypes
 import RunnerTypes
@@ -36,15 +37,10 @@ evaluateP (Pos pos expr) = catchError (eval expr) exitOnError
 evaluate :: Expr -> Scoper Value
 evaluate (ExprId "_") = stackTrace "Cannot use black hole as variable"
 evaluate (ExprId name) = do
-    value <- findInScope name
-    case toVScoped <$> value of
-      Just val -> pure val
-      Nothing  -> stackTrace (name <> " is not in scope")
-  where
-    toVScoped :: (Value, Scope) -> Value
-    -- Only return associated scopes for functions
-    toVScoped (VFunction cases, s) = VScoped (VFunction cases) s
-    toVScoped (value, _) = value
+  value <- findInScope name
+  case value of
+    Just val -> pure $ view _1 val
+    Nothing  -> stackTrace (name <> " is not in scope")
 
 evaluate (ExprClass name constructors) =
   evalClass name constructors
@@ -76,9 +72,17 @@ evaluate (ExprList (x:xs)) = do
       pure evaled
 
 evaluate (ExprDef args body) =
-  pure $ VFunction [FunctionCase args body]
+  VScoped (VFunction [FunctionCase args body]) <$> use scope
 
-evaluate (ExprAssignment name value) = evalAssignment name value
+evaluate (ExprAssignment name value) =
+    evalAssignment name value <* (scope %= rescope)
+  where
+    rescope :: Scope -> Scope
+    rescope vals = vals & (ix 0) %~ (HM.map . updateScoped) vals
+
+    updateScoped :: Scope -> Value -> Value
+    updateScoped s (VScoped v _) = VScoped v s
+    updateScoped _ v = v
 
 evaluate (ExprCall funExpr args) = do
     pushToCallStack funExpr

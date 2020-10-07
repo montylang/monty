@@ -52,21 +52,9 @@ evaluateCases cases params = runWithTempScope $ do
 runFcase :: FunctionCase -> Scoper Value
 runFcase (FunctionCase _ body) = do
     sequence_ $ evalP <$> beginning
-    s            <- use scope
-    evaledReturn <- evalP returnExpr
-    addScopes evaledReturn
+    evalP returnExpr
   where
     (beginning, returnExpr) = splitReturn body
-
-    addScopes :: Value -> Scoper Value
-    addScopes v@(VFunction _) = VScoped v <$> use scope
-    addScopes (VTypeInstance cname iname vals) = do
-      newVals <- sequence $ addScopes <$> vals
-      pure $ VTypeInstance cname iname newVals
-    addScopes (VList elements) = do
-      newElements <- sequence $ addScopes <$> elements
-      pure $ VList newElements
-    addScopes v = pure v
 
 runFcase (InteropCase _ body) = body
 
