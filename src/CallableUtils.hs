@@ -54,11 +54,20 @@ runFcase (FunctionCase _ body) = do
     sequence_ $ evalP <$> beginning
     s            <- use scope
     evaledReturn <- evalP returnExpr
-    pure $ case evaledReturn of
-      (VFunction _) -> VScoped evaledReturn s
-      _             -> evaledReturn
+    addScopes evaledReturn
   where
     (beginning, returnExpr) = splitReturn body
+
+    addScopes :: Value -> Scoper Value
+    addScopes v@(VFunction _) = VScoped v <$> use scope
+    addScopes (VTypeInstance cname iname vals) = do
+      newVals <- sequence $ addScopes <$> vals
+      pure $ VTypeInstance cname iname newVals
+    addScopes (VList elements) = do
+      newElements <- sequence $ addScopes <$> elements
+      pure $ VList newElements
+    addScopes v = pure v
+
 runFcase (InteropCase _ body) = body
 
 pickFun :: [FunctionCase] -> [Value] -> Scoper FunctionCase
@@ -66,7 +75,7 @@ pickFun cases params = do
   case find (funCaseMatchesParams params) cases of
     Just funCase -> pure funCase 
     Nothing      -> stackTrace $
-      "No function defined for arguments (" <> intercalate ", " (show <$> params) <> ")"
+      "No function defined for arguments (" <> intercalate ", " (show <$> params) <> ")" <> show cases
 
 funCaseMatchesParams :: [Value] -> FunctionCase -> Bool
 funCaseMatchesParams params fcase =

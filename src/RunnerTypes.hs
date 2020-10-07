@@ -75,7 +75,7 @@ data Value
 instance Show Value where
   show (VInt value) = show value
   show (VChar value) = show value
-  show (VFunction _) = show "<function>"
+  show (VFunction cases) = "fun:" <> show cases
   show (VTypeCons _ name args) =
     name <>
     if length args == 0
@@ -96,6 +96,31 @@ instance Show Value where
   show (VTuple) = undefined
   show (VInferred fname tname vals) =
     "VInferred " <> fname <> " " <> tname <> " " <> show vals
+
+prettyPrint :: Value -> String
+prettyPrint (VInt value) = show value
+prettyPrint (VChar value) = show value
+prettyPrint (VFunction _) = "<function>"
+prettyPrint (VTypeCons _ name args) =
+  name <>
+  if length args == 0
+    then ""
+    else "(" <> intercalate "," args <> ")"
+prettyPrint (VTypeInstance _ name vals) =
+  name <>
+  if length vals == 0
+    then ""
+    else "(" <> intercalate "," (prettyPrint <$> vals) <> ")"
+prettyPrint (VTypeDef name _) = "<type " <> name <> ">"
+prettyPrint (VTypeFunction _ _) = "<function>"
+prettyPrint (VScoped value _) = show value
+prettyPrint (VClass _) = "<class>"
+prettyPrint (VList values@((VChar _):_)) = show $ chr <$> values
+prettyPrint (VList values) = show values
+prettyPrint (VDict) = undefined
+prettyPrint (VTuple) = undefined
+prettyPrint (VInferred fname tname vals) =
+  "VInferred " <> fname <> " " <> tname <> " " <> show vals
 
 $(makeLenses ''Executors)
 $(makeLenses ''Context)
