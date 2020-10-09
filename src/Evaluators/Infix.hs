@@ -59,7 +59,7 @@ compareOrderable f op s =
 applyBinaryFun :: Id -> Value -> Value -> Scoper Value
 applyBinaryFun fname f s = do
   impl <- findImplsInScope fname f
-  evaluateCases (fcases impl) [f, s]
+  evaluateImpl impl [f, s]
 
 intInfixEval :: Value -> InfixOp -> Value -> Scoper Value
 intInfixEval (VInt first) InfixAdd (VInt second) = pure $ VInt $ first + second

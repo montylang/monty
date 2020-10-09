@@ -1,4 +1,4 @@
-module CallableUtils (runFun, evaluateCases, applyInferredType) where
+module CallableUtils (runFun, evaluateImpl, applyInferredType) where
 
 import Prelude
 import Data.List
@@ -19,7 +19,7 @@ evaluateTf (DefSignature tname fname args retSelf) impls params = do
         impl <- justToScoper
           ("No impl of " <> fname <> " for " <> cname)
           (HM.lookup cname impls)
-        funRet <- evaluateCases (fcases impl) inferredParams
+        funRet <- evaluateImpl impl inferredParams
         case (funRet, retSelf) of
           (v@(VInferred _ _ _), True) -> applyInferredType cname v
           (v, _)                      -> pure v
@@ -48,8 +48,12 @@ evaluateTf (DefSignature tname fname args retSelf) impls params = do
 applyInferredType :: Id -> Value -> Scoper Value
 applyInferredType cname (VInferred ifname _ iparams) = do
   impl <- implForClass cname ifname
-  evaluateCases (fcases impl) iparams
+  evaluateImpl impl iparams
 applyInferredType _ value = pure value
+
+-- TODO: Infer values
+evaluateImpl :: FunctionImpl -> [Value] -> Scoper Value
+evaluateImpl impl = evaluateCases (fcases impl)
 
 evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
 evaluateCases cases params = runWithTempScope $ do
@@ -65,12 +69,6 @@ runFcase (FunctionCase _ body) = do
     (beginning, returnExpr) = splitReturn body
 
 runFcase (InteropCase _ body) = body
-
--- [FunctionCase] -> (args are ["Anything", "Int", "Anything"])
-
--- Nil, _  -- "List" "Anything"
--- _, Cons(x, xs) -- "List" "List"
--- _, Just(q)     -- "List" "JUst"? wtf
 
 pickFun :: [FunctionCase] -> [Value] -> Scoper FunctionCase
 pickFun cases params = do
@@ -144,7 +142,7 @@ runFun og@(VTypeCons className consName cargs) params =
     (pure $ VTypeInstance className consName params)
     ("Too many args passed to type cons: " <> consName)
     params
-runFun expr params = runScopedFun expr params
+runFun value params = runScopedFun value params
 
 handleCurrying :: Int -> [Value] -> Value -> Value
 handleCurrying expectedLen params thingToCurry = 
@@ -183,10 +181,10 @@ curryWrapper og evaluator errMessage params =
     argLenForFuncLike v = trace ("Not a func-like: " <> show v) undefined
 
 runScopedFun :: Value -> [Value] -> Scoper Value
-runScopedFun og@(VFunction cases) params =
+runScopedFun og@(VFunction impl) params =
   curryWrapper
     og
-    (evaluateCases (fcases cases) params)
+    (evaluateImpl impl params)
     "Too many args passed to function"
     params
 runScopedFun og@(VTypeFunction defSig tcases) params =

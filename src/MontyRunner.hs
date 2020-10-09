@@ -1,5 +1,6 @@
 module MontyRunner where
 
+import Debug.Trace
 import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
 import Control.Monad.Except
@@ -35,7 +36,9 @@ evaluate (ExprId name) = do
   value <- findInScope name
   case value of
     Just val -> pure $ view _1 val
-    Nothing  -> stackTrace (name <> " is not in scope")
+    Nothing  -> do
+      s <- use scope
+      trace (show $ HM.keys <$> s) stackTrace (name <> " is not in scope")
 
 evaluate (ExprClass name constructors) =
   evalClass name constructors
@@ -131,11 +134,20 @@ run prog = do
     uncurry3 f ~(a, b, c) = f a b c
 
     addOrUpdateInterops :: Id -> Id -> [FunctionCase] -> Scoper ()
-    addOrUpdateInterops cname name body = do
+    addOrUpdateInterops cname name cases = do
       result <- findInTopScope name
       newInterops <- case result of
-        Just a  -> foldM (flip $ addToStub cname) a body
-        -- TODO: Get types for impl
-        Nothing -> pure $ VFunction $ FunctionImpl body []
+        Just a  -> foldM (flip $ addToStub cname) a cases
+        Nothing -> do
+          comb <- ahhhh cases
+          pure $ VFunction $ FunctionImpl cases comb
 
       addToScope name newInterops
+
+    ahhhh :: [FunctionCase] -> Scoper [Type]
+    ahhhh cases = do
+      (t:ts) <- sequence $ uhhhh <$> cases
+      foldM combineTypes t ts
+
+    uhhhh :: FunctionCase -> Scoper [Type]
+    uhhhh c = sequence $ argToType <$> (fcaseArgs c)

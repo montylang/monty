@@ -143,7 +143,7 @@ addToStub cname newCase (VTypeFunction defSig impls) = do
     updateClassImpl :: FunctionCase -> FunctionImpl -> Scoper FunctionImpl
     updateClassImpl newCase oldImpl = do
       newImpl <- caseToImpl newCase
-      combineImpls newImpl oldImpl
+      combineImpls oldImpl newImpl
 
 addToStub _ _ _ = stackTrace "Cannot add stub case to non v-type function"
 
