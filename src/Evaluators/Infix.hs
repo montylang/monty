@@ -58,11 +58,8 @@ compareOrderable f op s =
 
 applyBinaryFun :: Id -> Value -> Value -> Scoper Value
 applyBinaryFun fname f s = do
-  impls <- findImplsInScope fname f
-
-  case impls of
-    []     -> stackTrace $ "No '" <> fname <> "' implementation for " <> show f
-    fcases -> evaluateCases fcases [f, s]
+  impl <- findImplsInScope fname f
+  evaluateCases (fcases impl) [f, s]
 
 intInfixEval :: Value -> InfixOp -> Value -> Scoper Value
 intInfixEval (VInt first) InfixAdd (VInt second) = pure $ VInt $ first + second

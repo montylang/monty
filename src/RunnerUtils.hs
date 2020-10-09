@@ -63,28 +63,23 @@ findInTopScope key = findInScope' <$> use scope
     findInScope' (top:_) = HM.lookup key top
     findInScope' _         = Nothing
 
-implForClass :: Id -> Id -> Scoper [FunctionCase]
+implForClass :: Id -> Id -> Scoper FunctionImpl
 implForClass cname fname = do
-    fnameImplsMaybe <- findInScope fname
-
-    pure $ fromMaybe [] $ do
-      fnameImpls <- view _1 <$> fnameImplsMaybe
-      cases      <- toCases fnameImpls
-      pure $ findImpls cname cases
+    valueMaybe <- findInScope fname
+    case view _1 <$> valueMaybe >>= findImpl of
+      Just impl -> pure impl
+      Nothing   -> stackTrace $
+        "No impl of '" <> fname <> "' found for '" <> cname <> "'"
   where
-    toCases :: Value -> Maybe [(Id, FunctionCase)]
-    toCases (VTypeFunction _ cases) = Just cases
-    toCases _                       = Nothing
+    findImpl :: Value -> Maybe FunctionImpl
+    findImpl (VTypeFunction _ impls) = HM.lookup cname impls
+    findImpl _                       = Nothing
 
-    findImpls :: Id -> [(Id, FunctionCase)] -> [FunctionCase]
-    findImpls monadClass cases =
-      (view _2) <$> filter ((monadClass ==) . (view _1)) cases
-
-findImplsInScope :: Id -> Value -> Scoper [FunctionCase]
+findImplsInScope :: Id -> Value -> Scoper FunctionImpl
 findImplsInScope fname value =
   case classForValue value of
     Just cname -> implForClass cname fname
-    Nothing    -> pure []
+    Nothing    -> stackTrace $ show value <> " is not a class"
 
 classForValue :: Value -> Maybe Id
 classForValue (VList _)   = Just "List"
@@ -134,6 +129,52 @@ generateInteropCase args fun = InteropCase args $ do
         ids = cargs >>= idsInArg
 
 addToStub :: Id -> FunctionCase -> Value -> Scoper Value
-addToStub cname newCase (VTypeFunction defSig cases) =
-  pure $ VTypeFunction defSig (cases ++ [(cname, newCase)])
+addToStub cname newCase (VTypeFunction defSig impls) = do
+    res <- case impls ^. at cname of
+      Just impl -> updateClassImpl newCase impl
+      Nothing -> caseToImpl newCase
+    pure $ VTypeFunction defSig $ HM.insert cname res impls
+  where
+    caseToImpl :: FunctionCase -> Scoper FunctionImpl
+    caseToImpl fcase = do
+      types <- sequence $ argToType <$> (fcaseArgs fcase)
+      pure $ FunctionImpl [fcase] types
+    
+    updateClassImpl :: FunctionCase -> FunctionImpl -> Scoper FunctionImpl
+    updateClassImpl newCase oldImpl = do
+      newImpl <- caseToImpl newCase
+      combineImpls newImpl oldImpl
+
 addToStub _ _ _ = stackTrace "Cannot add stub case to non v-type function"
+
+combineImpls :: FunctionImpl -> FunctionImpl -> Scoper FunctionImpl
+combineImpls (FunctionImpl xCases xTypes) (FunctionImpl yCases yTypes) = do
+  typeSig <- combineTypes xTypes yTypes
+  pure $ FunctionImpl (xCases <> yCases) typeSig
+
+combineTypes :: [Type] -> [Type] -> Scoper [Type]
+combineTypes xs ys = sequence $ (uncurry combineType) <$> (zip xs ys)
+
+combineType :: Type -> Type -> Scoper Type
+combineType TAnything new = pure new
+combineType old TAnything = pure old
+combineType old new = if new == old
+  then pure old
+  else stackTrace $
+    "Cannot have pattern matched function for different types. " <>
+    " Got " <> show new <> ", expected " <> show old
+
+argToType :: Arg -> Scoper Type
+argToType (IdArg _) = pure TAnything
+argToType (TypedIdArg _ t) = pure $ TUser t
+argToType (PatternArg "Cons" _) = pure $ TUser "List"
+argToType (PatternArg "Nil" _) = pure $ TUser "List"
+argToType (PatternArg name _) = do
+  lookup <- findInScope name
+  case lookup >>= yoinkType of
+    Just t -> pure t
+    Nothing -> stackTrace $ "Could not find type for " <> name
+
+yoinkType :: (Value, Scope) -> Maybe Type
+yoinkType (VTypeCons t _ _, _) = Just $ TUser t
+yoinkType _ = Nothing

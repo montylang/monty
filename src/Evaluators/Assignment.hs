@@ -12,17 +12,16 @@ evalAssignment name value = do
     newValue <- case inScopeValue of
       (Just (VScoped (VFunction cases) s)) ->
         appendFunctionCase cases evaledValue s
-      (Just _)                 -> stackTrace $ "Cannot mutate " <> name
-      _                        -> pure evaledValue
-    
+      (Just _) -> stackTrace $ "Cannot mutate " <> name
+      _        -> pure evaledValue
+
     addToScope name newValue
     pure evaledValue
   where
-    appendFunctionCase :: [FunctionCase] -> Value -> Scope -> Scoper Value
-    appendFunctionCase cases (VScoped (VFunction [newCase]) _) newScope = do
-      assert (all (functionCaseFits newCase) cases)
-        $ "Invalid pattern match for function " <> name
-      pure $ VScoped (VFunction (cases <> [newCase])) newScope
+    appendFunctionCase :: FunctionImpl -> Value -> Scope -> Scoper Value
+    appendFunctionCase impl (VScoped (VFunction newImpl) _) newScope = do
+      combined <- combineImpls impl newImpl
+      pure $ VScoped (VFunction combined) newScope
     appendFunctionCase _ _ _ = stackTrace $ "Cannot mutate " <> name
 
 functionCaseFits :: FunctionCase -> FunctionCase -> Bool

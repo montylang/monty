@@ -1,6 +1,7 @@
 module Evaluators.Types (evalClass, evalType, evalInstanceOf) where
 
 import Data.List
+import qualified Data.HashMap.Strict as HM
 import Lens.Micro.Platform
 
 import ParserTypes
@@ -28,7 +29,7 @@ evalType typeName headers = do
 
     defSigToKeyValue :: DefSignature -> (Id, Value)
     defSigToKeyValue defSig =
-      (getDefSigFunName defSig,  VTypeFunction defSig [])
+      (getDefSigFunName defSig, VTypeFunction defSig HM.empty)
 
 -- TODO: Ban redefining instances for classes
 evalInstanceOf :: Id -> Id -> [PExpr] -> Scoper Value
@@ -38,7 +39,7 @@ evalInstanceOf className typeName implementations = do
     funcDefs <- functionDefs typeDef
     
     if className == "List" then
-      addAllImplementations [] funcDefs
+      addAllImplementations ["Nil", "Cons"] funcDefs
     else case classDef of
       Just (VClass consNames, _) -> addAllImplementations consNames funcDefs
       _ -> stackTrace $ "Attempted to use undefined class: " <> className

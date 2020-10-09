@@ -7,7 +7,6 @@ import Text.Megaparsec
 import System.Exit
 import Data.List
 import Lens.Micro.Platform
-import Debug.Trace
 
 import ParserTypes
 import RunnerTypes
@@ -29,10 +28,6 @@ evaluateP (Pos pos expr) = catchError (eval expr) exitOnError
       stack <- use callStack
       liftIO $ die $
         sourcePosPretty pos <> ": " <> err <> "\n" <> showCallStack stack
-
-    showCallStack :: [SourcePos] -> String
-    showCallStack positions = intercalate "\n" $
-      ("    " <>) <$> sourcePosPretty <$> positions
 
 evaluate :: Expr -> Scoper Value
 evaluate (ExprId "_") = stackTrace "Cannot use black hole as variable"
@@ -71,8 +66,9 @@ evaluate (ExprList (x:xs)) = do
       assert (typesEqual evaled headVal) "List must be of the same type"
       pure evaled
 
-evaluate (ExprDef args body) =
-  VScoped (VFunction [FunctionCase args body]) <$> use scope
+evaluate (ExprDef args body) = do
+    types <- sequence $ argToType <$> args
+    VScoped (VFunction $ FunctionImpl [FunctionCase args body] types) <$> use scope
 
 evaluate (ExprAssignment name value) =
     evalAssignment name value <* (scope %= rescope)
@@ -104,11 +100,22 @@ evaluate (ExprImport components) = do
 
 evaluate other = stackTrace ("Error (unimplemented expr evaluate): " <> show other)
 
+showCallStack :: [SourcePos] -> String
+showCallStack positions = intercalate "\n" $
+  ("    " <>) <$> sourcePosPretty <$> positions
+
 run :: [PExpr] -> IO ()
 run prog = do
-    _ <- runExceptT (evalStateT (run' prog) emptyContext)
-    pure ()
+    val <- runExceptT (evalStateT (run' prog) emptyContext)
+    case val of
+      Left (ErrString message) -> die message 
+      _                        -> pure ()
   where
+    exitOnError :: ErrVal -> Scoper ()
+    exitOnError (ErrString err) = do
+      stack <- use callStack
+      liftIO $ die $ "Err: " <> err <> "\n" <> showCallStack stack
+    
     run' :: [PExpr] -> Scoper ()
     run' exprs = do
       _ <- loadModule ["mylib", "prelude"]
@@ -128,6 +135,7 @@ run prog = do
       result <- findInTopScope name
       newInterops <- case result of
         Just a  -> foldM (flip $ addToStub cname) a body
-        Nothing -> pure $ VFunction body
+        -- TODO: Get types for impl
+        Nothing -> pure $ VFunction $ FunctionImpl body []
 
       addToScope name newInterops

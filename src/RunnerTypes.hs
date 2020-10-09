@@ -13,6 +13,7 @@ type ScopeBlock = HM.HashMap Id Value
 type Scope      = [ScopeBlock]
 
 data ErrVal = ErrString String
+  deriving (Show, Eq)
 
 data Executors = Executors {
   _evaluatePExpr :: PExpr -> Scoper Value,
@@ -27,9 +28,27 @@ data Context = Context {
 
 type Scoper = StateT Context (ExceptT ErrVal IO)
 
+data Type
+  = TInt
+  | TChar
+  | TUser Id
+  | TAnything
+  deriving (Show, Eq)
+
+data FunctionImpl = FunctionImpl
+  { fcases :: [FunctionCase],
+    ftypeSig :: [Type]
+  } deriving (Show, Eq)
+
 data FunctionCase
-  = FunctionCase { fcaseArgs :: [Arg], fcaseBody :: [PExpr] }
-  | InteropCase { fcaseArgs :: [Arg], fcaseInteropBody :: (Scoper Value) }
+  = FunctionCase
+      { fcaseArgs :: [Arg],
+        fcaseBody :: [PExpr]
+      }
+  | InteropCase
+      { fcaseArgs :: [Arg],
+        fcaseInteropBody :: (Scoper Value)
+      }
 
 instance Show FunctionCase where
   show fcase = "def (" <> intercalate "," (show <$> args) <> ")"
@@ -42,7 +61,7 @@ data Value
   = VInt Int
   | VChar { chr :: Char }
   | VCurried Value [Value]
-  | VFunction [FunctionCase]
+  | VFunction FunctionImpl
   | VInferred {
       iFuncName :: Id,
       iTypeName :: Id,
@@ -63,7 +82,7 @@ data Value
   | VTypeDef Id [DefSignature]
   | VTypeFunction {
       fDefSig :: DefSignature,
-      fFuncCases :: [(Id, FunctionCase)]
+      fFuncCases :: HM.HashMap Id FunctionImpl
     }
   | VScoped Value Scope
   | VClass [Id]

@@ -5,22 +5,30 @@ import Data.List
 import Data.Maybe
 import Lens.Micro.Platform
 import Debug.Trace
+import qualified Data.HashMap.Strict as HM
 
 import RunnerUtils
 import RunnerTypes
 import ParserTypes
 
-evaluateTf :: DefSignature -> [FunctionCase] -> [Value] -> Scoper Value
-evaluateTf (DefSignature tname fname args retSelf) cases params = do
+evaluateTf :: DefSignature -> HM.HashMap Id FunctionImpl -> [Value] -> Scoper Value
+evaluateTf (DefSignature tname fname args retSelf) impls params = do
     case inferredType of
       Just cname -> do
         inferredParams <- inferValues cname
-        funRet <- evaluateCases cases inferredParams
+        impl <- justToScoper
+          ("No impl of " <> fname <> " for " <> cname)
+          (HM.lookup cname impls)
+        funRet <- evaluateCases (fcases impl) inferredParams
         case (funRet, retSelf) of
           (v@(VInferred _ _ _), True) -> applyInferredType cname v
           (v, _)                      -> pure v
       Nothing    -> pure $ VInferred fname tname params
   where
+    justToScoper :: String -> Maybe a -> Scoper a
+    justToScoper _ (Just val)    = pure val
+    justToScoper message Nothing = stackTrace message
+    
     argVals :: [(Arg, Value)]
     argVals = zip args params
 
@@ -32,15 +40,15 @@ evaluateTf (DefSignature tname fname args retSelf) cases params = do
     inferredType = listToMaybe $
       (maybeToList . classForValue . (view _2)) =<<
         (filter ((== SelfArg) . (view _1)) argVals)
-
+    
     inferSelfArg :: Id -> (Arg, Value) -> Scoper Value
     inferSelfArg cname (SelfArg, value) = applyInferredType cname value
     inferSelfArg _ (_, value) = pure value
 
 applyInferredType :: Id -> Value -> Scoper Value
 applyInferredType cname (VInferred ifname _ iparams) = do
-  impls <- implForClass cname ifname
-  evaluateCases impls iparams
+  impl <- implForClass cname ifname
+  evaluateCases (fcases impl) iparams
 applyInferredType _ value = pure value
 
 evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
@@ -58,12 +66,22 @@ runFcase (FunctionCase _ body) = do
 
 runFcase (InteropCase _ body) = body
 
+-- [FunctionCase] -> (args are ["Anything", "Int", "Anything"])
+
+-- Nil, _  -- "List" "Anything"
+-- _, Cons(x, xs) -- "List" "List"
+-- _, Just(q)     -- "List" "JUst"? wtf
+
 pickFun :: [FunctionCase] -> [Value] -> Scoper FunctionCase
 pickFun cases params = do
+  -- TODO: infer param types
+
   case find (funCaseMatchesParams params) cases of
     Just funCase -> pure funCase 
     Nothing      -> stackTrace $
-      "No function defined for arguments (" <> intercalate ", " (show <$> params) <> ")" <> show cases
+      "No function defined for arguments (" <>
+      intercalate ", " (show <$> params) <>
+      ") in " <> show cases
 
 funCaseMatchesParams :: [Value] -> FunctionCase -> Bool
 funCaseMatchesParams params fcase =
@@ -130,15 +148,21 @@ runFun expr params = runScopedFun expr params
 
 handleCurrying :: Int -> [Value] -> Value -> Value
 handleCurrying expectedLen params thingToCurry = 
-    VFunction [
+    VFunction $ FunctionImpl [
         generateInteropCase newArgs
           (\rest -> runFun thingToCurry (newParams <> rest))
-      ]
+      ] newTypes
   where
     actualLen   = length params
     newArgs     = (IdArg . (<> "#") . show) <$> [1..diff]
     diff        = expectedLen - actualLen
     newParams   = take (diff + 1) params
+    newTypes    = drop actualLen $ extractTypeSig thingToCurry
+
+    extractTypeSig :: Value -> [Type]
+    extractTypeSig (VFunction (FunctionImpl _ types)) = types
+    extractTypeSig (VTypeCons _ _ vals) = TAnything <$ vals
+    extractTypeSig _ = []
 
 curryWrapper :: Value -> Scoper Value -> String -> [Value] -> Scoper Value
 curryWrapper og evaluator errMessage params =
@@ -154,7 +178,7 @@ curryWrapper og evaluator errMessage params =
       length cargs
     argLenForFuncLike (VTypeFunction (DefSignature _ _ args _) _) =
       length args
-    argLenForFuncLike (VFunction (x:_)) =
+    argLenForFuncLike (VFunction (FunctionImpl (x:_) _)) =
       length $ fcaseArgs x
     argLenForFuncLike v = trace ("Not a func-like: " <> show v) undefined
 
@@ -162,7 +186,7 @@ runScopedFun :: Value -> [Value] -> Scoper Value
 runScopedFun og@(VFunction cases) params =
   curryWrapper
     og
-    (evaluateCases cases params)
+    (evaluateCases (fcases cases) params)
     "Too many args passed to function"
     params
 runScopedFun og@(VTypeFunction defSig tcases) params =
@@ -173,12 +197,10 @@ runScopedFun og@(VTypeFunction defSig tcases) params =
       params
   where
     evaluator = if elem SelfArg (getDefSigArgs defSig)
-      then evaluateTf defSig cases params
+      then evaluateTf defSig tcases params
       else pure $ VInferred
                     (getDefSigFunName defSig)
                     (getDefSigTypeName defSig)
                     params
-    
-    cases = (view _2) <$> tcases
 
 runScopedFun og _ = stackTrace $ "Error: Bad function call (" <> show og <> ")"

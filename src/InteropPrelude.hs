@@ -115,7 +115,7 @@ ordToVal a = VTypeInstance "Ordering" (show a) []
 
 listDefinitions :: [(Id, Id, [FunctionCase])]
 listDefinitions = [
-    ("List", "debug", [generateInteropCase [IdArg "value"] debugImpl]),
+    ("Any", "debug", [generateInteropCase [IdArg "value"] debugImpl]),
     ("List", "map", [
         generateInteropCase
           [PatternArg "Cons" [IdArg "head", IdArg "tail"], IdArg "func"]
