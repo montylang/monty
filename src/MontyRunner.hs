@@ -8,6 +8,7 @@ import Text.Megaparsec
 import System.Exit
 import Data.List
 import Lens.Micro.Platform
+import Data.IORef
 
 import ParserTypes
 import RunnerTypes
@@ -35,10 +36,8 @@ evaluate (ExprId "_") = stackTrace "Cannot use black hole as variable"
 evaluate (ExprId name) = do
   value <- findInScope name
   case value of
-    Just val -> pure $ view _1 val
-    Nothing  -> do
-      s <- use scope
-      trace (show $ HM.keys <$> s) stackTrace (name <> " is not in scope")
+    Just val -> pure val
+    Nothing  -> stackTrace (name <> " is not in scope")
 
 evaluate (ExprClass name constructors) =
   evalClass name constructors
@@ -70,18 +69,12 @@ evaluate (ExprList (x:xs)) = do
       pure evaled
 
 evaluate (ExprDef args body) = do
-    types <- sequence $ argToType <$> args
-    VScoped (VFunction $ FunctionImpl [FunctionCase args body] types) <$> use scope
+  types    <- sequence $ argToType <$> args
+  VScoped (VFunction $ FunctionImpl [FunctionCase args body] types) <$> use scope
+      
 
 evaluate (ExprAssignment name value) =
-    evalAssignment name value <* (scope %= rescope)
-  where
-    rescope :: Scope -> Scope
-    rescope vals = vals & (ix 0) %~ (HM.map . updateScoped) vals
-
-    updateScoped :: Scope -> Value -> Value
-    updateScoped s (VScoped v _) = VScoped v s
-    updateScoped _ v = v
+  evalAssignment name value
 
 evaluate (ExprCall funExpr args) = do
     pushToCallStack funExpr
@@ -109,7 +102,8 @@ showCallStack positions = intercalate "\n" $
 
 run :: [PExpr] -> IO ()
 run prog = do
-    val <- runExceptT (evalStateT (run' prog) emptyContext)
+    eContext <- emptyContext
+    val <- runExceptT (evalStateT (run' prog) eContext)
     case val of
       Left (ErrString message) -> die message 
       _                        -> pure ()
@@ -127,8 +121,10 @@ run prog = do
       sequence_ $ evalP <$> exprs
       pure ()
 
-    emptyContext :: Context
-    emptyContext = Context [HM.empty] (Executors evaluateP evaluate) []
+    emptyContext :: IO Context
+    emptyContext = do
+      emptyBlock <- newIORef HM.empty
+      pure $ Context [emptyBlock] (Executors evaluateP evaluate) []
 
     uncurry3 :: (a -> b -> c -> d) -> ((a, b, c) -> d)
     uncurry3 f ~(a, b, c) = f a b c

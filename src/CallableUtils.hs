@@ -6,6 +6,8 @@ import Data.Maybe
 import Lens.Micro.Platform
 import Debug.Trace
 import qualified Data.HashMap.Strict as HM
+import Data.IORef
+import Control.Monad.State.Strict
 
 import RunnerUtils
 import RunnerTypes
@@ -134,7 +136,7 @@ addArg (PatternArg pname pargs, VTypeInstance _ tname tvals) = do
 addArg _ = stackTrace "Bad call to pattern matched function"
 
 runFun :: Value -> [Value] -> Scoper Value
-runFun (VScoped func fscope) params =
+runFun (VScoped func fscope) params = do
   runWithScope fscope $ runScopedFun func params
 runFun og@(VTypeCons className consName cargs) params =
   curryWrapper

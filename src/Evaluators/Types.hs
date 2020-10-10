@@ -41,11 +41,11 @@ evalInstanceOf className typeName implementations = do
     if className == "List" then
       addAllImplementations ["Nil", "Cons"] funcDefs
     else case classDef of
-      Just (VClass consNames, _) -> addAllImplementations consNames funcDefs
+      Just (VClass consNames) -> addAllImplementations consNames funcDefs
       _ -> stackTrace $ "Attempted to use undefined class: " <> className
   where
-    functionDefs :: Maybe (Value, Scope) -> Scoper [DefSignature]
-    functionDefs (Just (VTypeDef _ sigs, _)) = pure sigs
+    functionDefs :: Maybe Value -> Scoper [DefSignature]
+    functionDefs (Just (VTypeDef _ sigs)) = pure sigs
     functionDefs _ = stackTrace $ "Type " <> typeName <> " not found"
 
     addAllImplementations :: [Id] -> [DefSignature] -> Scoper Value
@@ -87,6 +87,6 @@ validateArgs _ _ _ arg = pure arg
 addBodyToScope :: Id -> Id -> [PExpr] -> [Arg] -> Scoper ()
 addBodyToScope cname name body caseArgs = do
   maybeStub <- findInScope name
-  case (view _1) <$> maybeStub of
+  case maybeStub of
     Just val -> (addToScope name =<< updateStub cname val caseArgs body)
     _        -> stackTrace $ name <> " is not in scope"

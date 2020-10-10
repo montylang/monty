@@ -1,5 +1,8 @@
 module Evaluators.Assignment (evalAssignment) where
 
+import Data.IORef
+import Control.Monad.State.Strict
+
 import ParserTypes
 import RunnerTypes
 import RunnerUtils

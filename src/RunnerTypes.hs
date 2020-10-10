@@ -8,8 +8,10 @@ import Control.Monad.Except
 import ParserTypes
 import Lens.Micro.Platform
 import Text.Megaparsec hiding (Pos)
+import Data.IORef (IORef)
 
-type ScopeBlock = HM.HashMap Id Value
+type ScopeMap   = HM.HashMap Id Value
+type ScopeBlock = IORef ScopeMap
 type Scope      = [ScopeBlock]
 
 data ErrVal = ErrString String

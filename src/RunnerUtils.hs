@@ -5,6 +5,7 @@ import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
 import Control.Monad.Except
 import Lens.Micro.Platform
+import Data.IORef
 
 import RunnerTypes
 import ParserTypes
@@ -32,41 +33,41 @@ typesEqual _ _                         = False
 
 addToScope :: String -> Value -> Scoper ()
 addToScope "_" _     = pure ()
-addToScope key value = scope %= addToScope'
+addToScope key value = use scope >>= addToScope'
   where
-    addToScope' (topScope:lowerScopes) = newTop:lowerScopes
-      where newTop = HM.insert key value topScope
+    addToScope' :: Scope -> Scoper ()
+    addToScope' (topRef:_) =
+      liftIO $ modifyIORef topRef $ HM.insert key value
     addToScope' [] = undefined
 
 unionTopScope :: [(Id, Value)] -> Scoper ()
-unionTopScope updates = scope %= unionTopScope' (HM.fromList updates)
-  where
-    unionTopScope' :: ScopeBlock -> Scope -> Scope
-    unionTopScope' new (topScopeBlock:bottomBlocks) =
-      (HM.union new topScopeBlock):bottomBlocks
-    unionTopScope' _ [] = undefined
+unionTopScope updates = do
+  (top:_) <- use scope
+  liftIO $ modifyIORef top $ HM.union (HM.fromList updates)
 
 -- Returns the value for the given key, and the scope block where it is defined
-findInScope :: String -> Scoper (Maybe (Value, Scope))
-findInScope key = findInScope' <$> use scope
+findInScope :: String -> Scoper (Maybe Value)
+findInScope key = use scope >>= findInScope'
   where
-    findInScope' :: Scope -> Maybe (Value, Scope)
-    findInScope' [] = Nothing
-    findInScope' (top:lower) =
+    findInScope' :: Scope -> Scoper (Maybe Value)
+    findInScope' [] = pure Nothing
+    findInScope' (topRef:botRef) = do
+      top <- liftIO $ readIORef topRef
+      
       case HM.lookup key top of
-        Just value -> Just (value, top:lower)
-        Nothing    -> findInScope' lower
+        Just value -> pure $ Just value
+        Nothing    -> findInScope' botRef
 
 findInTopScope :: String -> Scoper (Maybe Value)
-findInTopScope key = findInScope' <$> use scope
-  where
-    findInScope' (top:_) = HM.lookup key top
-    findInScope' _         = Nothing
+findInTopScope key = do
+  (top:_) <- use scope
+  topVal <- liftIO $ readIORef top
+  pure $ HM.lookup key topVal
 
 implForClass :: Id -> Id -> Scoper FunctionImpl
 implForClass cname fname = do
     valueMaybe <- findInScope fname
-    case view _1 <$> valueMaybe >>= findImpl of
+    case valueMaybe >>= findImpl of
       Just impl -> pure impl
       Nothing   -> stackTrace $
         "No impl of '" <> fname <> "' found for '" <> cname <> "'"
@@ -92,7 +93,9 @@ pushScopeBlock :: ScopeBlock -> Scoper ()
 pushScopeBlock block = scope %= (block:)
 
 pushEmptyScopeBlock :: Scoper ()
-pushEmptyScopeBlock = pushScopeBlock HM.empty
+pushEmptyScopeBlock = do
+  emptyTop <- liftIO $ newIORef HM.empty
+  pushScopeBlock emptyTop
 
 popScopeBlock :: Scoper ()
 popScopeBlock = scope %= drop 1
@@ -175,6 +178,6 @@ argToType (PatternArg name _) = do
     Just t -> pure t
     Nothing -> stackTrace $ "Could not find type for " <> name
 
-yoinkType :: (Value, Scope) -> Maybe Type
-yoinkType (VTypeCons t _ _, _) = Just $ TUser t
+yoinkType :: Value -> Maybe Type
+yoinkType (VTypeCons t _ _) = Just $ TUser t
 yoinkType _ = Nothing
