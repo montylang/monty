@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 026d4519066bf677ad6860f929193e7edcaf67c441e0272e7e77fba2873a7864
+-- hash: 7d446a129117b606d23fbc42291b720df43a1035ac91385241b56d9ffe8c7737
 
 name:           copenhagen
 version:        0.1.0.0
@@ -83,6 +83,7 @@ test-suite copenhagen-test
   other-modules:
       HelperSpec
       ParserSpec
+      RunnerSpec
       Paths_copenhagen
   hs-source-dirs:
       test
@@ -99,5 +100,6 @@ test-suite copenhagen-test
     , microlens-platform
     , mtl
     , parser-combinators
+    , silently
     , unordered-containers
   default-language: Haskell2010

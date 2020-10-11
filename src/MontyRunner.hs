@@ -14,6 +14,7 @@ import ParserTypes
 import RunnerTypes
 import CallableUtils
 import RunnerUtils
+import MorphUtils
 import Evaluators.Unwrap
 import Evaluators.Assignment
 import Evaluators.Condition
@@ -108,42 +109,37 @@ run prog = do
       Left (ErrString message) -> die message 
       _                        -> pure ()
   where
-    exitOnError :: ErrVal -> Scoper ()
-    exitOnError (ErrString err) = do
-      stack <- use callStack
-      liftIO $ die $ "Err: " <> err <> "\n" <> showCallStack stack
-    
     run' :: [PExpr] -> Scoper ()
     run' exprs = do
-      _ <- loadModule ["mylib", "prelude"]
-      sequence_ $ (uncurry3 addOrUpdateInterops) <$> preludeDefinitions
-      _ <- loadModule ["mylib", "postlude"]
+      loadMyLib
       sequence_ $ evalP <$> exprs
-      pure ()
 
-    emptyContext :: IO Context
-    emptyContext = do
-      emptyBlock <- newIORef HM.empty
-      pure $ Context [emptyBlock] (Executors evaluateP evaluate) []
-
-    uncurry3 :: (a -> b -> c -> d) -> ((a, b, c) -> d)
-    uncurry3 f ~(a, b, c) = f a b c
-
+loadMyLib :: Scoper ()
+loadMyLib = do
+    loadModule ["mylib", "prelude"]
+    sequence_ $ (uncurry3 addOrUpdateInterops) <$> preludeDefinitions
+    loadModule ["mylib", "postlude"]
+  where
     addOrUpdateInterops :: Id -> Id -> [FunctionCase] -> Scoper ()
     addOrUpdateInterops cname name cases = do
       result <- findInTopScope name
       newInterops <- case result of
         Just a  -> foldM (flip $ addToStub cname) a cases
         Nothing -> do
-          comb <- ahhhh cases
+          comb <- casesToTypes cases
           pure $ VFunction $ FunctionImpl cases comb
 
       addToScope name newInterops
 
-    ahhhh :: [FunctionCase] -> Scoper [Type]
-    ahhhh cases = do
-      (t:ts) <- sequence $ uhhhh <$> cases
+    casesToTypes :: [FunctionCase] -> Scoper [Type]
+    casesToTypes cases = do
+      (t:ts) <- sequence $ caseToTypes <$> cases
       foldM combineTypes t ts
 
-    uhhhh :: FunctionCase -> Scoper [Type]
-    uhhhh c = sequence $ argToType <$> (fcaseArgs c)
+    caseToTypes :: FunctionCase -> Scoper [Type]
+    caseToTypes c = sequence $ argToType <$> (fcaseArgs c)
+
+emptyContext :: IO Context
+emptyContext = do
+  emptyBlock <- newIORef HM.empty
+  pure $ Context [emptyBlock] (Executors evaluateP evaluate) []

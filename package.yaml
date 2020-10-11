@@ -55,3 +55,4 @@ tests:
     - copenhagen
     - hspec
     - QuickCheck
+    - silently

@@ -1,8 +1,0 @@
-debug(Right(1))
-debug(map(Right(2), (x): x + 10000))
-debug(map(Left("bad"), (x): x + 1))
-debug(apply(Right((x): x + 1), Right(71)))
-debug(apply(Left((x): x + 1), Right(71)))
-debug(bind(Right(8), (x): Right(x + 1)))
-debug(bind(Left(8), (x): Right(x + 1)))
-debug(bind(Right(8), (x): Left(x + 1)))
