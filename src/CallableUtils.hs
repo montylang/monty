@@ -53,9 +53,27 @@ applyInferredType cname (VInferred ifname _ iparams) = do
   evaluateImpl impl iparams
 applyInferredType _ value = pure value
 
--- TODO: Infer values
+tryInferral :: Id -> Id -> [Value] -> Scoper Value
+tryInferral target fname vals = do
+  impl <- implForClass target fname
+  -- TODO: Maybe call evaluateCases instead
+  evaluateImpl impl vals
+
+inferTypeValue :: Type -> Value -> Scoper Value
+inferTypeValue (TUser tid) v@(VTypeInstance tname _ _) | tid == tname = pure v
+inferTypeValue (TUser tid) v@(VInferred fname _ vals) =
+  tryInferral tid fname vals
+inferTypeValue TAnything v = pure v
+inferTypeValue TInt v@(VInt _)   = pure v
+inferTypeValue TChar v@(VChar _) = pure v
+inferTypeValue (TUser "List") v@(VList _) = pure v
+inferTypeValue t v = stackTrace $ "I shit my pants! " <>
+  show t <> "," <> show v
+
 evaluateImpl :: FunctionImpl -> [Value] -> Scoper Value
-evaluateImpl impl = evaluateCases (fcases impl)
+evaluateImpl (FunctionImpl cases typeSig) values = do
+  inferred <- sequence $ (uncurry inferTypeValue) <$> zip typeSig values
+  evaluateCases cases inferred
 
 evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
 evaluateCases cases params = runWithTempScope $ do
@@ -74,7 +92,6 @@ runFcase (InteropCase _ body) = body
 
 pickFun :: [FunctionCase] -> [Value] -> Scoper FunctionCase
 pickFun cases params = do
-  -- TODO: infer param types
 
   case find (funCaseMatchesParams params) cases of
     Just funCase -> pure funCase 

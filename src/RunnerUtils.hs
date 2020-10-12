@@ -169,11 +169,13 @@ combineType old new = if new == old
     " Got " <> show new <> ", expected " <> show old
 
 argToType :: Arg -> Scoper Type
-argToType (IdArg _) = pure TAnything
-argToType (TypedIdArg _ t) = pure $ TUser t
+argToType (IdArg _)             = pure TAnything
+argToType (TypedIdArg _ "Char") = pure $ TChar
+argToType (TypedIdArg _ "Int")  = pure $ TInt
+argToType (TypedIdArg _ t)      = pure $ TUser t
 argToType (PatternArg "Cons" _) = pure $ TUser "List"
-argToType (PatternArg "Nil" _) = pure $ TUser "List"
-argToType (PatternArg name _) = do
+argToType (PatternArg "Nil" _)  = pure $ TUser "List"
+argToType (PatternArg name _)   = do
   lookup <- findInScope name
   case lookup >>= yoinkType of
     Just t -> pure t
