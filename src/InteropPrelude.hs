@@ -26,7 +26,9 @@ consMapImpl [x, (VList xs), func] = do
       ranEl <- runFun func [el]
       if typesEqual headVal ranEl
         then pure ranEl
-        else stackTrace "A mapped function must always return the same type"
+        else stackTrace $
+            "A mapped function must always return the same type" <>
+            show headVal <> "," <> show ranEl
 
 nilMapImpl :: [Value] -> Scoper Value
 nilMapImpl _ = pure $ VList []
@@ -168,7 +170,7 @@ listDefinitions = [
     ]),
     ("List", "wrap", [
         generateInteropCase
-          [TypedIdArg "val" "List"]
+          [IdArg "val"]
           listWrapImpl
     ]),
     ("List", "append", [

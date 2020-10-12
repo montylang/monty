@@ -1,7 +1,0 @@
-def foo(x):
-  y = x + 3
-
-  return def ():
-    return y
-
-debug(foo(1)())

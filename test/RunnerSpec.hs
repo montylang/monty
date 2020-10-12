@@ -13,28 +13,56 @@ import ParserTypes
 import RunnerTypes
 import RunnerUtils
 
-exprRepr :: String -> IO String
-exprRepr input = do
-    eContext <- emptyContext
-    val      <- runExceptT $ evalStateT run' eContext
+runWithContext :: Context -> String -> IO String
+runWithContext context input = do
+    val <- runExceptT $ evalStateT run' context
     
     case val of
       Left _    -> undefined
       Right res -> pure $ show res
-  
   where
     run' :: Scoper Value
-    run' = do
-      loadMyLib
-      evalP $ head parsed
+    run' = evalP $ head parsed
 
     parsed :: [PExpr]
     parsed = case parse rootBodyParser "" input of
       Left  err -> trace (errorBundlePretty err) undefined
       Right res -> res
 
+loadPrelude :: IO Context
+loadPrelude = do
+    eContext <- emptyContext
+    val      <- runExceptT $ evalStateT load eContext
+    
+    case val of
+      Left _    -> undefined
+      Right res -> pure res
+  where
+    load :: Scoper Context
+    load = loadMyLib *> get
+
 spec :: Spec
 spec = do
+  exprRepr <- runWithContext <$> runIO loadPrelude
+
+  describe "Arithmetic tests" $ do
+    it "Should add integers" $ do
+      exprRepr "3 + 4 + 2" >>= shouldBe "9"
+      exprRepr "1 + 1 + 1" >>= shouldBe "3"
+      exprRepr "1 + 0"     >>= shouldBe "1"
+      exprRepr "1 + -5"    >>= shouldBe "-4"
+
+    it "Should multiply integers" $ do
+      exprRepr "3 * 2"   >>= shouldBe "6"
+      exprRepr "-1 * -1" >>= shouldBe "1"
+      exprRepr "-3 * 2"  >>= shouldBe "-6"
+
+    it "Should follow BEDMAS" $ do
+      exprRepr "3 + 2 * 7"       >>= shouldBe "17"
+      exprRepr "3 * 2 + 7"       >>= shouldBe "13"
+      exprRepr "1 + 3 * 2 + 7"   >>= shouldBe "14"
+      exprRepr "(1 + 3) * 2 + 7" >>= shouldBe "15"
+
   describe "Maybe tests" $ do
     it "Folds over maybes" $ do
       exprRepr "Just(3).foldl(1, add)" >>= shouldBe "4"
@@ -58,6 +86,7 @@ spec = do
     it "Maybe as an Applicative" $ do
       exprRepr "Just(1).applyr(Just(4))" >>= shouldBe "Just(4)"
       exprRepr "Just(1).applyl(Just(4))" >>= shouldBe "Just(1)"
+      --exprRepr "wrap(3).applyl(Just(4))" >>= shouldBe "Just(3)"
   
     it "Maybe as a Monad" $ do
       exprRepr "Just(2).bind((x): Just(x + 10))" >>= shouldBe "Just(12)"
@@ -66,6 +95,19 @@ spec = do
       exprRepr "None.bind((x): None)"            >>= shouldBe "None"
       exprRepr "join(Just(Just(1)))"             >>= shouldBe "Just(1)"
       exprRepr "join(None)"                      >>= shouldBe "None"
+
+    it "Maybe as an Alternative" $ do
+      exprRepr "Just(4).alt(Just(3))" >>= shouldBe "Just(4)"
+      exprRepr "Just(4).alt(None)"    >>= shouldBe "Just(4)"
+      exprRepr "None.alt(Just(3))"    >>= shouldBe "Just(3)"
+
+    it "Maybe as a Traversable" $ do
+      exprRepr "Just(3).traverse((x): [x, x + 1])" >>=
+        shouldBe "[Just(3),Just(4)]"
+
+    it "Maybe misc functions" $ do
+      exprRepr "catMaybes([Just(3), Just(4), None, Just(7)])" >>=
+        shouldBe "[3,4,7]"
 
   describe "Either tests" $ do
     it "Either as a Functor" $ do
@@ -83,6 +125,41 @@ spec = do
       exprRepr "bind(Left(8), (x): Right(x + 1))"  >>= shouldBe "Left(8)"
       exprRepr "bind(Right(8), (x): Left(x + 1))"  >>= shouldBe "Left(9)"
 
+  describe "List tests" $ do
+    it "List as a Functor" $ do
+      exprRepr "map([1, 2], add(1))" >>= shouldBe "[2,3]"
+      exprRepr "map(Nil, add(1))" >>= shouldBe "[]"
+      exprRepr "map(Cons(1, Cons(2, Nil)), add(1))" >>= shouldBe "[2,3]"
+
+    it "List as a Foldable" $ do
+      exprRepr "[1, 2, 3].foldl(0, (x, y): x + y)" >>= shouldBe "6"
+      exprRepr "[].foldl(0, (x, y): x + y)"        >>= shouldBe "0"
+      exprRepr "len([1, 2])"                       >>= shouldBe "2"
+
+    it "List as a Monoid" $ do
+      exprRepr "[1] + [3]"        >>= shouldBe "[1,3]"
+      exprRepr "[1] <> [3]"       >>= shouldBe "[1,3]"
+      exprRepr "\"ye\" <> \"et\"" >>= shouldBe "\"yeet\""
+
+    it "List as a Traversable" $ do
+      exprRepr "traverse([1, 2, 3], Just)"          >>= shouldBe "Just([1,2,3])"
+      exprRepr "sequence([Just(1), Just(2), None])" >>= shouldBe "None"
+      exprRepr "sequence([Just(1), Just(2)])"       >>= shouldBe "Just([1,2])"
+
+    it "List misc functions" $ do
+      exprRepr "[1, 2, 3].filter((x): x < 3)" >>= shouldBe "[1,2]"
+      exprRepr "[1, 2, 3].head()"             >>= shouldBe "Just(1)"
+      exprRepr "[3].tail()"                   >>= shouldBe "Just([])"
+      exprRepr "[1, 2, 3].reverse()"          >>= shouldBe "[3,2,1]"
+      exprRepr "[3].reverse()"                >>= shouldBe "[3]"
+
   describe "General tests" $ do
     it "Until" $ do
       exprRepr "until(-9, ((x): x > 0), ((x): x + 3))" >>= shouldBe "3"
+
+  describe "Inferrence tests" $ do
+    it "Should infer wrap values" $ do
+      exprRepr "[1].append(wrap(3))"                   >>= shouldBe "[1,3]"
+      exprRepr "None.alt(wrap(3))"                     >>= shouldBe "Just(3)"
+      exprRepr "[1, 2, 3].bind((x): wrap([x, x + 1]))" >>=
+        shouldBe "[[1,2],[2,3],[3,4]]"

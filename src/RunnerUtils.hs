@@ -25,11 +25,12 @@ evalP pexpr = use (executors . evaluatePExpr) >>= ($ pexpr)
 
 typesEqual :: Value -> Value -> Bool
 typesEqual (VTypeInstance t1 _ _) (VTypeInstance t2 _ _) = t1 == t2
-typesEqual (VInt _) (VInt _)           = True
-typesEqual (VChar _) (VChar _)         = True
-typesEqual (VList (x:_)) (VList (y:_)) = typesEqual x y
-typesEqual (VList _) (VList _)         = True
-typesEqual _ _                         = False
+typesEqual (VInt _) (VInt _)                   = True
+typesEqual (VChar _) (VChar _)                 = True
+typesEqual (VList (x:_)) (VList (y:_))         = typesEqual x y
+typesEqual (VList _) (VList _)                 = True
+typesEqual (VInferred _ _ _) (VInferred _ _ _) = True
+typesEqual _ _                                 = False
 
 addToScope :: String -> Value -> Scoper ()
 addToScope "_" _     = pure ()
