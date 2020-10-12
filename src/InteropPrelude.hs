@@ -9,6 +9,7 @@ import RunnerTypes
 import RunnerUtils
 import CallableUtils
 import Data.Foldable (foldrM)
+import Data.Char (ord, chr)
 
 debugImpl :: [Value] -> Scoper Value
 debugImpl [input] = do
@@ -101,6 +102,15 @@ intCompareImpl [(VInt first), (VInt second)] =
 intStrImpl :: [Value] -> Scoper Value
 intStrImpl [(VInt value)] = pure $ VList $ VChar <$> show value
 
+intChrImpl :: [Value] -> Scoper Value
+intChrImpl [(VInt val)] = pure $ VChar $ chr val
+
+intIntImpl :: [Value] -> Scoper Value
+intIntImpl [(VList vals)] = pure $ VInt $ read $ toStr vals
+  where
+    toStr :: [Value] -> String
+    toStr vals = vChr <$> vals
+
 charCompareImpl :: [Value] -> Scoper Value
 charCompareImpl [(VChar first), (VChar second)] =
   pure $ ordToVal $ compare first second
@@ -111,6 +121,9 @@ charStrImpl v@[(VChar _)] = pure $ VList v
 charEqualsImpl :: [Value] -> Scoper Value
 charEqualsImpl [(VChar first), (VChar second)] =
   pure $ toBoolValue (first == second)
+
+charOrdImpl :: [Value] -> Scoper Value
+charOrdImpl [(VChar val)] = pure $ VInt $ ord val
 
 ordToVal :: Ordering -> Value
 ordToVal a = VTypeInstance "Ordering" (show a) []
@@ -198,6 +211,16 @@ intDefinitions = [
         generateInteropCase
           [TypedIdArg "value" "Int"]
           intStrImpl
+    ]),
+    ("Int", "chr", [
+        generateInteropCase
+          [TypedIdArg "value" "Int"]
+          intChrImpl
+    ]),
+    ("List", "int", [
+        generateInteropCase
+          [TypedIdArg "value" "List"]
+          intIntImpl
     ])
   ]
 
@@ -217,6 +240,11 @@ charDefinitions = [
         generateInteropCase
           [TypedIdArg "first" "Char", TypedIdArg "second" "Char"]
           charEqualsImpl
+    ]),
+    ("Char", "ord", [
+        generateInteropCase
+          [TypedIdArg "val" "Char"]
+          charOrdImpl
     ])
   ]
 

@@ -153,13 +153,30 @@ spec = do
       exprRepr "[1, 2, 3].reverse()"          >>= shouldBe "[3,2,1]"
       exprRepr "[3].reverse()"                >>= shouldBe "[3]"
 
-  describe "General tests" $ do
-    it "Until" $ do
-      exprRepr "until(-9, ((x): x > 0), ((x): x + 3))" >>= shouldBe "3"
-
   describe "Inferrence tests" $ do
     it "Should infer wrap values" $ do
       exprRepr "[1].append(wrap(3))"                   >>= shouldBe "[1,3]"
       exprRepr "None.alt(wrap(3))"                     >>= shouldBe "Just(3)"
       exprRepr "[1, 2, 3].bind((x): wrap([x, x + 1]))" >>=
         shouldBe "[[1,2],[2,3],[3,4]]"
+
+  describe "General tests" $ do
+    it "Until" $ do
+      exprRepr "until(-9, ((x): x > 0), ((x): x + 3))" >>= shouldBe "3"
+
+    it "Misc char stuff" $ do
+      exprRepr "ord('A')"      >>= shouldBe "65"
+      exprRepr "chr(65)"       >>= shouldBe "'A'"
+      exprRepr "chr(ord('A'))" >>= shouldBe "'A'"
+      exprRepr "isDigit('a')"  >>= shouldBe "False"
+      exprRepr "isDigit('8')"  >>= shouldBe "True"
+      exprRepr "isDigit('/')"  >>= shouldBe "False"
+      exprRepr "isDigit(':')"  >>= shouldBe "False"
+
+    it "Misc bool stuff" $ do
+      exprRepr "True and False" >>= shouldBe "False"
+      exprRepr "True and True"  >>= shouldBe "True"
+      exprRepr "True or False"  >>= shouldBe "True"
+
+    it "Misc int stuff" $ do
+      exprRepr "int(\"42\")" >>= shouldBe "42"

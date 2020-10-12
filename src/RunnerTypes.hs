@@ -61,7 +61,7 @@ instance Eq FunctionCase where
 
 data Value
   = VInt Int
-  | VChar { chr :: Char }
+  | VChar { vChr :: Char }
   | VCurried Value [Value]
   | VFunction FunctionImpl
   | VInferred {
@@ -111,7 +111,7 @@ instance Show Value where
   show (VTypeFunction _ _) = "<function>"
   show (VScoped value _) = show value
   show (VClass _) = "<class>"
-  show (VList values@((VChar _):_)) = show $ chr <$> values
+  show (VList values@((VChar _):_)) = show $ vChr <$> values
   show (VList values) = show values
   show (VDict) = undefined
   show (VTuple) = undefined
@@ -136,7 +136,7 @@ prettyPrint (VTypeDef name _) = "<type " <> name <> ">"
 prettyPrint (VTypeFunction _ _) = "<function>"
 prettyPrint (VScoped value _) = show value
 prettyPrint (VClass _) = "<class>"
-prettyPrint (VList values@((VChar _):_)) = show $ chr <$> values
+prettyPrint (VList values@((VChar _):_)) = show $ vChr <$> values
 prettyPrint (VList values) = show values
 prettyPrint (VDict) = undefined
 prettyPrint (VTuple) = undefined

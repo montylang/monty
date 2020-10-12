@@ -16,9 +16,11 @@ evalInfix first op second = do
   assert (typesEqual f s) "Cannot operate on values of different types"
 
   case f of
-    (VInt _)    -> intInfixEval f op s
-    (VList _)   -> concatInfixEval f op s
-    _           -> genericInfixEval f op s
+    (VInt _)                   -> intInfixEval f op s
+    (VList _)                  -> concatInfixEval f op s
+    (VTypeInstance "Bool" _ _) ->
+      boolInfixEval (valueToBool f) op (valueToBool s)
+    _                          -> genericInfixEval f op s
 
   where
     inferTypes :: Value -> Value -> Scoper (Value, Value)
@@ -33,7 +35,11 @@ evalInfix first op second = do
           inferred <- applyInferredType cname vinf
           pure (inferred, val)
         Nothing    -> stackTrace "Types cannot be inferred from context"
-      
+
+boolInfixEval :: Bool -> InfixOp -> Bool -> Scoper Value
+boolInfixEval f InfixLogicAnd s = pure $ toBoolValue (f && s)
+boolInfixEval f InfixLogicOr s  = pure $ toBoolValue (f || s)
+boolInfixEval f other s = genericInfixEval (toBoolValue f) other (toBoolValue s)
 
 concatInfixEval :: Value -> InfixOp -> Value -> Scoper Value
 concatInfixEval first@(VList _) InfixAdd second@(VList _) =
