@@ -16,6 +16,9 @@ jobs:
         - yarn && GIT_USER="${GH_NAME}" yarn deploy
 
     - language: generic
+      branches:
+        except:
+          - /^v?\d+\.\d+(\.\d+)?(-\S*)?$/
       # Caching so the next build will be fast too.
       cache:
         directories:
@@ -47,7 +50,6 @@ jobs:
         - git config --global user.email "${GH_EMAIL}"
         - echo "machine github.com login ${GH_NAME} password ${GH_TOKEN}" > ~/.netrc
         - export TAG_VERSION="v0.1.$TRAVIS_BUILD_NUMBER"
-        - export RELEASE_BODY="$(git log --format=%B -1)"
         - git tag $TAG_VERSION
       deploy:
         on:
@@ -58,4 +60,3 @@ jobs:
         file: "binaries/*"
         skip_cleanup: true
         prerelease: true
-        body: "$RELEASE_BODY"
