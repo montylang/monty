@@ -1,11 +1,9 @@
 jobs:
   include:
-    - language: node_js
+    - if: branch = master
+      language: node_js
       node_js:
         - '10'
-      branches:
-        only:
-          - master
       cache:
         yarn: true
       script:
@@ -15,10 +13,8 @@ jobs:
         - cd docs
         - yarn && GIT_USER="${GH_NAME}" yarn deploy
 
-    - language: generic
-      branches:
-        except:
-          - /^v?\d+\.\d+(\.\d+)?(-\S*)?$/
+    - if: branch = master
+      language: generic
       # Caching so the next build will be fast too.
       cache:
         directories:
@@ -51,6 +47,7 @@ jobs:
         - echo "machine github.com login ${GH_NAME} password ${GH_TOKEN}" > ~/.netrc
         - export TAG_VERSION="v0.1.$TRAVIS_BUILD_NUMBER"
         - git tag $TAG_VERSION
+
       deploy:
         on:
           branch: master
