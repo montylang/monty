@@ -16,7 +16,6 @@ jobs:
         - yarn && GIT_USER="${GH_NAME}" yarn deploy
 
     - language: generic
-
       # Caching so the next build will be fast too.
       cache:
         directories:
@@ -39,5 +38,24 @@ jobs:
       - stack --no-terminal --install-ghc test --only-dependencies
 
       script:
+      - mkdir binaries
       # Build the package, its tests, and its docs and run the tests
-      - stack --no-terminal test --haddock --no-haddock-deps
+      - stack --no-terminal build --ghc-options -O2 --test --haddock --no-haddock-deps --local-bin-path binaries --copy-bins
+
+      before_deploy:
+        - git config --global user.name "${GH_NAME}"
+        - git config --global user.email "${GH_EMAIL}"
+        - echo "machine github.com login ${GH_NAME} password ${GH_TOKEN}" > ~/.netrc
+        - export TAG_VERSION="v0.1.$TRAVIS_BUILD_NUMBER"
+        - export RELEASE_BODY="$(git log --format=%B -1)"
+        - git tag $TAG_VERSION
+      deploy:
+        on:
+          branch: master
+        provider: releases
+        api_key: "${GH_TOKEN}"
+        file_glob: true
+        file: "binaries/*"
+        skip_cleanup: true
+        prerelease: true
+        body: "$RELEASE_BODY"
