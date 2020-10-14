@@ -2,7 +2,7 @@
 
 | Docs              | Project           |
 |-------------------|-------------------|
-| [![Build1][1]][5] | [![Build2][2]][5] |
+| [![Build1][1]][3] | [![Build2][2]][3] |
 
 [1]: https://travis-matrix-badges.herokuapp.com/repos/Mulan-Szechuan-Sauce/monty/branches/master/1
 [2]: https://travis-matrix-badges.herokuapp.com/repos/Mulan-Szechuan-Sauce/monty/branches/master/2
