@@ -13,7 +13,7 @@ jobs:
         - cd docs
         - yarn && GIT_USER="${GH_NAME}" yarn deploy
 
-    - if: branch = master
+    - if: tag IS blank
       language: generic
       # Caching so the next build will be fast too.
       cache:
