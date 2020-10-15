@@ -6,4 +6,3 @@ def applyl(a1, a2):
 
 def liftA2(f, a1, a2):
   return apply(a1.map(f), a2)
-

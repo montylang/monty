@@ -1,3 +1,7 @@
 def isDigit(c):
   d = ord(c) - ord('0')
   return (d >= 0) and (d < 10)
+
+def isSpace(c):
+  d = ord(c)
+  return ((d >= 9) and (d <= 13)) or (d == 32)

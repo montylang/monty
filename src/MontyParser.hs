@@ -234,13 +234,17 @@ intParser _ = ExprInt <$> signed sc decimal >>= addPos
 
 charParser :: Indent -> Parser PExpr
 charParser _ = do
-  inner <- char '\'' *> (noneOf ['\'']) <* char '\''
+  inner <- char '\'' *> charLiteral <* char '\''
   addPos $ ExprChar inner
+
+stringLiteralParser :: Parser String
+stringLiteralParser = char '"' >> manyTill charLiteral (char '"')
 
 stringParser :: Indent -> Parser PExpr
 stringParser _ = do
   pos   <- getSourcePos
-  inner <- char '"' *> (many $ noneOf ['"']) <* char '"'
+
+  inner <- stringLiteralParser
   addPos $ ExprList (Pos pos . ExprChar <$> inner)
 
 -- TODO: Only allow in root scopes

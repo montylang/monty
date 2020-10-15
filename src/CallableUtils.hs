@@ -12,6 +12,7 @@ import Control.Monad.State.Strict
 import RunnerUtils
 import RunnerTypes
 import ParserTypes
+import PrettyPrint
 
 evaluateTf :: DefSignature -> HM.HashMap Id FunctionImpl -> [Value] -> Scoper Value
 evaluateTf (DefSignature tname fname args retSelf) impls params = do
@@ -56,7 +57,6 @@ applyInferredType _ value = pure value
 tryInferral :: Id -> Id -> [Value] -> Scoper Value
 tryInferral target fname vals = do
   impl <- implForClass target fname
-  -- TODO: Maybe call evaluateCases instead
   evaluateImpl impl vals
 
 inferTypeValue :: Type -> Value -> Scoper Value
@@ -68,7 +68,7 @@ inferTypeValue TInt v@(VInt _)   = pure v
 inferTypeValue TChar v@(VChar _) = pure v
 inferTypeValue (TUser "List") v@(VList _) = pure v
 inferTypeValue t v = stackTrace $ "I shit my pants! " <>
-  show t <> "," <> show v
+  show t <> "," <> prettyPrint v
 
 evaluateImpl :: FunctionImpl -> [Value] -> Scoper Value
 evaluateImpl (FunctionImpl cases typeSig) values = do
@@ -78,7 +78,15 @@ evaluateImpl (FunctionImpl cases typeSig) values = do
 evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
 evaluateCases cases params = runWithTempScope $ do
   fcase <- pickFun cases params
-  _     <- addArgsToScope (fcaseArgs fcase) params
+
+  assert (length (fcaseArgs fcase) == length params) $
+    "Mismatched argument length. Got: " <>
+    show (prettyPrint <$> params) <> ", but expected: " <>
+    show (prettyPrint <$> fcaseArgs fcase) <> ". Oh and by the way: " <>
+    show (prettyPrint <$> cases)
+  
+  sequence_ $ addArg <$> zip (fcaseArgs fcase) params
+
   runFcase fcase
 
 runFcase :: FunctionCase -> Scoper Value
@@ -120,12 +128,6 @@ splitReturn :: [PExpr] -> ([PExpr], PExpr)
 splitReturn exprs =
   let (beginning, ([Pos _ (ExprReturn returnExpr)])) = splitAt ((length exprs) - 1) exprs
   in (beginning, returnExpr)
-
-addArgsToScope :: [Arg] -> [Value] -> Scoper ()
-addArgsToScope fargs values = do
-  assert (length fargs == length values) "Mismatched argument length"
-  sequence_ $ addArg <$> zip fargs values
-  pure ()
 
 addArg :: (Arg, Value) -> Scoper ()
 

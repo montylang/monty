@@ -6,9 +6,11 @@ import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
 import Control.Monad.Except
 import ParserTypes
+import PrettyPrint
 import Lens.Micro.Platform
 import Text.Megaparsec hiding (Pos)
 import Data.IORef (IORef)
+import Debug.Trace
 
 type ScopeMap   = HM.HashMap Id Value
 type ScopeBlock = IORef ScopeMap
@@ -37,10 +39,21 @@ data Type
   | TAnything
   deriving (Show, Eq)
 
+instance PrettyPrint Type where
+  prettyPrint TInt      = "int"
+  prettyPrint TChar     = "char"
+  prettyPrint TAnything = "any"
+  prettyPrint (TUser t) = t
+
 data FunctionImpl = FunctionImpl
   { fcases :: [FunctionCase],
     ftypeSig :: [Type]
   } deriving (Show, Eq)
+
+instance PrettyPrint FunctionImpl where
+  prettyPrint (FunctionImpl cases typeSig) =
+    "sig(" <> intercalate ", " (prettyPrint <$> typeSig) <> "):\n" <>
+    (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> cases)
 
 data FunctionCase
   = FunctionCase
@@ -51,6 +64,15 @@ data FunctionCase
       { fcaseArgs :: [Arg],
         fcaseInteropBody :: (Scoper Value)
       }
+
+instance PrettyPrint FunctionCase where
+  prettyPrint (FunctionCase args body) =
+    "def(" <> (intercalate ", " $ prettyPrint <$> args) <> "):\n" <>
+    (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> body) <> "\n"
+
+  prettyPrint (InteropCase args _) =
+    "def(" <> (intercalate ", " $ prettyPrint <$> args) <> "):\n" <>
+    "  <interop body>" <> "\n"
 
 instance Show FunctionCase where
   show fcase = "def (" <> intercalate "," (show <$> args) <> ")"
@@ -118,30 +140,31 @@ instance Show Value where
   show (VInferred fname tname vals) =
     "VInferred " <> fname <> " " <> tname <> " " <> show vals
 
-prettyPrint :: Value -> String
-prettyPrint (VInt value) = show value
-prettyPrint (VChar value) = show value
-prettyPrint (VFunction _) = "<function>"
-prettyPrint (VTypeCons _ name args) =
-  name <>
-  if length args == 0
-    then ""
-    else "(" <> intercalate "," args <> ")"
-prettyPrint (VTypeInstance _ name vals) =
-  name <>
-  if length vals == 0
-    then ""
-    else "(" <> intercalate "," (prettyPrint <$> vals) <> ")"
-prettyPrint (VTypeDef name _) = "<type " <> name <> ">"
-prettyPrint (VTypeFunction _ _) = "<function>"
-prettyPrint (VScoped value _) = show value
-prettyPrint (VClass _) = "<class>"
-prettyPrint (VList values@((VChar _):_)) = show $ vChr <$> values
-prettyPrint (VList values) = show values
-prettyPrint (VDict) = undefined
-prettyPrint (VTuple) = undefined
-prettyPrint (VInferred fname tname vals) =
-  "VInferred " <> fname <> " " <> tname <> " " <> show vals
+instance PrettyPrint Value where
+  prettyPrint (VInt value) = show value
+  prettyPrint (VChar value) = show value
+  prettyPrint (VFunction impl) = prettyPrint impl
+  prettyPrint (VTypeCons _ name args) =
+    name <>
+    if length args == 0
+      then ""
+      else "(" <> intercalate "," args <> ")"
+  prettyPrint (VTypeInstance _ name vals) =
+    name <>
+    if length vals == 0
+      then ""
+      else "(" <> intercalate "," (prettyPrint <$> vals) <> ")"
+  -- show (VTypeDef name _) = "<type " <> name <> ">"
+  -- show (VTypeFunction _ _) = "<function>"
+  prettyPrint (VScoped value _) = prettyPrint value
+  prettyPrint (VList values@((VChar _):_)) = show $ vChr <$> values
+  prettyPrint (VList values) =
+    "[" <> intercalate ", " (prettyPrint <$> values) <> "]"
+  --show (VClass _) = "<class>"
+  -- show (VDict) = undefined
+  -- show (VTuple) = undefined
+  -- show (VInferred fname tname vals) =
+  --   "VInferred " <> fname <> " " <> tname <> " " <> show vals
 
 $(makeLenses ''Executors)
 $(makeLenses ''Context)

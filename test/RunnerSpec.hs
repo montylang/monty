@@ -172,6 +172,8 @@ spec = do
       exprRepr "isDigit('8')"  >>= shouldBe "True"
       exprRepr "isDigit('/')"  >>= shouldBe "False"
       exprRepr "isDigit(':')"  >>= shouldBe "False"
+      exprRepr "isSpace(' ')"  >>= shouldBe "True"
+      exprRepr "isSpace('6')"  >>= shouldBe "False"
 
     it "Misc bool stuff" $ do
       exprRepr "True and False" >>= shouldBe "False"

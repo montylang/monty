@@ -1,2 +1,14 @@
 def join(m):
   return m.bind(id)
+
+def many(v):
+  return some(v).alt(wrap([]))
+
+def some(v):
+  def more(xs):
+    return if len(xs) == 0:
+      wrap([])
+    else:
+      many(v).bind((res): wrap(xs.append(res)))
+
+  return v.map((x): [x]).bind(more)

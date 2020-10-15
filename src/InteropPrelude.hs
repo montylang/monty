@@ -4,6 +4,7 @@ module InteropPrelude (preludeDefinitions) where
 import Control.Monad.State.Strict
 
 import ParserTypes
+import PrettyPrint
 import TypeUtils
 import RunnerTypes
 import RunnerUtils
@@ -13,8 +14,25 @@ import Data.Char (ord, chr)
 
 debugImpl :: [Value] -> Scoper Value
 debugImpl [input] = do
-  liftIO $ putStrLn $ show input
+  liftIO $ putStrLn $ prettyPrint input
   pure input
+
+-- Zero or more
+manyImpl :: [Value] -> Scoper Value
+manyImpl [value] = do
+    undefined
+  where
+    noneV :: Scoper Value
+    noneV = pure $ VList []
+
+    oneV :: Value -> Scoper Value
+    oneV val = pure $ VList [val]
+
+-- #     many :: f a -> f [a]
+-- #     many v = many_v
+-- #       where
+-- #         many_v = some_v <|> pure []
+-- #         some_v = liftA2 (:) v many_v
 
 consMapImpl :: [Value] -> Scoper Value
 consMapImpl [x, (VList xs), func] = do
@@ -130,7 +148,6 @@ ordToVal a = VTypeInstance "Ordering" (show a) []
 
 listDefinitions :: [(Id, Id, [FunctionCase])]
 listDefinitions = [
-    ("Any", "debug", [generateInteropCase [IdArg "value"] debugImpl]),
     ("List", "map", [
         generateInteropCase
           [PatternArg "Cons" [IdArg "head", IdArg "tail"], IdArg "func"]
@@ -248,6 +265,12 @@ charDefinitions = [
     ])
   ]
 
+miscDefinitions :: [(Id, Id, [FunctionCase])]
+miscDefinitions = [
+    ("Any", "debug", [generateInteropCase [IdArg "value"] debugImpl])
+    --("Any", "many",  [generateInteropCase [IdArg "value"] manyImpl])
+  ]
+
 preludeDefinitions :: [(Id, Id, [FunctionCase])]
 preludeDefinitions =
-  listDefinitions <> intDefinitions <> charDefinitions
+  listDefinitions <> intDefinitions <> charDefinitions <> miscDefinitions

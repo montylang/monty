@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e283bef448fa23a7f230a62cbea03a9b46aecc4d4379f48e6c01131a862da23d
+-- hash: ca4269a141aab23bb28f732954ee6f3ee479b821e1ac34bca8441255be1aa655
 
 name:           copenhagen
 version:        0.1.0.0
@@ -38,6 +38,7 @@ library
       MontyRunner
       MorphUtils
       ParserTypes
+      PrettyPrint
       RunnerTypes
       RunnerUtils
       TypeUtils

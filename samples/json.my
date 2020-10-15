@@ -1,0 +1,180 @@
+class TupleClass:
+  Tuple(first, second)
+
+def _1(Tuple(first, _)):
+  return first
+
+def _2(Tuple(_, second)):
+  return second
+
+class JsonValue:
+  JsonNull
+  JsonBool(value)
+  JsonNumber(value)
+  JsonString(value)
+  JsonArray(value)
+  JsonObject(value)
+
+class ParserClass:
+  Parser(runParser)
+
+instance ParserClass of Functor:
+  def map(Parser(run), f):
+    def newRun(input):
+      return unwrap:
+        res <- run(input)
+        wrap(Tuple(_1(res), f(_2(res))))
+
+    return Parser(newRun)
+
+instance ParserClass of Applicative:
+  def wrap(value):
+    return Parser((input): Just(Tuple(input, value)))
+
+  def apply(Parser(run1), Parser(run2)):
+    def newRun(input):
+      return unwrap:
+        res1 <- run1(input)
+        res2 <- run2(_1(res1))
+        # Attrocious
+        Just(Tuple(_1(res2), _2(res1)(_2(res2))))
+
+    return Parser(newRun)
+
+instance ParserClass of Monad:
+  def bind(parser, f):
+    def parserJoin(p):
+      return Parser((input): unwrap:
+        res <- run(p, input)
+        run(_2(res), _1(res)))
+
+    return parserJoin(parser.map(f))
+
+instance ParserClass of Alternative:
+  def alt(Parser(run1), Parser(run2)):
+    def newRun(input):
+      return alt(run1(input), run2(input))
+
+    return Parser(newRun)
+
+def charP(x):
+  def f(y|ys):
+    return if y == x:
+      Just(Tuple(ys, x))
+    else:
+      None
+
+  def f(Nil):
+    return None
+
+  return Parser(f)
+
+def stringP(x):
+  return x.map(charP).sequence()
+
+def nonEmpty(Parser(runner)):
+  def newRunner(input):
+    return unwrap:
+      res <- runner(input)
+
+      if len(_2(res)) == 0:
+        None
+      else:
+        Just(res)
+
+  return Parser(newRunner)
+
+def jsonNull():
+  return stringP("null").mapConst(JsonNull)
+
+def jsonBool():
+  def trueParser():
+    return stringP("true").mapConst(JsonBool(True))
+
+  def falseParser():
+    return stringP("false").mapConst(JsonBool(False))
+
+  return alt(trueParser(), falseParser())
+
+def span(Nil, pred):
+  return Tuple([], [])
+
+def span(x|xs, pred):
+  return if pred(x):
+    rec = span(xs, pred)
+    Tuple((x|_1(rec)), _2(rec))
+  else:
+    Tuple([], x|xs)
+
+def spanP(predicate):
+  def inner(input):
+    res = span(input, predicate)
+    return Just(Tuple(_2(res), _1(res)))
+
+  return Parser(inner)
+
+def jsonNumber():
+  def f(ds):
+    return JsonNumber(int(ds))
+
+  return nonEmpty(spanP(isDigit)).map(f)
+
+def stringLiteral():
+  return charP('"').applyr(spanP(notEquals('"'))).applyl(charP('"')) # "
+
+def jsonString():
+  return stringLiteral().map(JsonString)
+
+def ws():
+  return spanP(isSpace)
+
+def sepBy(pSep, pElement):
+  return pElement.map(Cons).apply(many(pSep.applyr(pElement))).alt(wrap([]))
+
+def jsonArray():
+  def inner(input):
+    sep      = ws().applyr(charP(',')).applyr(ws())
+    elements = sepBy(sep.applyr(ws()), jsonValue())
+    header   = charP('[').applyr(ws())
+    footer   = ws().applyl(charP(']'))
+    newp     = header.applyr(elements).applyl(footer).map(JsonArray)
+
+    return run(newp, input)
+
+  return Parser(inner)
+
+def jsonObject():
+  def inner(input):
+    pairP = unwrap:
+      key   <- jsonString()
+      _     <- ws().applyr(charP(':')).applyr(ws())
+      value <- jsonValue()
+      wrap(Tuple(key, value))
+
+    sep      = ws().applyr(charP(',')).applyr(ws())
+    elements = sepBy(sep.applyr(ws()), pairP)
+    header   = charP('{').applyr(ws())
+    footer   = ws().applyl(charP('}'))
+    newp     = header.applyr(elements).applyl(footer).map(JsonObject)
+
+    return run(newp, input)
+
+  return Parser(inner)
+
+def jsonValue():
+  parsers = [
+    jsonBool(),
+    jsonNumber(),
+    jsonString(),
+    jsonArray(),
+    jsonObject()
+  ]
+
+  return parsers.foldl(jsonNull(), alt)
+
+def run(Parser(runner), input):
+  return runner(input)
+
+bigboi = "{ \"id\": \"0001\", \"type\": \"donut\", \"name\": \"Cake\", \"ppu\": 55, \"batters\": { \"batter\": [ { \"id\": \"1001\", \"type\": \"Regular\" }, { \"id\": \"1002\", \"type\": \"Chocolate\" }, { \"id\": \"1003\", \"type\": \"Blueberry\" }, { \"id\": \"1004\", \"type\": \"Devil's Food\" } ] }, \"topping\": [ { \"id\": \"5001\", \"type\": \"None\" }, { \"id\": \"5002\", \"type\": \"Glazed\" }, { \"id\": \"5005\", \"type\": \"Sugar\" }, { \"id\": \"5007\", \"type\": \"Powdered Sugar\" }, { \"id\": \"5006\", \"type\": \"Chocolate with Sprinkles\" }, { \"id\": \"5003\", \"type\": \"Chocolate\" }, { \"id\": \"5004\", \"type\": \"Maple\" } ] }"
+
+debug(run(jsonValue(), bigboi))
