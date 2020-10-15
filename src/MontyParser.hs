@@ -18,7 +18,7 @@ sc :: Parser ()
 sc = ws *> pure ()
 
 ws :: Parser String
-ws = many $ char ' '
+ws = many $ oneOf " \t"
 
 ws1 :: Parser String
 ws1 = some $ char ' '
@@ -34,8 +34,11 @@ commentableEof :: Parser ()
 commentableEof = pure () <* many (try singleEol) <*
   (ws *> optional commentEater *> eof)
 
-eol1 :: Parser ()
-eol1 = singleEol <* (many $ try singleEol)
+eolMany :: Parser ()
+eolMany = pure () <* (many $ try singleEol)
+
+eolSome :: Parser ()
+eolSome = pure () <* (some $ try singleEol)
 
 moduleParser :: Parser String
 moduleParser = some $ alphaNumChar <|> char '.'
@@ -82,7 +85,7 @@ typeConsArgParser indent = multiParenParser '(' ')' (varIdParser indent) <* ws
 namedDefParser :: Indent -> Parser PExpr
 namedDefParser indent = do
   name <- try $ string "def" *> ws1 *> varIdParser indent
-  args <- defArgParser indent <* char ':' <* eol1
+  args <- defArgParser indent <* char ':' <* eolSome
   body <- bodyParser indent
   def  <- addPos $ ExprDef args body
   addPos $ ExprAssignment name def
@@ -97,7 +100,9 @@ consParser indent = do
 -- Eats surrounding parens of an expr, for disambiguation
 parenEater :: Parser PExpr -> Parser PExpr
 parenEater innerParser =
-    char '(' *> ws *> innerParser <* ws <* char ')'
+    char '(' *> delimWs *> innerParser <* delimWs <* char ')'
+  where
+    delimWs = eolMany *> ws
 
 -- Matches syntax of the form (anything, anything, ...)
 multiParenParser :: Char -> Char -> Parser a -> Parser [a]
@@ -106,11 +111,11 @@ multiParenParser open close innerParser =
     sepBy (delimWs *> innerParser <* delimWs) (char ',')
     <* delimWs <* char close
   where
-    delimWs = many $ oneOf "\t \n"
+    delimWs = eolMany *> ws
 
 defParser :: Indent -> Parser PExpr
 defParser indent = do
-  args <- try $ rword "def" *> defArgParser indent <* char ':' <* eol1
+  args <- try $ rword "def" *> defArgParser indent <* char ':' <* eolSome
   body <- bodyParser indent
   addPos $ ExprDef args body
 
@@ -128,8 +133,8 @@ returnParser indent = try (rword "return") *>
 -- TODO: Support this `if foo: print('reeee')`
 condBlockParser :: String -> Indent -> Parser CondBlock
 condBlockParser initialKeyword indent = do
-  cond <- try $ rword initialKeyword *> exprParser indent <* ws <* char ':' <* eol1
-  body <- bodyParser indent <* eol1
+  cond <- try $ rword initialKeyword *> exprParser indent <* ws <* char ':' <* eolSome
+  body <- bodyParser indent <* eolSome
   pure $ CondBlock cond body
 
 ifParser :: Indent -> Parser PExpr
@@ -144,7 +149,7 @@ ifParser indent = do
 
     elseParser :: Parser [PExpr]
     elseParser =
-      string indent *> rword "else" *> char ':' *> eol1 *>
+      string indent *> rword "else" *> char ':' *> eolSome *>
       bodyParser indent
 
 infixParser :: Indent -> Parser PExpr
@@ -252,7 +257,7 @@ classParser :: Indent -> Parser PExpr
 classParser indent = do
   _ <- try $ string "class" <* ws1
   name <- typeIdParser indent
-  _ <- ws <* char ':' <* eol1
+  _ <- ws <* char ':' <* eolSome
   defs <- blockParser indent typeConsParser
   addPos $ ExprClass name defs
 
@@ -267,14 +272,14 @@ instanceParser :: Indent -> Parser PExpr
 instanceParser indent = do
     name        <- try $ string "instance" *> ws1 *> typeIdParser indent
     _           <- ws1 <* string "of" <* ws1
-    typeClass   <- typeIdParser indent <* ws <* char ':' <* eol1
+    typeClass   <- typeIdParser indent <* ws <* char ':' <* eolSome
     definitions <- blockParser indent namedDefParser
     addPos $ ExprInstanceOf name typeClass definitions
 
 typeParser :: Indent -> Parser PExpr
 typeParser indent = do
     _    <- try $ string "type" <* ws1
-    name <- typeIdParser indent <* ws <* char ':' <* eol1
+    name <- typeIdParser indent <* ws <* char ':' <* eolSome
     body <- blockParser indent $ typeBodyParser name
     addPos $ ExprType name body
   where
@@ -296,7 +301,7 @@ typeParser indent = do
 
 unwrapParser :: Indent -> Parser PExpr
 unwrapParser indent = do
-    _       <- try $ string "unwrap" <* ws <* char ':' <* eol1
+    _       <- try $ string "unwrap" <* ws <* char ':' <* eolSome
     content <- blockParser indent wrappableParser
     addPos $ ExprUnwrap content
   where
@@ -319,7 +324,7 @@ chainableParser indent previous =
   where
     sugarCallParser :: PExpr -> Parser PExpr
     sugarCallParser prev = do
-      _       <- char '.'
+      _       <- try $ eolMany *> ws *> char '.'
       fun     <- exprVarIdParser indent
       argList <- multiParenParser '(' ')' $ exprParser indent
       final   <- addPos $ ExprCall fun (prev:argList)
@@ -369,7 +374,7 @@ blockParser base parser = do
     rest       <- many $ stmt nextIndent
     pure $ first:rest
   where
-    stmt nextIndent = (try $ eol1 *> string nextIndent) *> parser nextIndent
+    stmt nextIndent = (try $ eolSome *> string nextIndent) *> parser nextIndent
 
 bodyParser :: Indent -> Parser [PExpr]
 bodyParser base = blockParser base exprParser
@@ -383,7 +388,7 @@ importParser = do
 rootBodyParser :: Parser [PExpr]
 rootBodyParser = do
     _ <- many $ try singleEol
-    imports <- many (importParser <* eol1)
+    imports <- many (importParser <* eolSome)
     _ <- many $ try singleEol
     first <- exprParser "" <* lookAhead (try singleEol <|> eof)
     rest  <- many stmt <* commentableEof
@@ -393,7 +398,7 @@ rootBodyParser = do
     stmt = try blankLine <|> rootExpr
 
     blankLine :: Parser (Maybe PExpr)
-    blankLine = eol1 *> pure Nothing
+    blankLine = eolSome *> pure Nothing
 
     rootExpr :: Parser (Maybe PExpr)
     rootExpr = Just <$> exprParser ""

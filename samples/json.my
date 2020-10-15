@@ -20,42 +20,38 @@ class ParserClass:
 
 instance ParserClass of Functor:
   def map(Parser(run), f):
-    def newRun(input):
-      return unwrap:
-        res <- run(input)
-        wrap(Tuple(_1(res), f(_2(res))))
-
-    return Parser(newRun)
+    return Parser((input): unwrap:
+      res <- run(input)
+      wrap(Tuple(_1(res), f(_2(res))))
+    )
 
 instance ParserClass of Applicative:
   def wrap(value):
     return Parser((input): Just(Tuple(input, value)))
 
   def apply(Parser(run1), Parser(run2)):
-    def newRun(input):
-      return unwrap:
-        res1 <- run1(input)
-        res2 <- run2(_1(res1))
-        # Attrocious
-        Just(Tuple(_1(res2), _2(res1)(_2(res2))))
-
-    return Parser(newRun)
+    return Parser((input): unwrap:
+      res1 <- run1(input)
+      res2 <- run2(_1(res1))
+      # Attrocious
+      Just(Tuple(_1(res2), _2(res1)(_2(res2))))
+    )
 
 instance ParserClass of Monad:
   def bind(parser, f):
     def parserJoin(p):
       return Parser((input): unwrap:
         res <- run(p, input)
-        run(_2(res), _1(res)))
+        run(_2(res), _1(res))
+      )
 
     return parserJoin(parser.map(f))
 
 instance ParserClass of Alternative:
   def alt(Parser(run1), Parser(run2)):
-    def newRun(input):
-      return alt(run1(input), run2(input))
-
-    return Parser(newRun)
+    return Parser(
+      (input): alt(run1(input), run2(input))
+    )
 
 def charP(x):
   def f(y|ys):
@@ -73,28 +69,26 @@ def stringP(x):
   return x.map(charP).sequence()
 
 def nonEmpty(Parser(runner)):
-  def newRunner(input):
-    return unwrap:
-      res <- runner(input)
-
-      if len(_2(res)) == 0:
-        None
-      else:
-        Just(res)
-
-  return Parser(newRunner)
+  return Parser((input): unwrap:
+    res <- runner(input)
+    
+    if len(_2(res)) == 0:
+      None
+    else:
+      Just(res)
+  )
 
 def jsonNull():
   return stringP("null").mapConst(JsonNull)
 
 def jsonBool():
-  def trueParser():
-    return stringP("true").mapConst(JsonBool(True))
+  def boolCaseParser(stringV, boolV):
+    return stringP(stringV).mapConst(JsonBool(boolV))
 
-  def falseParser():
-    return stringP("false").mapConst(JsonBool(False))
-
-  return alt(trueParser(), falseParser())
+  return alt(
+    boolCaseParser("true", True),
+    boolCaseParser("false", False)
+  )
 
 def span(Nil, pred):
   return Tuple([], [])
@@ -107,17 +101,16 @@ def span(x|xs, pred):
     Tuple([], x|xs)
 
 def spanP(predicate):
-  def inner(input):
-    res = span(input, predicate)
-    return Just(Tuple(_2(res), _1(res)))
-
-  return Parser(inner)
+  return Parser(
+    def (input):
+      res = span(input, predicate)
+      return Just(Tuple(_2(res), _1(res)))
+  )
 
 def jsonNumber():
-  def f(ds):
-    return JsonNumber(int(ds))
-
-  return nonEmpty(spanP(isDigit)).map(f)
+  return nonEmpty(spanP(isDigit)).map(
+    (ds): JsonNumber(int(ds))
+  )
 
 def stringLiteral():
   return charP('"').applyr(spanP(notEquals('"'))).applyl(charP('"')) # "
@@ -131,35 +124,38 @@ def ws():
 def sepBy(pSep, pElement):
   return pElement.map(Cons).apply(many(pSep.applyr(pElement))).alt(wrap([]))
 
+def wsWrap(parser):
+  return ws().applyr(parser).applyl(ws())
+
 def jsonArray():
-  def inner(input):
-    sep      = ws().applyr(charP(',')).applyr(ws())
-    elements = sepBy(sep.applyr(ws()), jsonValue())
-    header   = charP('[').applyr(ws())
-    footer   = ws().applyl(charP(']'))
-    newp     = header.applyr(elements).applyl(footer).map(JsonArray)
+  return Parser(
+    def (input):
+      sep      = charP(',').wsWrap()
+      elements = sepBy(sep, jsonValue())
+      header   = charP('[').applyr(ws())
+      footer   = ws().applyl(charP(']'))
+      newp     = header.applyr(elements).applyl(footer).map(JsonArray)
 
-    return run(newp, input)
-
-  return Parser(inner)
+      return run(newp, input)
+  )
 
 def jsonObject():
-  def inner(input):
-    pairP = unwrap:
-      key   <- jsonString()
-      _     <- ws().applyr(charP(':')).applyr(ws())
-      value <- jsonValue()
-      wrap(Tuple(key, value))
-
-    sep      = ws().applyr(charP(',')).applyr(ws())
-    elements = sepBy(sep.applyr(ws()), pairP)
-    header   = charP('{').applyr(ws())
-    footer   = ws().applyl(charP('}'))
-    newp     = header.applyr(elements).applyl(footer).map(JsonObject)
-
-    return run(newp, input)
-
-  return Parser(inner)
+  return Parser(
+    def (input):
+      pairP = unwrap:
+        key   <- jsonString()
+        _     <- charP(':').wsWrap()
+        value <- jsonValue()
+        wrap(Tuple(key, value))
+  
+      sep      = charP(',').wsWrap()
+      elements = sepBy(sep, pairP)
+      header   = charP('{').applyr(ws())
+      footer   = ws().applyl(charP('}'))
+      newp     = header.applyr(elements).applyl(footer).map(JsonObject)
+  
+      return run(newp, input)
+  )
 
 def jsonValue():
   parsers = [
@@ -175,6 +171,31 @@ def jsonValue():
 def run(Parser(runner), input):
   return runner(input)
 
-bigboi = "{ \"id\": \"0001\", \"type\": \"donut\", \"name\": \"Cake\", \"ppu\": 55, \"batters\": { \"batter\": [ { \"id\": \"1001\", \"type\": \"Regular\" }, { \"id\": \"1002\", \"type\": \"Chocolate\" }, { \"id\": \"1003\", \"type\": \"Blueberry\" }, { \"id\": \"1004\", \"type\": \"Devil's Food\" } ] }, \"topping\": [ { \"id\": \"5001\", \"type\": \"None\" }, { \"id\": \"5002\", \"type\": \"Glazed\" }, { \"id\": \"5005\", \"type\": \"Sugar\" }, { \"id\": \"5007\", \"type\": \"Powdered Sugar\" }, { \"id\": \"5006\", \"type\": \"Chocolate with Sprinkles\" }, { \"id\": \"5003\", \"type\": \"Chocolate\" }, { \"id\": \"5004\", \"type\": \"Maple\" } ] }"
+recipe = "{
+	\"id\": \"0001\",
+	\"type\": \"donut\",
+	\"name\": \"Cake\",
+	\"ppu\": 1,
+	\"batters\":
+		{
+			\"batter\":
+				[
+					{ \"id\": \"1001\", \"type\": \"Regular\" },
+					{ \"id\": \"1002\", \"type\": \"Chocolate\" },
+					{ \"id\": \"1003\", \"type\": \"Blueberry\" },
+					{ \"id\": \"1004\", \"type\": \"Devil's Food\" }
+				]
+		},
+	\"topping\":
+		[
+			{ \"id\": \"5001\", \"type\": \"None\" },
+			{ \"id\": \"5002\", \"type\": \"Glazed\" },
+			{ \"id\": \"5005\", \"type\": \"Sugar\" },
+			{ \"id\": \"5007\", \"type\": \"Powdered Sugar\" },
+			{ \"id\": \"5006\", \"type\": \"Chocolate with Sprinkles\" },
+			{ \"id\": \"5003\", \"type\": \"Chocolate\" },
+			{ \"id\": \"5004\", \"type\": \"Maple\" }
+		]
+}"
 
-debug(run(jsonValue(), bigboi))
+debug(run(jsonValue(), recipe))
