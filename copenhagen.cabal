@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ca4269a141aab23bb28f732954ee6f3ee479b821e1ac34bca8441255be1aa655
+-- hash: 8a1e33148e23ad7733c58cc37c575128c55eed0ab575f0982d44d1c6adf552ce
 
 name:           copenhagen
 version:        0.1.0.0
@@ -32,7 +32,11 @@ library
       Evaluators.Infix
       Evaluators.Types
       Evaluators.Unwrap
-      InteropPrelude
+      Interop.Char
+      Interop.Helpers
+      Interop.Int
+      Interop.List
+      Interop.Prelude
       ModuleLoader
       MontyParser
       MontyRunner

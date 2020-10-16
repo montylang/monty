@@ -21,7 +21,7 @@ import Evaluators.Condition
 import Evaluators.Infix
 import Evaluators.Types
 import ModuleLoader
-import InteropPrelude
+import Interop.Prelude
 
 evaluateP :: PExpr -> Scoper Value
 evaluateP (Pos pos expr) = catchError (eval expr) exitOnError
