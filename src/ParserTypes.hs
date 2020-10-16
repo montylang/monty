@@ -83,6 +83,7 @@ data Expr
   | ExprReturn PExpr
   | ExprClass Id [Pos TypeCons]
   | ExprList [PExpr]
+  | ExprTuple [PExpr]
   | ExprType Id [Pos DefSignature]
   | ExprInstanceOf Id Id [PExpr]
   | ExprBind Id PExpr

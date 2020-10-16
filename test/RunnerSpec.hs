@@ -160,6 +160,11 @@ spec = do
       exprRepr "[1, 2, 3].bind((x): wrap([x, x + 1]))" >>=
         shouldBe "[[1,2],[2,3],[3,4]]"
 
+  describe "Tuple tests" $ do
+    it "Fst & Snd" $ do
+      exprRepr "fst((1, 2))" >>= shouldBe "1"
+      exprRepr "snd((1, 2))" >>= shouldBe "2"
+
   describe "General tests" $ do
     it "Until" $ do
       exprRepr "until(-9, ((x): x > 0), ((x): x + 3))" >>= shouldBe "3"

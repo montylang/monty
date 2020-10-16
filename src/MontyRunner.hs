@@ -57,6 +57,9 @@ evaluate (ExprInfix first op second) = evalInfix first op second
 evaluate (ExprIfElse ifCond elifConds elseBody) =
   evalCondition ifCond elifConds elseBody
 
+evaluate (ExprTuple values) =
+  VTuple <$> (sequence $ evalP <$> values)
+
 evaluate (ExprList []) = pure $ VList []
 evaluate (ExprList (x:xs)) = do
     headEvaled <- evalP x

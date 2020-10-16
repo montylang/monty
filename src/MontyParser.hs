@@ -57,6 +57,7 @@ assignmentParser indent = do
 argParser :: Indent -> Parser Arg
 argParser indent = choice $ try <$> [
     consArgParser, -- Order matters
+    tupleArgParser, -- Order matters
     patternArgParser,
     idArgParser
   ]
@@ -69,6 +70,11 @@ argParser indent = choice $ try <$> [
       name <- typeIdParser indent <* ws
       args <- try (defArgParser indent) <|> pure []
       pure $ PatternArg name args
+
+    tupleArgParser :: Parser Arg
+    tupleArgParser = do
+      args <- multiParenParser '(' ')' (argParser indent)
+      pure $ PatternArg "Tuple" args
 
     consArgParser :: Parser Arg
     consArgParser = do
@@ -318,6 +324,11 @@ listParser :: Indent -> Parser PExpr
 listParser indent =
   ExprList <$> multiParenParser '[' ']' (exprParser indent) >>= addPos
 
+tupleParser :: Indent -> Parser PExpr
+tupleParser indent = try $ do
+  tup <- ExprTuple <$> multiParenParser '(' ')' (exprParser indent)
+  addPos tup
+
 chainableParser :: Indent -> PExpr -> Parser PExpr
 chainableParser indent previous =
     sugarCallParser previous <|> normalCallParser previous <|> pure previous
@@ -363,7 +374,8 @@ exprParser indent = choice $ ($ indent) <$> [
     infixParser,
     assignmentParser,
     consParser,
-    exprParser'
+    exprParser',
+    tupleParser
   ]
 
 -- Pretty epic

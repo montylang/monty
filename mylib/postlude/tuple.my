@@ -1,0 +1,5 @@
+def fst((x, _)):
+  return x
+
+def snd((_, x)):
+  return x

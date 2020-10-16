@@ -112,7 +112,7 @@ data Value
   | VClass [Id]
   | VList [Value]
   | VDict    
-  | VTuple   
+  | VTuple [Value]
   deriving (Eq)
 
 instance Show Value where
@@ -136,7 +136,8 @@ instance Show Value where
   show (VList values@((VChar _):_)) = show $ vChr <$> values
   show (VList values) = show values
   show (VDict) = undefined
-  show (VTuple) = undefined
+  show (VTuple values) = 
+    "(" <> intercalate "," (show <$> values) <> ")"
   show (VInferred fname tname vals) =
     "VInferred " <> fname <> " " <> tname <> " " <> show vals
 
@@ -162,7 +163,8 @@ instance PrettyPrint Value where
     "[" <> intercalate ", " (prettyPrint <$> values) <> "]"
   --show (VClass _) = "<class>"
   -- show (VDict) = undefined
-  -- show (VTuple) = undefined
+  prettyPrint (VTuple values) = 
+    "(" <> intercalate "," (show <$> values) <> ")"
   -- show (VInferred fname tname vals) =
   --   "VInferred " <> fname <> " " <> tname <> " " <> show vals
 

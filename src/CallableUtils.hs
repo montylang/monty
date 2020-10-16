@@ -67,6 +67,7 @@ inferTypeValue TAnything v = pure v
 inferTypeValue TInt v@(VInt _)   = pure v
 inferTypeValue TChar v@(VChar _) = pure v
 inferTypeValue (TUser "List") v@(VList _) = pure v
+inferTypeValue (TUser "TupleClass") v@(VTuple _) = pure v
 inferTypeValue t v = stackTrace $ "I shit my pants! " <>
   show t <> "," <> prettyPrint v
 
@@ -120,6 +121,7 @@ argMatchesParam (TypedIdArg _ "Char") (VChar _) = True
 argMatchesParam (TypedIdArg _ "List") (VList _) = True
 argMatchesParam (PatternArg "Nil" _) (VList []) = True
 argMatchesParam (PatternArg "Cons" _) (VList (_:_)) = True
+argMatchesParam (PatternArg "Tuple" xs) (VTuple ys) = (length xs) == (length ys)
 argMatchesParam (PatternArg pname pargs) (VTypeInstance _ tname tvals) =
   pname == tname && (all (uncurry argMatchesParam) (zip pargs tvals))
 argMatchesParam _ _ = False
@@ -141,6 +143,13 @@ addArg (PatternArg "Cons" [h, t], VList (x:xs)) = do
   pure ()
 
 addArg (PatternArg "Nil" [], _) = pure ()
+
+addArg (PatternArg "Tuple" args, VTuple values) = do
+  assert (length args == length values) $
+    "Mismatched argument length for pattern match of tuple"
+  
+  sequence_ $ addArg <$> (zip args values)
+  pure ()
 
 addArg (PatternArg pname pargs, VTypeInstance _ tname tvals) = do
   assert (pname == tname) $

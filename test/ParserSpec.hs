@@ -66,6 +66,23 @@ spec = do
         (Right $ pure $ ExprList [pure $ ExprInt 1, pure $ mkStrExpr "b"])
       (testParser exprParser "[1, ]") `shouldSatisfy` isLeft
 
+  describe "Tuple parser" $ do
+    it "Parses Tuples" $ do
+      (testParser exprParser "()") `shouldBe`
+        (Right $ pure $ ExprTuple [])
+
+      (testParser exprParser "(1, 2)") `shouldBe`
+        (Right $ pure $ ExprTuple [pure $ ExprInt 1, pure $ ExprInt 2])
+
+      (testParser exprParser "(1, 2, 3 )") `shouldBe`
+        (Right $ pure $ ExprTuple [
+            pure $ ExprInt 1,
+            pure $ ExprInt 2,
+            pure $ ExprInt 3])
+
+      (testParser exprParser "(1)") `shouldBe`
+        (Right $ pure $ ExprInt 1)
+
   describe "Infix parser" $ do
     it "Simple infix ops" $ do
       (testParser exprParser "a + b") `shouldBe`

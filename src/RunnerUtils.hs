@@ -30,6 +30,9 @@ typesEqual (VChar _) (VChar _)                 = True
 typesEqual (VList (x:_)) (VList (y:_))         = typesEqual x y
 typesEqual (VList _) (VList _)                 = True
 typesEqual (VInferred _ _ _) (VInferred _ _ _) = True
+typesEqual (VTuple xs) (VTuple ys) =
+  (length xs) == (length ys) &&
+  (all (uncurry typesEqual) $ zip xs ys)
 typesEqual _ _                                 = False
 
 addToScope :: String -> Value -> Scoper ()

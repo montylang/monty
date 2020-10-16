@@ -1,12 +1,3 @@
-class TupleClass:
-  Tuple(first, second)
-
-def _1(Tuple(first, _)):
-  return first
-
-def _2(Tuple(_, second)):
-  return second
-
 class JsonValue:
   JsonNull
   JsonBool(value)
@@ -22,19 +13,19 @@ instance ParserClass of Functor:
   def map(Parser(run), f):
     return Parser((input): unwrap:
       res <- run(input)
-      wrap(Tuple(_1(res), f(_2(res))))
+      wrap((fst(res), f(snd(res))))
     )
 
 instance ParserClass of Applicative:
   def wrap(value):
-    return Parser((input): Just(Tuple(input, value)))
+    return Parser((input): Just((input, value)))
 
   def apply(Parser(run1), Parser(run2)):
     return Parser((input): unwrap:
       res1 <- run1(input)
-      res2 <- run2(_1(res1))
+      res2 <- run2(fst(res1))
       # Attrocious
-      Just(Tuple(_1(res2), _2(res1)(_2(res2))))
+      Just((fst(res2), snd(res1)(snd(res2))))
     )
 
 instance ParserClass of Monad:
@@ -42,7 +33,7 @@ instance ParserClass of Monad:
     def parserJoin(p):
       return Parser((input): unwrap:
         res <- run(p, input)
-        run(_2(res), _1(res))
+        run(snd(res), fst(res))
       )
 
     return parserJoin(parser.map(f))
@@ -56,7 +47,7 @@ instance ParserClass of Alternative:
 def charP(x):
   def f(y|ys):
     return if y == x:
-      Just(Tuple(ys, x))
+      Just((ys, x))
     else:
       None
 
@@ -72,7 +63,7 @@ def nonEmpty(Parser(runner)):
   return Parser((input): unwrap:
     res <- runner(input)
     
-    if len(_2(res)) == 0:
+    if len(snd(res)) == 0:
       None
     else:
       Just(res)
@@ -91,20 +82,20 @@ def jsonBool():
   )
 
 def span(Nil, pred):
-  return Tuple([], [])
+  return ([], [])
 
 def span(x|xs, pred):
   return if pred(x):
     rec = span(xs, pred)
-    Tuple((x|_1(rec)), _2(rec))
+    ((x|fst(rec)), snd(rec))
   else:
-    Tuple([], x|xs)
+    ([], x|xs)
 
 def spanP(predicate):
   return Parser(
     def (input):
       res = span(input, predicate)
-      return Just(Tuple(_2(res), _1(res)))
+      return Just((snd(res), fst(res)))
   )
 
 def jsonNumber():
@@ -146,7 +137,7 @@ def jsonObject():
         key   <- jsonString()
         _     <- charP(':').wsWrap()
         value <- jsonValue()
-        wrap(Tuple(key, value))
+        wrap((key, value))
   
       sep      = charP(',').wsWrap()
       elements = sepBy(sep, pairP)
