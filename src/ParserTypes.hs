@@ -86,7 +86,7 @@ data Expr
   | ExprTuple [PExpr]
   | ExprType Id [Pos DefSignature]
   | ExprInstanceOf Id Id [PExpr]
-  | ExprBind Id PExpr
+  | ExprBind Arg PExpr
   | ExprUnwrap [PExpr]
   | ExprImport [String]
   deriving (Show, Eq)
@@ -127,7 +127,9 @@ instance PrettyPrint Expr where
   prettyPrint (ExprList elements) =
     "[" <> (intercalate ", " $ prettyPrint <$> elements) <> "]"
 
-  prettyPrint (ExprBind name val) = name <> " <- " <> prettyPrint val
+  prettyPrint (ExprBind arg val) =
+    prettyPrint arg <>
+    " <- " <> prettyPrint val
 
   prettyPrint (ExprUnwrap body) =
     "unwrap:\n" <>

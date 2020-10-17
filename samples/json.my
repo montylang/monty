@@ -12,8 +12,8 @@ class ParserClass:
 instance ParserClass of Functor:
   def map(Parser(run), f):
     return Parser((input): unwrap:
-      res <- run(input)
-      wrap((fst(res), f(snd(res))))
+      (rest, result) <- run(input)
+      wrap((rest, f(result)))
     )
 
 instance ParserClass of Applicative:
@@ -22,18 +22,17 @@ instance ParserClass of Applicative:
 
   def apply(Parser(run1), Parser(run2)):
     return Parser((input): unwrap:
-      res1 <- run1(input)
-      res2 <- run2(fst(res1))
-      # Attrocious
-      Just((fst(res2), snd(res1)(snd(res2))))
+      (restA, resultA) <- run1(input)
+      (restB, resultB) <- run2(restA)
+      Just((restB, resultA(resultB)))
     )
 
 instance ParserClass of Monad:
   def bind(parser, f):
     def parserJoin(p):
       return Parser((input): unwrap:
-        res <- run(p, input)
-        run(snd(res), fst(res))
+        (rest, result) <- run(p, input)
+        run(result, rest)
       )
 
     return parserJoin(parser.map(f))

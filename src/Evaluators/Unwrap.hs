@@ -19,7 +19,7 @@ evalUnwrap' ((Pos a (ExprBind arg expr)):xs) = do
   recursive <- evalUnwrap' xs
   pure $ Pos a $ ExprCall
     (Pos a (ExprId "bind"))
-    [expr, Pos a $ ExprDef [IdArg arg] [addReturn recursive]]
+    [expr, Pos a $ ExprDef [arg] [addReturn recursive]]
 evalUnwrap' _ = stackTrace "I just shit myself"
 
 addReturn :: PExpr -> PExpr

@@ -345,7 +345,7 @@ spec = do
             "  it"
           ]) `shouldBe`
         (Right $ pure $ ExprUnwrap [
-              pure $ ExprBind "foo" (pure $ ExprId "bar"),
+              pure $ ExprBind (IdArg "foo") (pure $ ExprId "bar"),
               pure $ ExprId "it"
             ])
 
@@ -357,9 +357,19 @@ spec = do
             "  curly <- 3 + 3"
           ]) `shouldBe`
         (Right $ pure $ ExprUnwrap [
-              pure $ ExprBind "foo" (pure $ ExprId "bar"),
+              pure $ ExprBind (IdArg "foo") (pure $ ExprId "bar"),
               pure $ ExprId "it",
               pure $ ExprId "larry",
-              pure $ ExprBind "curly"
+              pure $ ExprBind (IdArg "curly")
                 (pure $ ExprInfix (pure $ ExprInt 3) InfixAdd (pure $ ExprInt 3))
+            ])
+
+      (testParser unwrapParser $ unlines [
+            "unwrap:",
+            "  (a, b) <- bar"
+          ]) `shouldBe`
+        (Right $ pure $ ExprUnwrap [
+              pure $ ExprBind
+                (PatternArg "Tuple" [IdArg "a", IdArg "b"])
+                (pure $ ExprId "bar")
             ])

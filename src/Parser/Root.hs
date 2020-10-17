@@ -220,9 +220,9 @@ unwrapParser indent = do
 
     bindParser :: Indent -> Parser PExpr
     bindParser ind = do
-      varName <- try $ varIdParser ind <* ws <* string "<-" <* ws
-      value   <- exprParser ind
-      addPos $ ExprBind varName value
+      arg   <- try $ argParser ind <* ws <* string "<-" <* ws
+      value <- exprParser ind
+      addPos $ ExprBind arg value
 
 listParser :: Indent -> Parser PExpr
 listParser indent =
