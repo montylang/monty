@@ -1,26 +1,16 @@
-module ParserSpec where
+module ParserTests.RootSpec where
 
 import Test.Hspec
 import Text.Megaparsec
 import Data.Either
-import Data.Void
 
 import ParserTypes
-import MontyParser
+import Parser.Root
 
-testParser :: (Indent -> Parser a) -> String -> Either (ParseErrorBundle String Void) a
-testParser p input = parse (p "" <* (try $ many $ try singleEol) <* eof) "" input
-
-mkStrExpr = ExprList . fmap (pure . ExprChar)
+import ParserTests.Helpers
 
 spec :: Spec
 spec = do
-  describe "SingleEol parser" $ do
-    it "Parses EOLs" $ do
-      parse (singleEol <* eof) "" "  \n" `shouldBe` (Right ())
-      parse (singleEol <* eof) "" "  # \n" `shouldBe` (Right ())
-      parse (singleEol <* eof) "" "  #  sntaoehusnthoea \n" `shouldBe` (Right ())
-
   describe "Import parser" $ do
     it "Parses imports" $ do
       (parse (importParser <* eof) "" "import foo") `shouldBe`
@@ -28,13 +18,6 @@ spec = do
       (parse (importParser <* eof) "" "import foo.bar.it") `shouldBe`
         (Right $ pure $ ExprImport ["foo", "bar", "it"])
       (parse (importParser <* eof) "" "import foo.") `shouldSatisfy` isLeft
-
-  describe "Id parser" $ do
-    it "Parses ids" $ do
-      (testParser varIdParser "abc") `shouldBe` (Right $ "abc")
-      (testParser varIdParser "_abc") `shouldBe` (Right $ "_abc")
-      (testParser varIdParser "_abc123") `shouldBe` (Right $ "_abc123")
-      (testParser varIdParser "1abc") `shouldSatisfy` isLeft
 
   describe "Int parser" $ do
     it "Parses ints" $ do
@@ -135,15 +118,6 @@ spec = do
     it "Simple assignment" $ do
       (testParser assignmentParser "a = 3") `shouldBe`
         (Right $ pure $ ExprAssignment "a" (pure $ ExprInt 3))
-
-  describe "Arg Parser" $ do
-    it "Arg parsing" $ do
-      (testParser defArgParser "( \t a,  b ,c )") `shouldBe`
-        (Right $ [IdArg "a", IdArg "b", IdArg "c"])
-
-    it "Pattern matching" $ do
-      (testParser defArgParser "(Just(a), None())") `shouldBe`
-        (Right $ [PatternArg "Just" [IdArg "a"], PatternArg "None" []])
 
   describe "Body parser" $ do
     it "Basic" $ do

@@ -4,7 +4,7 @@ import System.Environment
 import Text.Megaparsec
 
 import MontyRunner (run)
-import MontyParser (rootBodyParser)
+import Parser.Root (rootBodyParser)
 
 parseFromFile p file = runParser p file <$> readFile file
 

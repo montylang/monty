@@ -7,7 +7,7 @@ import Control.Monad.State.Strict
 import Data.Maybe
 import Debug.Trace
 
-import MontyParser
+import Parser.Root
 import MontyRunner
 import ParserTypes
 import RunnerTypes

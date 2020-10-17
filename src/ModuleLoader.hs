@@ -9,7 +9,7 @@ import Text.Megaparsec
 
 import RunnerTypes
 import RunnerUtils
-import MontyParser (rootBodyParser)
+import Parser.Root
 
 loadModule :: [String] -> Scoper ()
 loadModule components = do

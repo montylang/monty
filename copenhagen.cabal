@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8a1e33148e23ad7733c58cc37c575128c55eed0ab575f0982d44d1c6adf552ce
+-- hash: 180efc16c3a34e17404a9bcdff9d6fe9a66f654b0cdf8cfd15de47a0789364b1
 
 name:           copenhagen
 version:        0.1.0.0
@@ -38,9 +38,11 @@ library
       Interop.List
       Interop.Prelude
       ModuleLoader
-      MontyParser
       MontyRunner
       MorphUtils
+      Parser.Arg
+      Parser.Root
+      Parser.Utils
       ParserTypes
       PrettyPrint
       RunnerTypes
@@ -87,7 +89,10 @@ test-suite copenhagen-test
   main-is: Spec.hs
   other-modules:
       HelperSpec
-      ParserSpec
+      ParserTests.ArgSpec
+      ParserTests.Helpers
+      ParserTests.RootSpec
+      ParserTests.UtilsSpec
       RunnerSpec
       Paths_copenhagen
   hs-source-dirs:

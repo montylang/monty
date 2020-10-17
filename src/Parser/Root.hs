@@ -1,4 +1,4 @@
-module MontyParser where
+module Parser.Root where
 
 import Debug.Trace
 import Data.Char
@@ -11,82 +11,17 @@ import Lens.Micro.Platform
 import ParserTypes
 import MorphUtils
 
-rword :: String -> Parser ()
-rword w = string w *> notFollowedBy alphaNumChar <* ws
-
-sc :: Parser ()
-sc = ws *> pure ()
-
-ws :: Parser String
-ws = many $ oneOf " \t"
-
-ws1 :: Parser String
-ws1 = some $ char ' '
-
-commentEater :: Parser ()
-commentEater = char '#' *> many (noneOf "\n") *> pure ()
-
--- TODO: Support CRLF and ;
-singleEol :: Parser ()
-singleEol = ws *> optional commentEater *> char '\n' *> pure ()
-
-commentableEof :: Parser ()
-commentableEof = pure () <* many (try singleEol) <*
-  (ws *> optional commentEater *> eof)
-
-eolMany :: Parser ()
-eolMany = pure () <* (many $ try singleEol)
-
-eolSome :: Parser ()
-eolSome = pure () <* (some $ try singleEol)
+import Parser.Utils
+import Parser.Arg
 
 moduleParser :: Parser String
 moduleParser = some $ alphaNumChar <|> char '.'
-
-addPos :: a -> Parser (Pos a)
-addPos expr = do
-  pos <- getSourcePos
-  pure $ Pos pos expr
 
 assignmentParser :: Indent -> Parser PExpr
 assignmentParser indent = do
   var  <- try $ (varIdParser indent <* ws <* char '=' <* ws)
   expr <- exprParser indent
   addPos $ ExprAssignment var expr
-
-argParser :: Indent -> Parser Arg
-argParser indent = choice $ try <$> [
-    consArgParser, -- Order matters
-    tupleArgParser, -- Order matters
-    patternArgParser,
-    idArgParser
-  ]
-  where
-    idArgParser :: Parser Arg
-    idArgParser = IdArg <$> varIdParser indent
-
-    patternArgParser :: Parser Arg
-    patternArgParser = do
-      name <- typeIdParser indent <* ws
-      args <- try (defArgParser indent) <|> pure []
-      pure $ PatternArg name args
-
-    tupleArgParser :: Parser Arg
-    tupleArgParser = do
-      args <- multiParenParser '(' ')' (argParser indent)
-      pure $ PatternArg "Tuple" args
-
-    consArgParser :: Parser Arg
-    consArgParser = do
-      headArg <- try $ idArgParser <* ws <* char '|' <* ws
-      tailArg <- try idArgParser <|> try consArgParser
-      pure $ PatternArg "Cons" [headArg, tailArg]
-
-defArgParser :: Indent -> Parser [Arg]
-defArgParser indent = multiParenParser '(' ')' (argParser indent) <* ws
-
-typeConsArgParser :: Indent -> Parser [Id]
-typeConsArgParser indent = multiParenParser '(' ')' (varIdParser indent) <* ws
 
 namedDefParser :: Indent -> Parser PExpr
 namedDefParser indent = do
@@ -102,22 +37,6 @@ consParser indent = do
   tailExpr <- exprParser indent
   exprId   <- addPos $ ExprId "Cons"
   addPos $ ExprCall exprId [headExpr, tailExpr]
-
--- Eats surrounding parens of an expr, for disambiguation
-parenEater :: Parser PExpr -> Parser PExpr
-parenEater innerParser =
-    char '(' *> delimWs *> innerParser <* delimWs <* char ')'
-  where
-    delimWs = eolMany *> ws
-
--- Matches syntax of the form (anything, anything, ...)
-multiParenParser :: Char -> Char -> Parser a -> Parser [a]
-multiParenParser open close innerParser =
-    char open *> delimWs *>
-    sepBy (delimWs *> innerParser <* delimWs) (char ',')
-    <* delimWs <* char close
-  where
-    delimWs = eolMany *> ws
 
 defParser :: Indent -> Parser PExpr
 defParser indent = do
@@ -212,21 +131,6 @@ infixParser indent = do
       op  <- try $ ws *> allOpParser <* ws
       rhs <- exprParser' indent <* ws
       pure (Just op, rhs)
-
-varIdParser :: Indent -> Parser Id
-varIdParser _ = do
-  x  <- char '_' <|> satisfy isLower
-  xs <- many $ (char '_' <|> alphaNumChar)
-  pure $ x:xs
-
-typeIdParser :: Indent -> Parser Id
-typeIdParser _ = do
-  firstChar <- satisfy isUpper
-  rest      <- many $ (char '_' <|> alphaNumChar)
-  pure $ firstChar:rest
-
-anyIdParser :: Indent -> Parser Id
-anyIdParser indent = try (varIdParser indent) <|> typeIdParser indent
 
 exprVarIdParser :: Indent -> Parser PExpr
 exprVarIdParser indent = ExprId <$> varIdParser indent >>= addPos
@@ -378,24 +282,14 @@ exprParser indent = choice $ ($ indent) <$> [
     tupleParser
   ]
 
--- Pretty epic
-blockParser :: Indent -> (Indent -> Parser a) -> Parser [a]
-blockParser base parser = do
-    nextIndent <- (<>) <$> string base <*> ws1
-    first      <- parser nextIndent <* lookAhead (singleEol <|> eof)
-    rest       <- many $ stmt nextIndent
-    pure $ first:rest
-  where
-    stmt nextIndent = (try $ eolSome *> string nextIndent) *> parser nextIndent
-
-bodyParser :: Indent -> Parser [PExpr]
-bodyParser base = blockParser base exprParser
-
 importParser :: Parser PExpr
 importParser = do
   _    <- try (rword "import")
   path <- sepBy1 (varIdParser "") (char '.')
   addPos $ ExprImport path
+
+bodyParser :: Indent -> Parser [PExpr]
+bodyParser base = blockParser base exprParser
 
 rootBodyParser :: Parser [PExpr]
 rootBodyParser = do
