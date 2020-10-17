@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 180efc16c3a34e17404a9bcdff9d6fe9a66f654b0cdf8cfd15de47a0789364b1
+-- hash: ce99fafd5009a6e208d5ed99da897a657e04413bccdc6767a3314b22603c8b88
 
 name:           copenhagen
 version:        0.1.0.0
@@ -35,6 +35,7 @@ library
       Interop.Char
       Interop.Helpers
       Interop.Int
+      Interop.IO
       Interop.List
       Interop.Prelude
       ModuleLoader

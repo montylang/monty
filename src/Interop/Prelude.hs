@@ -13,6 +13,7 @@ import CallableUtils
 import Interop.List
 import Interop.Int
 import Interop.Char
+import Interop.IO
 
 debugImpl :: [Value] -> Scoper Value
 debugImpl [input] = do
@@ -26,4 +27,8 @@ miscDefinitions = [
 
 preludeDefinitions :: [(Id, Id, [FunctionCase])]
 preludeDefinitions =
-  listDefinitions <> intDefinitions <> charDefinitions <> miscDefinitions
+  listDefinitions <>
+  intDefinitions <>
+  charDefinitions <>
+  miscDefinitions <>
+  ioDefinitions

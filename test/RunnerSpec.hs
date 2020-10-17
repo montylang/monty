@@ -187,3 +187,6 @@ spec = do
 
     it "Misc int stuff" $ do
       exprRepr "int(\"42\")" >>= shouldBe "42"
+
+    it "Uncurry" $ do
+      exprRepr "uncurry(add)((3, 4))" >>= shouldBe "7"

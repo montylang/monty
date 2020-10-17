@@ -81,6 +81,8 @@ instance Show FunctionCase where
 instance Eq FunctionCase where
   (==) first second = fcaseArgs first == fcaseArgs second
 
+voidValue = VTuple []
+
 data Value
   = VInt Int
   | VChar { vChr :: Char }

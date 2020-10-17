@@ -1,0 +1,36 @@
+class WorldClass:
+  World
+
+class IO:
+  IOVal(worldt)
+
+def unpackIOVal(IOVal(fun)):
+  return fun
+
+instance IO of Monad:
+  # worldT: World -> (a, World)
+  # f:      a -> IOVal(World -> (b, World))
+  # Return: IOVal(World -> (b, world))
+  def bind(IOVal(worldT), f):
+    return IOVal(
+      def (w):
+        # TODO: Clean this up once we can unpack tuples
+        q = worldT(w)
+        a = fst(q)
+        newW = snd(q)
+        return unpackIOVal(f(a))(newW)
+    )
+
+def printStrT(output, world):
+  scaryUnsafePrint(output)
+  return ((), world)
+
+def readStrT(world):
+  in = scaryUnsafeInput()
+  return (in, world)
+
+def print(input):
+  return IOVal((w): printStrT(input, w))
+
+def input():
+  return IOVal((w): readStrT(w))

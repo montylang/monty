@@ -6,6 +6,37 @@ class JsonValue:
   JsonArray(value)
   JsonObject(value)
 
+instance JsonValue of Show:
+  def str(JsonNull):
+    return "null"
+
+  def str(JsonBool(True)):
+    return "true"
+
+  def str(JsonBool(False)):
+    return "true"
+
+  def str(JsonNumber(num)):
+    return str(num)
+
+  def str(JsonString(str)):
+    return "\"" <> str <> "\""
+
+  def str(JsonArray(Nil)):
+    return "[]"
+
+  def str(JsonArray(x|xs)):
+    return "[" <> xs.map(str).foldl(str(x), (acc, it): acc <> "," <> it) <> "]"
+
+  def str(JsonObject(Nil)):
+    return "{}"
+
+  def str(JsonObject(x|xs)):
+    def formatPair((JsonString(name), value)):
+      return "\"" <> name <> "\": " <> str(value)
+
+    return "{" <> xs.map(formatPair).foldl(formatPair(x), (acc, it): acc <> "," <> it) <> "}"
+
 class ParserClass:
   Parser(runParser)
 
@@ -161,31 +192,12 @@ def jsonValue():
 def run(Parser(runner), input):
   return runner(input)
 
-recipe = "{
-	\"id\": \"0001\",
-	\"type\": \"donut\",
-	\"name\": \"Cake\",
-	\"ppu\": 1,
-	\"batters\":
-		{
-			\"batter\":
-				[
-					{ \"id\": \"1001\", \"type\": \"Regular\" },
-					{ \"id\": \"1002\", \"type\": \"Chocolate\" },
-					{ \"id\": \"1003\", \"type\": \"Blueberry\" },
-					{ \"id\": \"1004\", \"type\": \"Devil's Food\" }
-				]
-		},
-	\"topping\":
-		[
-			{ \"id\": \"5001\", \"type\": \"None\" },
-			{ \"id\": \"5002\", \"type\": \"Glazed\" },
-			{ \"id\": \"5005\", \"type\": \"Sugar\" },
-			{ \"id\": \"5007\", \"type\": \"Powdered Sugar\" },
-			{ \"id\": \"5006\", \"type\": \"Chocolate with Sprinkles\" },
-			{ \"id\": \"5003\", \"type\": \"Chocolate\" },
-			{ \"id\": \"5004\", \"type\": \"Maple\" }
-		]
-}"
+def showJson(Just((Nil, parsed))):
+  return str(parsed)
 
-debug(run(jsonValue(), recipe))
+def showJson(_):
+  return "Bad input JSON"
+
+__main__ = unwrap:
+  in <- input()
+  print(showJson(run(jsonValue(), in)))

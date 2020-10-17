@@ -117,6 +117,17 @@ run prog = do
       loadMyLib
       sequence_ $ evalP <$> exprs
 
+      mainEntry <- findInScope "__main__"
+      sequence_ $ runMain <$> mainEntry
+
+    baseWorld = VTypeInstance "WorldClass" "World" []
+
+    runMain :: Value -> Scoper ()
+    runMain (VTypeInstance "IO" "IOVal" [mainFun]) = do
+      runFun mainFun [baseWorld] *> pure ()
+    runMain _ =
+      stackTrace "Read the docs. This isn't what main is buddy"
+
 loadMyLib :: Scoper ()
 loadMyLib = do
     loadModule ["mylib", "prelude"]

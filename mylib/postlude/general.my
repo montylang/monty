@@ -7,6 +7,9 @@ def const(value):
 def flip(f):
   return (a, b): f(b, a)
 
+def uncurry(f):
+  return ((a, b)): f(a, b)
+
 def until(initial, predicate, func):
   return if predicate(initial):
     initial

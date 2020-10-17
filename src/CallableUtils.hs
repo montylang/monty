@@ -215,7 +215,8 @@ runScopedFun og@(VFunction impl) params =
   curryWrapper
     og
     (evaluateImpl impl params)
-    "Too many args passed to function"
+    ("Too many args passed to function" <>
+     show (prettyPrint <$> params) <> prettyPrint impl)
     params
 runScopedFun og@(VTypeFunction defSig tcases) params =
     curryWrapper
