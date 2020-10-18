@@ -93,8 +93,8 @@ spec = do
       exprRepr "Just(2).bind((x): None)"         >>= shouldBe "None"
       exprRepr "None.bind((x): Just(x))"         >>= shouldBe "None"
       exprRepr "None.bind((x): None)"            >>= shouldBe "None"
-      exprRepr "join(Just(Just(1)))"             >>= shouldBe "Just(1)"
-      exprRepr "join(None)"                      >>= shouldBe "None"
+      exprRepr "flatten(Just(Just(1)))"          >>= shouldBe "Just(1)"
+      exprRepr "flatten(None)"                   >>= shouldBe "None"
 
     it "Maybe as an Alternative" $ do
       exprRepr "Just(4).alt(Just(3))" >>= shouldBe "Just(4)"
@@ -147,11 +147,20 @@ spec = do
       exprRepr "sequence([Just(1), Just(2)])"       >>= shouldBe "Just([1,2])"
 
     it "List misc functions" $ do
-      exprRepr "[1, 2, 3].filter((x): x < 3)" >>= shouldBe "[1,2]"
-      exprRepr "[1, 2, 3].head()"             >>= shouldBe "Just(1)"
-      exprRepr "[3].tail()"                   >>= shouldBe "Just([])"
-      exprRepr "[1, 2, 3].reverse()"          >>= shouldBe "[3,2,1]"
-      exprRepr "[3].reverse()"                >>= shouldBe "[3]"
+      exprRepr "[1, 2, 3].filter((x): x < 3)"      >>= shouldBe "[1,2]"
+      exprRepr "[1, 2, 3].head()"                  >>= shouldBe "Just(1)"
+      exprRepr "[3].tail()"                        >>= shouldBe "Just([])"
+      exprRepr "[1, 2, 3].reverse()"               >>= shouldBe "[3,2,1]"
+      exprRepr "[3].reverse()"                     >>= shouldBe "[3]"
+
+      exprRepr "\"hello,world\".split(',')"
+        >>= shouldBe "[\"hello\",\"world\"]"
+
+      exprRepr "[\"hello\",\"world\"].join(\",\")"
+        >>= shouldBe "\"hello,world\""
+
+      exprRepr "[1, 2, 3, 4].span((x): x <= 2)"
+        >>= shouldBe "([1,2],[3,4])"
 
   describe "Inferrence tests" $ do
     it "Should infer wrap values" $ do

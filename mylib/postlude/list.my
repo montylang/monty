@@ -31,3 +31,33 @@ def tail(head|tail):
 def reverse(l):
   return l.foldl([], (acc, it): [it] <> acc)
 
+def join(Nil, _):
+  return []
+
+def join(x|xs, delim):
+  return xs.foldl(x, (acc, it): acc <> delim <> it)
+
+def split(xs, delim):
+  def splitPrime(Nil, _, Nil):
+    return []
+
+  def splitPrime(Nil, _, acc):
+    return [acc]
+
+  def splitPrime(x|xs, delim, acc):
+    return if x == delim:
+      [acc] <> splitPrime(xs, delim, [])
+    else:
+      splitPrime(xs, delim, acc <> [x])
+
+  return splitPrime(xs, delim, [])
+
+def span(Nil, pred):
+  return ([], [])
+
+def span(x|xs, pred):
+  return if pred(x):
+    rec = span(xs, pred)
+    ((x|fst(rec)), snd(rec))
+  else:
+    ([], x|xs)

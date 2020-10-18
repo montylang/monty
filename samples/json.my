@@ -22,20 +22,14 @@ instance JsonValue of Show:
   def str(JsonString(str)):
     return "\"" <> str <> "\""
 
-  def str(JsonArray(Nil)):
-    return "[]"
+  def str(JsonArray(xs)):
+    return "[" <> xs.map(str).join(",") <> "]"
 
-  def str(JsonArray(x|xs)):
-    return "[" <> xs.map(str).foldl(str(x), (acc, it): acc <> "," <> it) <> "]"
-
-  def str(JsonObject(Nil)):
-    return "{}"
-
-  def str(JsonObject(x|xs)):
+  def str(JsonObject(xs)):
     def formatPair((JsonString(name), value)):
       return "\"" <> name <> "\": " <> str(value)
 
-    return "{" <> xs.map(formatPair).foldl(formatPair(x), (acc, it): acc <> "," <> it) <> "}"
+    return "{" <> xs.map(formatPair).join(",") <> "}"
 
 class ParserClass:
   Parser(runParser)
@@ -110,16 +104,6 @@ def jsonBool():
     boolCaseParser("true", True),
     boolCaseParser("false", False)
   )
-
-def span(Nil, pred):
-  return ([], [])
-
-def span(x|xs, pred):
-  return if pred(x):
-    rec = span(xs, pred)
-    ((x|fst(rec)), snd(rec))
-  else:
-    ([], x|xs)
 
 def spanP(predicate):
   return Parser(

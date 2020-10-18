@@ -1,4 +1,4 @@
-def join(m):
+def flatten(m):
   return m.bind(id)
 
 def many(v):
