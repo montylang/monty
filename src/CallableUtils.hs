@@ -9,6 +9,7 @@ import qualified Data.HashMap.Strict as HM
 import Data.IORef
 import Control.Monad.State.Strict
 
+import MatchUtils
 import RunnerUtils
 import RunnerTypes
 import ParserTypes
@@ -86,7 +87,7 @@ evaluateCases cases params = runWithTempScope $ do
     show (prettyPrint <$> fcaseArgs fcase) <> ". Oh and by the way: " <>
     show (prettyPrint <$> cases)
   
-  sequence_ $ addArg <$> zip (fcaseArgs fcase) params
+  sequence_ $ scopeMatchedValue <$> zip (fcaseArgs fcase) params
 
   runFcase fcase
 
@@ -111,57 +112,12 @@ pickFun cases params = do
 
 funCaseMatchesParams :: [Value] -> FunctionCase -> Bool
 funCaseMatchesParams params fcase =
-  all (uncurry argMatchesParam) $ zip (fcaseArgs fcase) params
-
-argMatchesParam :: Arg -> Value -> Bool
-argMatchesParam (IdArg _) _ = True
-argMatchesParam (TypedIdArg _ t) (VTypeInstance cname _ _) = t == cname
-argMatchesParam (TypedIdArg _ "Int") (VInt _) = True
-argMatchesParam (TypedIdArg _ "Char") (VChar _) = True
-argMatchesParam (TypedIdArg _ "List") (VList _) = True
-argMatchesParam (PatternArg "Nil" _) (VList []) = True
-argMatchesParam (PatternArg "Cons" _) (VList (_:_)) = True
-argMatchesParam (PatternArg "Tuple" xs) (VTuple ys) = (length xs) == (length ys)
-argMatchesParam (PatternArg pname pargs) (VTypeInstance _ tname tvals) =
-  pname == tname && (all (uncurry argMatchesParam) (zip pargs tvals))
-argMatchesParam _ _ = False
+  all (uncurry argMatchesValue) $ zip (fcaseArgs fcase) params
 
 splitReturn :: [PExpr] -> ([PExpr], PExpr)
 splitReturn exprs =
   let (beginning, ([Pos _ (ExprReturn returnExpr)])) = splitAt ((length exprs) - 1) exprs
   in (beginning, returnExpr)
-
-addArg :: (Arg, Value) -> Scoper ()
-
-addArg (IdArg name, v) = addToScope name v
-
-addArg (TypedIdArg name _, v) = addToScope name v
-
-addArg (PatternArg "Cons" [h, t], VList (x:xs)) = do
-  _ <- addArg (h, x)
-  _ <- addArg (t, VList xs)
-  pure ()
-
-addArg (PatternArg "Nil" [], _) = pure ()
-
-addArg (PatternArg "Tuple" args, VTuple values) = do
-  assert (length args == length values) $
-    "Mismatched argument length for pattern match of tuple"
-  
-  sequence_ $ addArg <$> (zip args values)
-  pure ()
-
-addArg (PatternArg pname pargs, VTypeInstance _ tname tvals) = do
-  assert (pname == tname) $
-    "Mismatched pattern match: " <> pname <> "," <> tname
-
-  assert (length pargs == length tvals) $
-    "Mismatched argument length for pattern match of " <> pname
-
-  sequence_ $ addArg <$> (zip pargs tvals)
-  pure ()
-
-addArg _ = stackTrace "Bad call to pattern matched function"
 
 runFun :: Value -> [Value] -> Scoper Value
 runFun (VScoped func fscope) params = do

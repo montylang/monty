@@ -3,3 +3,6 @@ def fst((x, _)):
 
 def snd((_, x)):
   return x
+
+def swap((a, b)):
+  return (b, a)

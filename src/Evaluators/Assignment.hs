@@ -6,9 +6,12 @@ import Control.Monad.State.Strict
 import ParserTypes
 import RunnerTypes
 import RunnerUtils
+import MatchUtils
 
-evalAssignment :: Id -> PExpr -> Scoper Value
-evalAssignment name value = do
+-- [ id -> Value, id -> Value ]
+
+evalAssignment :: Arg -> PExpr -> Scoper Value
+evalAssignment (IdArg name) value = do
     evaledValue  <- evalP value
     inScopeValue <- findInTopScope name
     
@@ -26,6 +29,12 @@ evalAssignment name value = do
       combined <- combineImpls impl newImpl
       pure $ VScoped (VFunction combined) newScope
     appendFunctionCase _ _ _ = stackTrace $ "Cannot mutate " <> name
+
+evalAssignment arg@(PatternArg name args) value = do
+    evaledValue  <- evalP value
+    if argMatchesValue arg evaledValue
+      then scopeMatchedValue (arg, evaledValue) *> pure evaledValue
+      else stackTrace "Mismatched pattern match assignment"
 
 functionCaseFits :: FunctionCase -> FunctionCase -> Bool
 functionCaseFits newCase existingCase =

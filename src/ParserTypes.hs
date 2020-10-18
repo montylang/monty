@@ -77,7 +77,7 @@ data Expr
   | ExprChar Char
   | ExprIfElse CondBlock [CondBlock] [PExpr]
   | ExprInfix PExpr InfixOp PExpr
-  | ExprAssignment Id (PExpr)
+  | ExprAssignment Arg (PExpr)
   | ExprDef [Arg] [PExpr]
   | ExprCall PExpr [PExpr]
   | ExprReturn PExpr
@@ -107,8 +107,8 @@ instance PrettyPrint Expr where
   prettyPrint (ExprInfix lhs op rhs) =
     "(" <> prettyPrint lhs <> prettyPrint op <> prettyPrint rhs <> ")"
 
-  prettyPrint (ExprAssignment name expr) =
-    name <> " = " <> prettyPrint expr
+  prettyPrint (ExprAssignment dest expr) =
+    prettyPrint dest <> " = " <> prettyPrint expr
 
   prettyPrint (ExprDef args body) =
     "def(" <> (intercalate ", " $ prettyPrint <$> args) <> "):\n" <>

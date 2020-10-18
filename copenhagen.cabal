@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ce99fafd5009a6e208d5ed99da897a657e04413bccdc6767a3314b22603c8b88
+-- hash: 4b494228832b50a37035aac21743baa68cad5266daec97d9262ac04a6c9b57df
 
 name:           copenhagen
 version:        0.1.0.0
@@ -38,6 +38,7 @@ library
       Interop.IO
       Interop.List
       Interop.Prelude
+      MatchUtils
       ModuleLoader
       MontyRunner
       MorphUtils

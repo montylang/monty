@@ -19,9 +19,9 @@ moduleParser = some $ alphaNumChar <|> char '.'
 
 assignmentParser :: Indent -> Parser PExpr
 assignmentParser indent = do
-  var  <- try $ (varIdParser indent <* ws <* char '=' <* ws)
+  dest <- try $ (argParser indent <* ws <* char '=' <* ws)
   expr <- exprParser indent
-  addPos $ ExprAssignment var expr
+  addPos $ ExprAssignment dest expr
 
 namedDefParser :: Indent -> Parser PExpr
 namedDefParser indent = do
@@ -29,7 +29,7 @@ namedDefParser indent = do
   args <- defArgParser indent <* char ':' <* eolSome
   body <- bodyParser indent
   def  <- addPos $ ExprDef args body
-  addPos $ ExprAssignment name def
+  addPos $ ExprAssignment (IdArg name) def
 
 consParser :: Indent -> Parser PExpr
 consParser indent = do

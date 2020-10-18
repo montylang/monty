@@ -26,7 +26,7 @@ instance JsonValue of Show:
     return "[" <> xs.map(str).join(",") <> "]"
 
   def str(JsonObject(xs)):
-    def formatPair((JsonString(name), value)):
+    def formatPair((name, value)):
       return "\"" <> name <> "\": " <> str(value)
 
     return "{" <> xs.map(formatPair).join(",") <> "}"
@@ -107,9 +107,7 @@ def jsonBool():
 
 def spanP(predicate):
   return Parser(
-    def (input):
-      res = span(input, predicate)
-      return Just((snd(res), fst(res)))
+    (input): Just(swap(span(input, predicate)))
   )
 
 def jsonNumber():
@@ -148,9 +146,9 @@ def jsonObject():
   return Parser(
     def (input):
       pairP = unwrap:
-        key   <- jsonString()
-        _     <- charP(':').wsWrap()
-        value <- jsonValue()
+        JsonString(key) <- jsonString()
+        _               <- charP(':').wsWrap()
+        value           <- jsonValue()
         wrap((key, value))
   
       sep      = charP(',').wsWrap()

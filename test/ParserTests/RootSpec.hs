@@ -117,31 +117,31 @@ spec = do
   describe "Assignment parser" $ do
     it "Simple assignment" $ do
       (testParser assignmentParser "a = 3") `shouldBe`
-        (Right $ pure $ ExprAssignment "a" (pure $ ExprInt 3))
+        (Right $ pure $ ExprAssignment (IdArg "a") (pure $ ExprInt 3))
 
   describe "Body parser" $ do
     it "Basic" $ do
       (testParser bodyParser $ " a = 3\n") `shouldBe`
-        (Right $ [pure $ ExprAssignment "a" (pure $ ExprInt 3)])
+        (Right $ [pure $ ExprAssignment (IdArg "a") (pure $ ExprInt 3)])
 
       (testParser bodyParser $ unlines [" a = 3"]) `shouldBe`
-        (Right $ [pure $ ExprAssignment "a" (pure $ ExprInt 3)])
+        (Right $ [pure $ ExprAssignment (IdArg "a") (pure $ ExprInt 3)])
 
     it "Multi" $ do
       (testParser bodyParser $ unlines ["  a = 3", "  a = 3"]) `shouldBe`
         (Right $ [
-            pure $ ExprAssignment "a" (pure $ ExprInt 3),
-            pure $ ExprAssignment "a" (pure $ ExprInt 3)])
+            pure $ ExprAssignment (IdArg "a") (pure $ ExprInt 3),
+            pure $ ExprAssignment (IdArg "a") (pure $ ExprInt 3)])
 
       (testParser bodyParser $ unlines ["  a = 3", "", "", "  a = 3"]) `shouldBe`
         (Right $ [
-            pure $ ExprAssignment "a" (pure $ ExprInt 3),
-            pure $ ExprAssignment "a" (pure $ ExprInt 3)])
+            pure $ ExprAssignment (IdArg "a") (pure $ ExprInt 3),
+            pure $ ExprAssignment (IdArg "a") (pure $ ExprInt 3)])
 
       (testParser bodyParser $ unlines ["  a = 3", "  a = 3", "  a = 3"]) `shouldBe`
-        (Right $ [pure $ ExprAssignment "a" (pure $ ExprInt 3),
-                  pure $ ExprAssignment "a" (pure $ ExprInt 3),
-                  pure $ ExprAssignment "a" (pure $ ExprInt 3)])
+        (Right $ [pure $ ExprAssignment (IdArg "a") (pure $ ExprInt 3),
+                  pure $ ExprAssignment (IdArg "a") (pure $ ExprInt 3),
+                  pure $ ExprAssignment (IdArg "a") (pure $ ExprInt 3)])
 
     it "Inner def" $ do
       (testParser bodyParser $ unlines [
@@ -151,18 +151,18 @@ spec = do
         ]) `shouldBe`
         (Right [
             pure $ (ExprDef [(IdArg "x")] [pure $ ExprInt 7]),
-            pure $ (ExprAssignment "a" (pure $ ExprInt 5))
+            pure $ (ExprAssignment (IdArg "a") (pure $ ExprInt 5))
           ])
 
   -- OK Marvin, I like that
   describe "Root body parser" $ do
     it "Basic" $ do
       (parse rootBodyParser "" $ unlines ["a = 3"]) `shouldBe`
-        (Right $ [pure $ ExprAssignment "a" (pure $ ExprInt 3)])
+        (Right $ [pure $ ExprAssignment (IdArg "a") (pure $ ExprInt 3)])
 
       (parse rootBodyParser "" $ unlines ["a = 3", "b = 4"]) `shouldBe`
-        (Right $ [pure $ ExprAssignment "a" (pure $ ExprInt 3),
-                  pure $ ExprAssignment "b" (pure $ ExprInt 4)])
+        (Right $ [pure $ ExprAssignment (IdArg "a") (pure $ ExprInt 3),
+                  pure $ ExprAssignment (IdArg "b") (pure $ ExprInt 4)])
 
     it "Exprs & defs" $ do
       (parse rootBodyParser "" $ unlines [
@@ -173,7 +173,9 @@ spec = do
           ]) `shouldBe`
         (Right $ [
            pure $ ExprInt 1,
-           pure $ ExprAssignment "f" (pure $ ExprDef [IdArg "x"] [pure $ ExprId "x"]),
+           pure $ ExprAssignment
+                    (IdArg "f")
+                    (pure $ ExprDef [IdArg "x"] [pure $ ExprId "x"]),
            pure $ ExprInt 2
          ])
       (parse rootBodyParser "" $ unlines ["if 3:", "  1", "else:", "  2"]) `shouldBe`
@@ -266,7 +268,10 @@ spec = do
 
     it "Named def" $ do
       (testParser exprParser $ unlines ["def foo():", "  4"]) `shouldBe`
-        (Right $ pure $ ExprAssignment "foo" $ pure $ ExprDef [] [pure $ ExprInt 4])
+        (Right $ pure $ ExprAssignment
+         (IdArg "foo") $
+         pure $ ExprDef [] [pure $ ExprInt 4]
+        )
 
     it "Lambda" $ do
       (testParser exprParser $ unlines ["(x): x + 4"]) `shouldBe`
@@ -333,7 +338,7 @@ spec = do
           ]) `shouldBe`
         (Right $ pure $ ExprInstanceOf "Maybe" "Functor" [
               pure $ ExprAssignment
-                "bar"
+                (IdArg "bar")
                 (pure $ ExprDef [] [pure $ ExprReturn (pure $ ExprInt 0)])
             ])
 

@@ -56,7 +56,7 @@ evalInstanceOf className typeName implementations = do
 
 addImplementation :: Id -> [Id] -> [DefSignature] -> Expr -> Scoper ()
 addImplementation cname classTypeCons available
-                  (ExprAssignment name (Pos _ (ExprDef args body))) = do
+                  (ExprAssignment (IdArg name) (Pos _ (ExprDef args body))) = do
   sigArgs  <- getSigArgs name available
   caseArgs <- markArgs cname classTypeCons args sigArgs 
   addBodyToScope cname name body caseArgs

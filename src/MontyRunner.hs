@@ -77,8 +77,8 @@ evaluate (ExprDef args body) = do
   VScoped (VFunction $ FunctionImpl [FunctionCase args body] types) <$> use scope
       
 
-evaluate (ExprAssignment name value) =
-  evalAssignment name value
+evaluate (ExprAssignment dest value) =
+  evalAssignment dest value
 
 evaluate (ExprCall funExpr args) = do
     pushToCallStack funExpr

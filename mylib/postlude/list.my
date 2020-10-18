@@ -3,9 +3,6 @@ instance List of Traversable:
     def consF(x, ys):
       return liftA2(Cons, f(x), ys)
     return l.foldr(wrap([]), consF)
- # http://hackage.haskell.org/package/base-4.14.0.0/docs/src/Data.Traversable.html#traverse
- # traverse f = List.foldr cons_f (pure [])
- #   where cons_f x ys = liftA2 (:) (f x) ys
 
 def filter(Nil, _):
   return Nil
@@ -57,7 +54,7 @@ def span(Nil, pred):
 
 def span(x|xs, pred):
   return if pred(x):
-    rec = span(xs, pred)
-    ((x|fst(rec)), snd(rec))
+    (satisfied, rest) = span(xs, pred)
+    ((x|satisfied), rest)
   else:
     ([], x|xs)
