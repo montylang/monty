@@ -55,11 +55,14 @@ instance PrettyPrint InfixOp where
   prettyPrint InfixCons     = "|"
   prettyPrint InfixMappend  = "<>"
 
+
 data Arg
   = IdArg Id
   | TypedIdArg Id Id
   | PatternArg Id [Arg]
   | SelfArg
+  | IntArg Int
+  | CharArg Char
   deriving (Show, Eq)
 
 instance PrettyPrint Arg where

@@ -11,6 +11,7 @@ import Lens.Micro.Platform
 import ParserTypes
 import MorphUtils
 
+import Parser.Literal
 import Parser.Utils
 import Parser.Arg
 
@@ -144,22 +145,16 @@ exprTypeConsParser indent = do
   args <- (multiParenParser '(' ')' $ exprParser indent) <|> pure []
   addPos $ ExprCall name args
 
-intParser :: Indent -> Parser PExpr
-intParser _ = ExprInt <$> signed sc decimal >>= addPos
+exprIntParser :: Indent -> Parser PExpr
+exprIntParser _ = ExprInt <$> intParser >>= addPos
 
-charParser :: Indent -> Parser PExpr
-charParser _ = do
-  inner <- char '\'' *> charLiteral <* char '\''
-  addPos $ ExprChar inner
+exprCharParser :: Indent -> Parser PExpr
+exprCharParser _ = ExprChar <$> charParser >>= addPos
 
-stringLiteralParser :: Parser String
-stringLiteralParser = char '"' >> manyTill charLiteral (char '"')
-
-stringParser :: Indent -> Parser PExpr
-stringParser _ = do
+exprStringParser :: Indent -> Parser PExpr
+exprStringParser _ = do
   pos   <- getSourcePos
-
-  inner <- stringLiteralParser
+  inner <- stringParser
   addPos $ ExprList (Pos pos . ExprChar <$> inner)
 
 -- TODO: Only allow in root scopes
@@ -266,10 +261,10 @@ exprParser' indent = chainableParser indent =<<
         typeParser,
         exprVarIdParser,
         exprTypeConsParser,
-        intParser,
+        exprIntParser,
         listParser,
-        charParser,
-        stringParser
+        exprCharParser,
+        exprStringParser
       ]
 
 exprParser :: Indent -> Parser PExpr

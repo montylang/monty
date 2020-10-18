@@ -1,7 +1,7 @@
+def factorial(0):
+  return 1
+
 def factorial(n):
-    return if (n == 0):
-        1
-    else:
-        n * factorial(n - 1)
+  return n * factorial(n - 1)
 
 debug(factorial(4))

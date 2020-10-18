@@ -53,7 +53,7 @@ consLenImpl :: [Value] -> Scoper Value
 consLenImpl [x, (VList xs)] = pure $ VInt $ length (x:xs)
 
 nilLenImpl :: [Value] -> Scoper Value
-nilLenImpl [] = pure $ VInt 0
+nilLenImpl [] = pure voidValue
 
 consBindImpl :: [Value] -> Scoper Value
 consBindImpl [consHead, consTail, func] = do

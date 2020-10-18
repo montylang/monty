@@ -5,20 +5,33 @@ import Text.Megaparsec hiding (Pos)
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer
 
+import Parser.Literal
 import Parser.Utils
 import ParserTypes
 
 argParser :: Indent -> Parser Arg
 argParser indent = choice $ try <$> [
-    consArgParser, -- Order matters
-    tupleArgParser, -- Order matters
+    consArgParser,
+    tupleArgParser,
     listArgParser,
+    intArgParser,
+    charArgParser,
+    stringArgParser,
     patternArgParser,
     idArgParser
   ]
   where
     idArgParser :: Parser Arg
     idArgParser = IdArg <$> varIdParser indent
+
+    intArgParser :: Parser Arg
+    intArgParser = IntArg <$> intParser
+
+    charArgParser :: Parser Arg
+    charArgParser = CharArg <$> charParser
+
+    stringArgParser :: Parser Arg
+    stringArgParser = consFolder <$> (CharArg <$>) <$> stringParser
 
     patternArgParser :: Parser Arg
     patternArgParser = do

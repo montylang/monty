@@ -23,7 +23,7 @@ evalType :: Id -> [Pos DefSignature] -> Scoper Value
 evalType typeName headers = do
     addToScope typeName typeDef
     unionTopScope $ defSigToKeyValue <$> getPosValue <$> headers
-    pure $ VInt 0
+    pure voidValue
   where
     typeDef = VTypeDef typeName $ getPosValue <$> headers
 

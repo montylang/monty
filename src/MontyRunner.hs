@@ -96,7 +96,7 @@ evaluate (ExprUnwrap content) = evalUnwrap content
 
 evaluate (ExprImport components) = do
   loadModule components
-  pure $ VInt 0
+  pure voidValue
 
 evaluate other = stackTrace ("Error (unimplemented expr evaluate): " <> show other)
 

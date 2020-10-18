@@ -28,7 +28,7 @@ evalAssignment (IdArg name) value = do
       pure $ VScoped (VFunction combined) newScope
     appendFunctionCase _ _ _ = stackTrace $ "Cannot mutate " <> name
 
-evalAssignment arg@(PatternArg name args) value = do
+evalAssignment arg value = do
     evaled  <- evalP value
 
     case zipArgToValue arg evaled of

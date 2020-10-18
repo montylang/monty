@@ -179,8 +179,8 @@ combineType old new = if new == old
 
 argToType :: Arg -> Scoper Type
 argToType (IdArg _)             = pure TAnything
-argToType (TypedIdArg _ "Char") = pure $ TChar
-argToType (TypedIdArg _ "Int")  = pure $ TInt
+argToType (TypedIdArg _ "Char") = pure TChar
+argToType (TypedIdArg _ "Int")  = pure TInt
 argToType (TypedIdArg _ t)      = pure $ TUser t
 argToType (PatternArg "Cons" _) = pure $ TUser "List"
 argToType (PatternArg "Nil" _)  = pure $ TUser "List"
@@ -189,6 +189,8 @@ argToType (PatternArg name _)   = do
   case lookup >>= yoinkType of
     Just t -> pure t
     Nothing -> stackTrace $ "Could not find type for " <> name
+argToType (IntArg _)  = pure TInt
+argToType (CharArg _) = pure TChar
 
 yoinkType :: Value -> Maybe Type
 yoinkType (VTypeCons t _ _) = Just $ TUser t

@@ -22,6 +22,16 @@ zipArgToValue (TypedIdArg name "Int") val@(VInt _)   = Right [(name, val)]
 zipArgToValue (TypedIdArg name "Char") val@(VChar _) = Right [(name, val)]
 zipArgToValue (TypedIdArg name "List") val@(VList _) = Right [(name, val)]
 
+zipArgToValue (IntArg expected) (VInt actual) =
+  if expected == actual
+    then Right []
+    else Left $ "Expected " <> show expected <> ", got " <> show actual
+
+zipArgToValue (CharArg expected) (VChar actual) =
+  if expected == actual
+    then Right []
+    else Left $ "Expected " <> show expected <> ", got " <> show actual
+
 zipArgToValue (PatternArg "Nil" _) (VList []) = Right []
 
 zipArgToValue (PatternArg "Cons" [headArg, tailArg]) (VList (x:xs)) = do
