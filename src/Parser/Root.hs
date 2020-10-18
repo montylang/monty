@@ -18,6 +18,12 @@ import Parser.Arg
 moduleParser :: Parser String
 moduleParser = some $ alphaNumChar <|> char '.'
 
+passParser :: Indent -> Parser PExpr
+passParser indent = do
+  _    <- try $ rword "pass"
+  name <- addPos $ ExprId "pass"
+  addPos $ ExprCall name []
+
 assignmentParser :: Indent -> Parser PExpr
 assignmentParser indent = do
   dest <- try $ (argParser indent <* ws <* char '=' <* ws)
@@ -251,6 +257,7 @@ exprParser' indent = chainableParser indent =<<
     (try (parenEater $ exprParser indent) <|> content)
   where
     content = choice $ ($ indent) <$> [
+        passParser,
         instanceParser,
         unwrapParser,
         returnParser,

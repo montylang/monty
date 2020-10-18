@@ -23,7 +23,8 @@
 
 (define-generic-mode 'monty-mode
   '("#")
-  '("def" "type" "class" "if" "elif" "else" "return" "instance" "of" "unwrap" "wrap")
+  '("def" "type" "class" "if" "elif" "else" "return" "instance" "of"
+    "unwrap" "wrap" "pass")
   '(("\\bdebug\\b" . 'font-lock-builtin-face)
     ("\\b[A-Z][a-zA-Z0-9_]*\\b" . 'font-lock-type-face)
     ("'.'" . 'font-lock-string-face)
