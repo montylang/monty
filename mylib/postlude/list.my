@@ -49,7 +49,7 @@ def split(xs, delim):
 
   return splitPrime(xs, delim, [])
 
-def span(Nil, pred):
+def span([], pred):
   return ([], [])
 
 def span(x|xs, pred):

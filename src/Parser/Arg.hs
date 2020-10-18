@@ -12,6 +12,7 @@ argParser :: Indent -> Parser Arg
 argParser indent = choice $ try <$> [
     consArgParser, -- Order matters
     tupleArgParser, -- Order matters
+    listArgParser,
     patternArgParser,
     idArgParser
   ]
@@ -29,6 +30,14 @@ argParser indent = choice $ try <$> [
     tupleArgParser = do
       args <- multiParenParser '(' ')' (argParser indent)
       pure $ PatternArg "Tuple" args
+
+    listArgParser :: Parser Arg
+    listArgParser =
+      consFolder <$> multiParenParser '[' ']' (argParser indent)
+
+    consFolder :: [Arg] -> Arg
+    consFolder []     = PatternArg "Nil" []
+    consFolder (x:xs) = PatternArg "Cons" [x, consFolder xs]
 
     consArgParser :: Parser Arg
     consArgParser = do

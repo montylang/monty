@@ -14,6 +14,7 @@ import RunnerUtils
 import RunnerTypes
 import ParserTypes
 import PrettyPrint
+import Data.Either (isRight)
 
 evaluateTf :: DefSignature -> HM.HashMap Id FunctionImpl -> [Value] -> Scoper Value
 evaluateTf (DefSignature tname fname args retSelf) impls params = do
@@ -79,17 +80,21 @@ evaluateImpl (FunctionImpl cases typeSig) values = do
 
 evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
 evaluateCases cases params = runWithTempScope $ do
-  fcase <- pickFun cases params
-
-  assert (length (fcaseArgs fcase) == length params) $
-    "Mismatched argument length. Got: " <>
-    show (prettyPrint <$> params) <> ", but expected: " <>
-    show (prettyPrint <$> fcaseArgs fcase) <> ". Oh and by the way: " <>
-    show (prettyPrint <$> cases)
-  
-  sequence_ $ scopeMatchedValue <$> zip (fcaseArgs fcase) params
-
-  runFcase fcase
+  case find isRight (prepare <$> cases) of
+    Just (Right (fcase, zipped)) -> do
+      sequence_ $ uncurry addToScope <$> zipped
+      runFcase fcase
+    Nothing -> stackTrace "Non-exhaustive pattern matches for function"
+  where
+    prepare :: FunctionCase -> Either String (FunctionCase, [(Id, Value)])
+    prepare fcase =
+      if (length (fcaseArgs fcase) == length params) then do
+        inside <- zipArgsToValues (fcaseArgs fcase) params
+        pure (fcase, inside)
+      else Left $
+        "Mismatched argument length. Got: " <>
+        show (prettyPrint <$> params) <> ", but expected: " <>
+        show (prettyPrint <$> fcaseArgs fcase)
 
 runFcase :: FunctionCase -> Scoper Value
 runFcase (FunctionCase _ body) = do
@@ -99,20 +104,6 @@ runFcase (FunctionCase _ body) = do
     (beginning, returnExpr) = splitReturn body
 
 runFcase (InteropCase _ body) = body
-
-pickFun :: [FunctionCase] -> [Value] -> Scoper FunctionCase
-pickFun cases params = do
-
-  case find (funCaseMatchesParams params) cases of
-    Just funCase -> pure funCase 
-    Nothing      -> stackTrace $
-      "No function defined for arguments (" <>
-      intercalate ", " (show <$> params) <>
-      ") in " <> show cases
-
-funCaseMatchesParams :: [Value] -> FunctionCase -> Bool
-funCaseMatchesParams params fcase =
-  all (uncurry argMatchesValue) $ zip (fcaseArgs fcase) params
 
 splitReturn :: [PExpr] -> ([PExpr], PExpr)
 splitReturn exprs =

@@ -12,7 +12,7 @@ evalClass :: Id -> [Pos TypeCons] -> Scoper Value
 evalClass className constructors = do
     addToScope className (VClass consNames)
     unionTopScope $ convert <$> getPosValue <$> constructors
-    pure $ VInt 0 -- TODO: Return... something other than an int :)
+    pure voidValue
   where
     convert :: TypeCons -> (Id, Value)
     convert (TypeCons name args) = (name, VTypeCons className name args)
@@ -52,7 +52,7 @@ evalInstanceOf className typeName implementations = do
     addAllImplementations consNames funcDefs = do
       sequence_ $ (addImplementation className consNames funcDefs)
         <$> getPosValue <$> implementations
-      pure $ VInt 0 -- TODO: you know what you've done
+      pure voidValue
 
 addImplementation :: Id -> [Id] -> [DefSignature] -> Expr -> Scoper ()
 addImplementation cname classTypeCons available
@@ -88,5 +88,5 @@ addBodyToScope :: Id -> Id -> [PExpr] -> [Arg] -> Scoper ()
 addBodyToScope cname name body caseArgs = do
   maybeStub <- findInScope name
   case maybeStub of
-    Just val -> (addToScope name =<< updateStub cname val caseArgs body)
+    Just val -> (replaceInScope name =<< updateStub cname val caseArgs body)
     _        -> stackTrace $ name <> " is not in scope"

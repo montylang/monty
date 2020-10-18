@@ -143,7 +143,7 @@ loadMyLib = do
           comb <- casesToTypes cases
           pure $ VFunction $ FunctionImpl cases comb
 
-      addToScope name newInterops
+      replaceInScope name newInterops
 
     casesToTypes :: [FunctionCase] -> Scoper [Type]
     casesToTypes cases = do

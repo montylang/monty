@@ -8,20 +8,18 @@ import RunnerTypes
 import RunnerUtils
 import MatchUtils
 
--- [ id -> Value, id -> Value ]
-
 evalAssignment :: Arg -> PExpr -> Scoper Value
 evalAssignment (IdArg name) value = do
     evaledValue  <- evalP value
     inScopeValue <- findInTopScope name
     
-    newValue <- case inScopeValue of
-      (Just (VScoped (VFunction cases) s)) ->
-        appendFunctionCase cases evaledValue s
+    case inScopeValue of
+      (Just (VScoped (VFunction cases) s)) -> do
+        newFun <- appendFunctionCase cases evaledValue s
+        replaceInScope name newFun
       (Just _) -> stackTrace $ "Cannot mutate " <> name
-      _        -> pure evaledValue
-
-    addToScope name newValue
+      _        -> addToScope name evaledValue
+    
     pure evaledValue
   where
     appendFunctionCase :: FunctionImpl -> Value -> Scope -> Scoper Value
@@ -31,10 +29,11 @@ evalAssignment (IdArg name) value = do
     appendFunctionCase _ _ _ = stackTrace $ "Cannot mutate " <> name
 
 evalAssignment arg@(PatternArg name args) value = do
-    evaledValue  <- evalP value
-    if argMatchesValue arg evaledValue
-      then scopeMatchedValue (arg, evaledValue) *> pure evaledValue
-      else stackTrace "Mismatched pattern match assignment"
+    evaled  <- evalP value
+
+    case zipArgToValue arg evaled of
+      Right res -> (sequence $ uncurry addToScope <$> res) *> pure evaled
+      Left err  -> stackTrace err
 
 functionCaseFits :: FunctionCase -> FunctionCase -> Bool
 functionCaseFits newCase existingCase =

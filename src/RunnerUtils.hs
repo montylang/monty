@@ -35,14 +35,20 @@ typesEqual (VTuple xs) (VTuple ys) =
   (all (uncurry typesEqual) $ zip xs ys)
 typesEqual _ _                                 = False
 
+replaceInScope :: String -> Value -> Scoper ()
+replaceInScope key value = use scope >>= addToScope' key value
+
 addToScope :: String -> Value -> Scoper ()
 addToScope "_" _     = pure ()
-addToScope key value = use scope >>= addToScope'
-  where
-    addToScope' :: Scope -> Scoper ()
-    addToScope' (topRef:_) =
-      liftIO $ modifyIORef topRef $ HM.insert key value
-    addToScope' [] = undefined
+addToScope key value = do
+    inScopeValue <- findInTopScope key
+    assert (isNothing inScopeValue) $ "Cannot reassign " <> key
+    use scope >>= (addToScope' key value)
+
+addToScope' :: String -> Value -> Scope -> Scoper ()
+addToScope' key value (topRef:_) =
+  liftIO $ modifyIORef topRef $ HM.insert key value
+addToScope' _ _ [] = undefined
 
 unionTopScope :: [(Id, Value)] -> Scoper ()
 unionTopScope updates = do

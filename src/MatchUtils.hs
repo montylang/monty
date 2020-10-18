@@ -1,51 +1,39 @@
-module MatchUtils (argMatchesValue, scopeMatchedValue) where
+module MatchUtils (zipArgToValue, zipArgsToValues) where
+
+import Data.Either
+import Control.Monad
 
 import RunnerUtils
 import RunnerTypes
 import ParserTypes
 
-argMatchesValue :: Arg -> Value -> Bool
-argMatchesValue (IdArg _) _ = True
-argMatchesValue (TypedIdArg _ t) (VTypeInstance cname _ _) = t == cname
-argMatchesValue (TypedIdArg _ "Int") (VInt _) = True
-argMatchesValue (TypedIdArg _ "Char") (VChar _) = True
-argMatchesValue (TypedIdArg _ "List") (VList _) = True
-argMatchesValue (PatternArg "Nil" _) (VList []) = True
-argMatchesValue (PatternArg "Cons" _) (VList (_:_)) = True
-argMatchesValue (PatternArg "Tuple" xs) (VTuple ys) = (length xs) == (length ys)
-argMatchesValue (PatternArg pname pargs) (VTypeInstance _ tname tvals) =
-  pname == tname && (all (uncurry argMatchesValue) (zip pargs tvals))
-argMatchesValue _ _ = False
+zipArgsToValues :: [Arg] -> [Value] -> Either String [(Id, Value)]
+zipArgsToValues args values =
+  join <$> (sequence $ uncurry zipArgToValue <$> zip args values)
 
-scopeMatchedValue :: (Arg, Value) -> Scoper ()
+zipArgToValue :: Arg -> Value -> Either String [(Id, Value)]
+zipArgToValue (IdArg name) val = Right [(name, val)]
+zipArgToValue (TypedIdArg name t) val@(VTypeInstance cname _ _) =
+  if t == cname
+    then Right [(name, val)]
+    else Left $ "Expected " <> name <> ", got " <> cname
 
--- TODO: Check if the var is already in scope
-scopeMatchedValue (IdArg name, v) = addToScope name v
+zipArgToValue (TypedIdArg name "Int") val@(VInt _)   = Right [(name, val)]
+zipArgToValue (TypedIdArg name "Char") val@(VChar _) = Right [(name, val)]
+zipArgToValue (TypedIdArg name "List") val@(VList _) = Right [(name, val)]
 
-scopeMatchedValue (TypedIdArg name _, v) = addToScope name v
+zipArgToValue (PatternArg "Nil" _) (VList []) = Right []
 
-scopeMatchedValue (PatternArg "Cons" [h, t], VList (x:xs)) = do
-  _ <- scopeMatchedValue (h, x)
-  _ <- scopeMatchedValue (t, VList xs)
-  pure ()
+zipArgToValue (PatternArg "Cons" [headArg, tailArg]) (VList (x:xs)) = do
+  headZipped <- zipArgToValue headArg x
+  tailZipped <- zipArgToValue tailArg (VList xs)
+  pure $ headZipped <> tailZipped
 
-scopeMatchedValue (PatternArg "Nil" [], _) = pure ()
+zipArgToValue (PatternArg "Tuple" xs) (VTuple ys) = zipArgsToValues xs ys
 
-scopeMatchedValue (PatternArg "Tuple" args, VTuple values) = do
-  assert (length args == length values) $
-    "Mismatched argument length for pattern match of tuple"
-  
-  sequence_ $ scopeMatchedValue <$> (zip args values)
-  pure ()
+zipArgToValue (PatternArg pname pargs) (VTypeInstance _ tname tvals) =
+  if pname == tname && length pargs == length tvals
+    then zipArgsToValues pargs tvals
+    else Left $ "Mismatched length or pattern match: " <> pname <> "," <> tname
 
-scopeMatchedValue (PatternArg pname pargs, VTypeInstance _ tname tvals) = do
-  assert (pname == tname) $
-    "Mismatched pattern match: " <> pname <> "," <> tname
-
-  assert (length pargs == length tvals) $
-    "Mismatched argument length for pattern match of " <> pname
-
-  sequence_ $ scopeMatchedValue <$> (zip pargs tvals)
-  pure ()
-
-scopeMatchedValue _ = stackTrace "Bad call to pattern matched function"
+zipArgToValue _ _ = Left "Bad pattern match"
