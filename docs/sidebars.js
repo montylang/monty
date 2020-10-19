@@ -8,6 +8,7 @@ module.exports = {
       'basic-types',
       'functions',
       'basic-collections',
+      'maybe'
     ],
   },
 };
