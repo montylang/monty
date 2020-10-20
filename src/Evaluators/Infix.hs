@@ -7,13 +7,15 @@ import RunnerTypes
 import RunnerUtils
 import TypeUtils
 import CallableUtils
+import PrettyPrint
 
 evalInfix :: PExpr -> InfixOp -> PExpr -> Scoper Value
 evalInfix first op second = do
   f' <- evalP first
   s' <- evalP second
   (f, s) <- inferTypes f' s'
-  assert (typesEqual f s) "Cannot operate on values of different types"
+  assert (typesEqual f s) $ "Cannot operate on values of different types: " <>
+    prettyPrint f <> " " <> prettyPrint s
 
   case f of
     (VInt _)                   -> intInfixEval f op s

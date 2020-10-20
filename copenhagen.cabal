@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9982a44b1aecd8c2915a1eee0ae576b9df92dbcae73466037d9c2349b9194631
+-- hash: 22ddc2e0c08df8bf558ad0eb7443ecb9d87f96f04722e53cf86e7a1afe5ea83f
 
 name:           copenhagen
 version:        0.1.0.0
@@ -28,6 +28,7 @@ library
   exposed-modules:
       CallableUtils
       Evaluators.Assignment
+      Evaluators.Case
       Evaluators.Condition
       Evaluators.Infix
       Evaluators.Types

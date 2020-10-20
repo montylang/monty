@@ -20,6 +20,7 @@ import Evaluators.Assignment
 import Evaluators.Condition
 import Evaluators.Infix
 import Evaluators.Types
+import Evaluators.Case
 import ModuleLoader
 import Interop.Prelude
 
@@ -56,6 +57,9 @@ evaluate (ExprInfix first op second) = evalInfix first op second
 
 evaluate (ExprIfElse ifCond elifConds elseBody) =
   evalCondition ifCond elifConds elseBody
+
+evaluate (ExprCase input bodies) =
+  evalCase input bodies
 
 evaluate (ExprTuple values) =
   VTuple <$> (sequence $ evalP <$> values)

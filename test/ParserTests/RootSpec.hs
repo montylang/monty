@@ -378,3 +378,21 @@ spec = do
                 (PatternArg "Tuple" [IdArg "a", IdArg "b"])
                 (pure $ ExprId "bar")
             ])
+
+  describe "Case parser" $ do
+    it "Parses case statements" $ do
+      (testParser caseParser $ unlines [
+            "case 1:",
+            "  2: 3",
+            "  4:",
+            "    5",
+            "    6",
+            "  _: 7"
+          ]) `shouldBe`
+        (Right $ pure $ ExprCase
+          (pure $ ExprInt 1) [
+            pure $ CaseBlock (IntArg 2) [pure $ ExprInt 3],
+            pure $ CaseBlock (IntArg 4) [pure $ ExprInt 5, pure $ ExprInt 6],
+            pure $ CaseBlock (IdArg "_") [pure $ ExprInt 7]
+          ])
+        

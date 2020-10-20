@@ -19,6 +19,14 @@ instance PrettyPrint CondBlock where
     "(" <> prettyPrint cond <> "):\n" <>
     (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> body) <> "\n"
 
+data CaseBlock = CaseBlock Arg [PExpr]
+  deriving (Show, Eq)
+
+instance PrettyPrint CaseBlock where
+  prettyPrint (CaseBlock arg body) =
+    prettyPrint arg <> ":\n" <>
+    (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> body) <> "\n"
+
 data InfixOp
   = InfixAdd  -- Semiring add(a, b): semiring
   | InfixSub  -- Ring
@@ -92,6 +100,7 @@ data Expr
   | ExprBind Arg PExpr
   | ExprUnwrap [PExpr]
   | ExprImport [String]
+  | ExprCase PExpr [Pos CaseBlock]
   deriving (Show, Eq)
 
 instance PrettyPrint Expr where
@@ -137,6 +146,10 @@ instance PrettyPrint Expr where
   prettyPrint (ExprUnwrap body) =
     "unwrap:\n" <>
     (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> body) <> "\n"
+
+  prettyPrint (ExprCase input bodies) =
+    "case " <> prettyPrint input <> ":\n" <>
+    (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> bodies) <> "\n"
 
   -- prettyPrint (ExprInstanceOf Id Id [PExpr]) =
   -- prettyPrint (ExprClass Id [Pos TypeCons]) =

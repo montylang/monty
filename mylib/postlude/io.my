@@ -14,10 +14,7 @@ instance IO of Monad:
   def bind(IOVal(worldT), f):
     return IOVal(
       def (w):
-        # TODO: Clean this up once we can unpack tuples
-        q = worldT(w)
-        a = fst(q)
-        newW = snd(q)
+        (a, newW) = worldT(w)
         return unpackIOVal(f(a))(newW)
     )
 

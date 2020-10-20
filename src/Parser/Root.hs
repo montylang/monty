@@ -62,10 +62,32 @@ returnParser :: Indent -> Parser PExpr
 returnParser indent = try (rword "return") *>
   (ExprReturn <$> (exprParser indent) >>= addPos)
 
+caseParser :: Indent -> Parser PExpr
+caseParser indent = do
+  pos    <- getSourcePos
+  _      <- try $ rword "case"
+  cond   <- exprParser indent <* ws <* char ':' <* eolSome
+  blocks <- blockParser indent caseBlockParser
+  pure $ Pos pos $ ExprCase cond blocks
+
+caseBlockParser :: Indent -> Parser (Pos CaseBlock)
+caseBlockParser indent = do
+    pos  <- getSourcePos
+    cond <- try $ argParser indent <* ws <* char ':'
+    body <- (try eolSome *> multiLineP) <|> oneLineP
+    pure $ Pos pos $ CaseBlock cond body
+  where
+    oneLineP :: Parser [PExpr]
+    oneLineP = pure <$> (ws *> exprParser indent)
+    
+    multiLineP :: Parser [PExpr]
+    multiLineP = blockParser indent exprParser
+
 -- TODO: Support this `if foo: print('reeee')`
 condBlockParser :: String -> Indent -> Parser CondBlock
 condBlockParser initialKeyword indent = do
-  cond <- try $ rword initialKeyword *> exprParser indent <* ws <* char ':' <* eolSome
+  cond <- try $ rword initialKeyword *> exprParser indent
+          <* ws <* char ':' <* eolSome
   body <- bodyParser indent <* eolSome
   pure $ CondBlock cond body
 
@@ -262,6 +284,7 @@ exprParser' indent = chainableParser indent =<<
         unwrapParser,
         returnParser,
         classParser,
+        caseParser,
         namedDefParser,
         defParser,
         ifParser,
