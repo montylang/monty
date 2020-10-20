@@ -1,6 +1,3 @@
-class WorldClass:
-  World
-
 class IO:
   IOVal(worldt)
 
@@ -15,16 +12,9 @@ instance IO of Monad:
     return IOVal(
       def (w):
         (a, newW) = worldT(w)
-        return unpackIOVal(f(a))(newW)
+        IOVal(fun) = f(a)
+        return fun(newW)
     )
-
-def printStrT(output, world):
-  scaryUnsafePrint(output)
-  return ((), world)
-
-def readStrT(world):
-  in = scaryUnsafeInput()
-  return (in, world)
 
 def print(input):
   return IOVal((w): printStrT(input, w))

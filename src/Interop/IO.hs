@@ -16,24 +16,27 @@ import Interop.Helpers
 strToValue :: String -> Value
 strToValue s = VList $ VChar <$> s
 
-ioPrintUnsafe :: [Value] -> Scoper Value
-ioPrintUnsafe [VList str@((VChar _):_)] = do
+ioPrintStrT :: [Value] -> Scoper Value
+ioPrintStrT [VList str@((VChar _):_), token] = do
   liftIO $ putStrLn $ (vChr <$> str)
-  pure voidValue
+  pure $ VTuple [voidValue, token]
 
-ioInputUnsafe :: [Value] -> Scoper Value
-ioInputUnsafe [] = strToValue <$> liftIO getLine
+ioReadStrT :: [Value] -> Scoper Value
+ioReadStrT [token] = do
+  input <- strToValue <$> liftIO getLine
+  pure $ VTuple [input, token]
 
 ioDefinitions :: [(Id, Id, [FunctionCase])]
 ioDefinitions = [
-    ("Any", "scaryUnsafePrint", [
+    ("Any", "printStrT", [
         generateInteropCase
-          [TypedIdArg "input" "List"]
-          ioPrintUnsafe
+          [TypedIdArg "input" "List",
+           TypedIdArg "world" "#IOWorldToken"]
+          ioPrintStrT
     ]),
-    ("Any", "scaryUnsafeInput", [
+    ("Any", "readStrT", [
         generateInteropCase
-          []
-          ioInputUnsafe
+          [TypedIdArg "world" "#IOWorldToken"]
+          ioReadStrT
     ])
   ]

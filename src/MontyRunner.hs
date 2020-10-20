@@ -124,7 +124,7 @@ run prog = do
       mainEntry <- findInScope "__main__"
       sequence_ $ runMain <$> mainEntry
 
-    baseWorld = VTypeInstance "WorldClass" "World" []
+    baseWorld = VTypeInstance "#IOWorldToken" "#IOWorldToken" []
 
     runMain :: Value -> Scoper ()
     runMain (VTypeInstance "IO" "IOVal" [mainFun]) = do
