@@ -1,8 +1,19 @@
 class IO:
   IOVal(worldt)
 
-def unpackIOVal(IOVal(fun)):
-  return fun
+instance IO of Functor:
+  def map(io, func):
+    return io.bind((x): wrap(func(x)))
+
+instance IO of Applicative:
+  def wrap(v):
+    return IOVal((w): (v, w))
+
+  def apply(ioFunc, ioVal):
+    return unwrap:
+      f <- ioFunc
+      v <- ioVal
+      wrap(f(v))
 
 instance IO of Monad:
   # worldT: World -> (a, World)
@@ -12,9 +23,11 @@ instance IO of Monad:
     return IOVal(
       def (w):
         (a, newW) = worldT(w)
-        IOVal(fun) = f(a)
-        return fun(newW)
+        return unIO(f(a))(newW)
     )
+
+def unIO(IOVal(io)):
+  return io
 
 def print(input):
   return IOVal((w): printStrT(input, w))
