@@ -39,10 +39,23 @@ packages:
       sha256: 6c5fc0b867c11681dbadeb9cbcae10864abe3c5a4799410016c90871d3406c6e
   original:
     hackage: unordered-containers-0.2.12.0
+- completed:
+    hackage: repline-0.4.0.0@sha256:3324479e497d27c40c3d4762bffc52058f9921621d20d2947dcf9a554b94cd0d,2253
+    pantry-tree:
+      size: 564
+      sha256: bff43f9a5b0a212c29c12e2e22b528d9071b2a7d13489ce5bdc54ae9eac853cf
+  original:
+    hackage: repline-0.4.0.0
+- completed:
+    hackage: haskeline-0.8.1.0@sha256:6a6158c90b929ce7aa5331ff5e9819aa32c7df8f4a7ba324b3cc055ee96b48cb,5818
+    pantry-tree:
+      size: 2955
+      sha256: b80332551d20389637851299b618679a8435531bed1fed905195ae7163526999
+  original:
+    hackage: haskeline-0.8.1.0
 snapshots:
 - completed:
     size: 532377
     url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/12.yaml
     sha256: f914cfa23fef85bdf895e300a8234d9d0edc2dbec67f4bc9c53f85867c50eab6
-  original:
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/12.yaml
+  original: lts-16.12

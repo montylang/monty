@@ -4,13 +4,13 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 22ddc2e0c08df8bf558ad0eb7443ecb9d87f96f04722e53cf86e7a1afe5ea83f
+-- hash: a4a267ca70156fbde6b3f2e256356096b1baa771a4f684f77aad4a6b917f9c6c
 
-name:           copenhagen
+name:           monty
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/copenhagen#readme>
-homepage:       https://github.com/githubuser/copenhagen#readme
-bug-reports:    https://github.com/githubuser/copenhagen/issues
+description:    Please see the README on GitHub at <https://github.com/githubuser/monty#readme>
+homepage:       https://github.com/Mulan-Szechuan-Sauce/monty#readme
+bug-reports:    https://github.com/Mulan-Szechuan-Sauce/monty/issues
 author:         Author name here
 maintainer:     example@example.com
 copyright:      2020 Author name here
@@ -22,7 +22,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/copenhagen
+  location: https://github.com/Mulan-Szechuan-Sauce/monty
 
 library
   exposed-modules:
@@ -49,11 +49,12 @@ library
       Parser.Utils
       ParserTypes
       PrettyPrint
+      Repl
       RunnerTypes
       RunnerUtils
       TypeUtils
   other-modules:
-      Paths_copenhagen
+      Paths_monty
   hs-source-dirs:
       src
   build-depends:
@@ -65,30 +66,32 @@ library
     , microlens-platform
     , mtl
     , parser-combinators
+    , repline >=0.4.0.0
     , unordered-containers
   default-language: Haskell2010
 
-executable copenhagen-exe
+executable monty-exe
   main-is: Main.hs
   other-modules:
-      Paths_copenhagen
+      Paths_monty
   hs-source-dirs:
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
-    , copenhagen
     , directory
     , filepath
     , hashable
     , megaparsec
     , microlens-platform
+    , monty
     , mtl
     , parser-combinators
+    , repline >=0.4.0.0
     , unordered-containers
   default-language: Haskell2010
 
-test-suite copenhagen-test
+test-suite monty-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
@@ -98,22 +101,23 @@ test-suite copenhagen-test
       ParserTests.RootSpec
       ParserTests.UtilsSpec
       RunnerSpec
-      Paths_copenhagen
+      Paths_monty
   hs-source-dirs:
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       QuickCheck
     , base >=4.7 && <5
-    , copenhagen
     , directory
     , filepath
     , hashable
     , hspec
     , megaparsec
     , microlens-platform
+    , monty
     , mtl
     , parser-combinators
+    , repline >=0.4.0.0
     , silently
     , unordered-containers
   default-language: Haskell2010
