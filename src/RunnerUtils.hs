@@ -41,9 +41,9 @@ replaceInScope key value = use scope >>= addToScope' key value
 addToScope :: String -> Value -> Scoper ()
 addToScope "_" _     = pure ()
 addToScope key value = do
-    inScopeValue <- findInTopScope key
-    assert (isNothing inScopeValue) $ "Cannot reassign " <> key
-    use scope >>= (addToScope' key value)
+  inScopeValue <- findInTopScope key
+  assert (isNothing inScopeValue) $ "Cannot reassign " <> key
+  use scope >>= (addToScope' key value)
 
 addToScope' :: String -> Value -> Scope -> Scoper ()
 addToScope' key value (topRef:_) =
@@ -91,6 +91,15 @@ findImplsInScope fname value =
   case classForValue value of
     Just cname -> implForClass cname fname
     Nothing    -> stackTrace $ show value <> " is not a class"
+
+findInTypeScope :: String -> Scoper (Maybe Value)
+findInTypeScope key = HM.lookup key <$> use typeScope
+
+addToTypeScope :: String -> Value -> Scoper ()
+addToTypeScope key value = do
+  tscope <- use typeScope
+  assert (isNothing $ HM.lookup key tscope) $ "Cannot reassign " <> key
+  typeScope %= (HM.insert key value)
 
 classForValue :: Value -> Maybe Id
 classForValue (VList _)   = Just "List"

@@ -31,17 +31,17 @@ instance JsonValue of Show:
 
     return "{" <> xs.map(formatPair).join(",") <> "}"
 
-class ParserClass:
+class Parser:
   Parser(runParser)
 
-instance ParserClass of Functor:
+instance Parser of Functor:
   def map(Parser(run), f):
     return Parser((input): unwrap:
       (rest, result) <- run(input)
       wrap((rest, f(result)))
     )
 
-instance ParserClass of Applicative:
+instance Parser of Applicative:
   def wrap(value):
     return Parser((input): Just((input, value)))
 
@@ -52,7 +52,7 @@ instance ParserClass of Applicative:
       Just((restB, resultA(resultB)))
     )
 
-instance ParserClass of Monad:
+instance Parser of Monad:
   def bind(parser, f):
     def parserJoin(p):
       return Parser((input): unwrap:
@@ -62,7 +62,7 @@ instance ParserClass of Monad:
 
     return parserJoin(parser.map(f))
 
-instance ParserClass of Alternative:
+instance Parser of Alternative:
   def alt(Parser(run1), Parser(run2)):
     return Parser(
       (input): alt(run1(input), run2(input))

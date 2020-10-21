@@ -1,5 +1,5 @@
 class IO:
-  IOVal(worldt)
+  IO(worldt)
 
 instance IO of Functor:
   def map(io, func):
@@ -7,7 +7,7 @@ instance IO of Functor:
 
 instance IO of Applicative:
   def wrap(v):
-    return IOVal((w): (v, w))
+    return IO((w): (v, w))
 
   def apply(ioFunc, ioVal):
     return unwrap:
@@ -17,20 +17,20 @@ instance IO of Applicative:
 
 instance IO of Monad:
   # worldT: World -> (a, World)
-  # f:      a -> IOVal(World -> (b, World))
-  # Return: IOVal(World -> (b, world))
-  def bind(IOVal(worldT), f):
-    return IOVal(
+  # f:      a -> IO(World -> (b, World))
+  # Return: IO(World -> (b, world))
+  def bind(IO(worldT), f):
+    return IO(
       def (w):
         (a, newW) = worldT(w)
         return unIO(f(a))(newW)
     )
 
-def unIO(IOVal(io)):
+def unIO(IO(io)):
   return io
 
 def print(input):
-  return IOVal((w): printStrT(input, w))
+  return IO((w): printStrT(input, w))
 
 def input():
-  return IOVal((w): readStrT(w))
+  return IO((w): readStrT(w))

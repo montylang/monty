@@ -127,7 +127,7 @@ run prog = do
     baseWorld = VTypeInstance "#IOWorldToken" "#IOWorldToken" []
 
     runMain :: Value -> Scoper ()
-    runMain (VTypeInstance "IO" "IOVal" [mainFun]) = do
+    runMain (VTypeInstance "IO" "IO" [mainFun]) = do
       runFun mainFun [baseWorld] *> pure ()
     runMain _ =
       stackTrace "Read the docs. This isn't what main is buddy"
@@ -160,4 +160,4 @@ loadMyLib = do
 emptyContext :: IO Context
 emptyContext = do
   emptyBlock <- newIORef HM.empty
-  pure $ Context [emptyBlock] (Executors evaluateP evaluate) []
+  pure $ Context HM.empty [emptyBlock] (Executors evaluateP evaluate) []

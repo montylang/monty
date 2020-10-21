@@ -13,7 +13,7 @@ runFile :: String -> IO ()
 runFile path = do
   parsedProgram <- parseFromFile rootBodyParser path
   case parsedProgram of
-    Right prog -> pure () -- run prog
+    Right prog -> run prog
     Left  err  -> (putStrLn . errorBundlePretty) err
   pure ()
 

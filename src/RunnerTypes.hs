@@ -25,6 +25,7 @@ data Executors = Executors {
 }
 
 data Context = Context {
+  _typeScope :: ScopeMap,
   _scope :: Scope,
   _executors :: Executors,
   _callStack :: [SourcePos]

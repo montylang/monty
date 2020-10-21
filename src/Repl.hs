@@ -22,7 +22,7 @@ import Parser.Utils (ws)
 emptyContext :: IO Context
 emptyContext = do
   emptyBlock <- newIORef HM.empty
-  pure $ Context [emptyBlock] (Executors evaluateR evaluate) []
+  pure $ Context HM.empty [emptyBlock] (Executors evaluateR evaluate) []
 
 runRepl :: IO ()
 runRepl = do

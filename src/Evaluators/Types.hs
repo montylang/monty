@@ -1,6 +1,7 @@
 module Evaluators.Types (evalClass, evalType, evalInstanceOf) where
 
 import Data.List
+import Data.Maybe
 import qualified Data.HashMap.Strict as HM
 import Lens.Micro.Platform
 
@@ -10,7 +11,7 @@ import RunnerUtils
 
 evalClass :: Id -> [Pos TypeCons] -> Scoper Value
 evalClass className constructors = do
-    addToScope className (VClass consNames)
+    addToTypeScope className (VClass consNames)
     unionTopScope $ convert <$> getPosValue <$> constructors
     pure voidValue
   where
@@ -21,7 +22,7 @@ evalClass className constructors = do
 
 evalType :: Id -> [Pos DefSignature] -> Scoper Value
 evalType typeName headers = do
-    addToScope typeName typeDef
+    addToTypeScope typeName typeDef
     unionTopScope $ defSigToKeyValue <$> getPosValue <$> headers
     pure voidValue
   where
@@ -31,11 +32,10 @@ evalType typeName headers = do
     defSigToKeyValue defSig =
       (getDefSigFunName defSig, VTypeFunction defSig HM.empty)
 
--- TODO: Ban redefining instances for classes
 evalInstanceOf :: Id -> Id -> [PExpr] -> Scoper Value
 evalInstanceOf className typeName implementations = do
-    classDef <- findInScope className
-    typeDef  <- findInScope typeName
+    classDef <- findInTypeScope className
+    typeDef  <- findInTypeScope typeName
     funcDefs <- functionDefs typeDef
     
     if className == "List" then
