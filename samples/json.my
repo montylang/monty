@@ -112,7 +112,7 @@ def spanP(predicate):
 
 def jsonNumber():
   return nonEmpty(spanP(isDigit)).map(
-    (ds): JsonNumber(int(ds))
+    JsonNumber.comp(int)
   )
 
 def stringLiteral():
@@ -182,4 +182,4 @@ def showJson(_):
 
 __main__ = unwrap:
   lines <- inputLines().map((lines): lines.join(""))
-  print(showJson(run(jsonValue(), lines)))
+  print(showJson(run(jsonValue().wsWrap(), lines)))

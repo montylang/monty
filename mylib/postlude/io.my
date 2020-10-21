@@ -3,7 +3,7 @@ class IO:
 
 instance IO of Functor:
   def map(io, func):
-    return io.bind((x): wrap(func(x)))
+    return io.bind(wrap.comp(func))
 
 instance IO of Applicative:
   def wrap(v):
@@ -30,10 +30,10 @@ def unIO(IO(io)):
   return io
 
 def print(input):
-  return IO((w): printStrT(input, w))
+  return IO(printStrT(input))
 
 def input():
-  return IO((w): readStrT(w))
+  return IO(readStrT)
 
 # Read lines from STDIN, until an EOF is hit
 # Returns the list of lines
@@ -42,5 +42,5 @@ def inputLines():
     maybeInput <- input()
 
     case maybeInput:
-      Just(in): inputLines().map((rest): in|rest)
+      Just(in): inputLines().map(Cons(in))
       None:     wrap([])

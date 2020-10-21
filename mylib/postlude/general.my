@@ -15,3 +15,6 @@ def until(initial, predicate, func):
     initial
   else:
     until(func(initial), predicate, func)
+
+def comp(first, second):
+  return (a): first(second(a))
