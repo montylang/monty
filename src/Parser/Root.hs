@@ -20,7 +20,7 @@ moduleParser = some $ alphaNumChar <|> char '.'
 
 passParser :: Indent -> Parser PExpr
 passParser indent = do
-  _    <- try $ rword "pass"
+  _    <- rword "pass"
   name <- addPos $ ExprId "pass"
   addPos $ ExprCall name []
 
@@ -59,13 +59,13 @@ lambdaParser indent = do
   addPos $ ExprDef args [ret]
 
 returnParser :: Indent -> Parser PExpr
-returnParser indent = try (rword "return") *>
+returnParser indent = rword "return" *>
   (ExprReturn <$> (exprParser indent) >>= addPos)
 
 caseParser :: Indent -> Parser PExpr
 caseParser indent = do
   pos    <- getSourcePos
-  _      <- try $ rword "case"
+  _      <- rword "case"
   cond   <- exprParser indent <* ws <* char ':' <* eolSome
   blocks <- blockParser indent caseBlockParser
   pure $ Pos pos $ ExprCase cond blocks
@@ -275,11 +275,10 @@ chainableParser indent previous =
       chainableParser indent final
 
 exprParser' :: Indent -> Parser PExpr
-exprParser' indent = chainableParser indent =<< 
+exprParser' indent = chainableParser indent =<<
     (try (parenEater $ exprParser indent) <|> content)
   where
     content = choice $ ($ indent) <$> [
-        passParser,
         instanceParser,
         unwrapParser,
         returnParser,
@@ -289,6 +288,7 @@ exprParser' indent = chainableParser indent =<<
         defParser,
         ifParser,
         typeParser,
+        passParser,
         exprVarIdParser,
         exprTypeConsParser,
         exprIntParser,
@@ -309,7 +309,7 @@ exprParser indent = choice $ ($ indent) <$> [
 
 importParser :: Parser PExpr
 importParser = do
-  _    <- try (rword "import")
+  _    <- rword "import"
   path <- sepBy1 (varIdParser "") (char '.')
   addPos $ ExprImport path
 

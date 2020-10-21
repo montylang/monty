@@ -7,19 +7,24 @@ import Text.Megaparsec.Char.Lexer
 import ParserTypes
 
 rword :: String -> Parser ()
-rword w = string w *> notFollowedBy alphaNumChar <* ws
+rword w = try (string w *> notFollowedBy alphaNumChar) <* ws
 
 sc :: Parser ()
 sc = ws *> pure ()
 
+isHsWs :: Char -> Bool
+isHsWs ' ' = True
+isHsWs '\t' = True
+isHsWs _    = False
+
 ws :: Parser String
-ws = many $ oneOf " \t"
+ws = takeWhileP Nothing isHsWs
 
 ws1 :: Parser String
-ws1 = some $ char ' '
+ws1 = takeWhile1P Nothing isHsWs
 
 commentEater :: Parser ()
-commentEater = char '#' *> many (noneOf "\n") *> pure ()
+commentEater = char '#' *> takeWhileP Nothing (/= '\n') *> pure ()
 
 -- TODO: Support CRLF and ;
 singleEol :: Parser ()
