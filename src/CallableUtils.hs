@@ -69,7 +69,7 @@ inferTypeValue TAnything v = pure v
 inferTypeValue TInt v@(VInt _)   = pure v
 inferTypeValue TChar v@(VChar _) = pure v
 inferTypeValue (TUser "List") v@(VList _) = pure v
-inferTypeValue (TUser "TupleClass") v@(VTuple _) = pure v
+inferTypeValue (TUser "Tuple") v@(VTuple _) = pure v
 inferTypeValue t v = stackTrace $ "I shit my pants! " <>
   show t <> "," <> prettyPrint v
 

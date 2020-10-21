@@ -34,3 +34,13 @@ def print(input):
 
 def input():
   return IO((w): readStrT(w))
+
+# Read lines from STDIN, until an EOF is hit
+# Returns the list of lines
+def inputLines():
+  return unwrap:
+    maybeInput <- input()
+
+    case maybeInput:
+      Just(in): inputLines().map((rest): in|rest)
+      None:     wrap([])

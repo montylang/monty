@@ -3,6 +3,7 @@ module Interop.IO (ioDefinitions) where
 import Control.Monad.State.Strict
 import Data.Foldable (foldrM)
 import Data.Char (ord, chr)
+import Control.Exception (catch)
 
 import ParserTypes
 import PrettyPrint
@@ -13,9 +14,6 @@ import CallableUtils
 
 import Interop.Helpers
 
-strToValue :: String -> Value
-strToValue s = VList $ VChar <$> s
-
 ioPrintStrT :: [Value] -> Scoper Value
 ioPrintStrT [VList str@((VChar _):_), token] = do
   liftIO $ putStrLn $ (vChr <$> str)
@@ -23,8 +21,20 @@ ioPrintStrT [VList str@((VChar _):_), token] = do
 
 ioReadStrT :: [Value] -> Scoper Value
 ioReadStrT [token] = do
-  input <- strToValue <$> liftIO getLine
-  pure $ VTuple [input, token]
+    input <- maybeStringToValue <$> liftIO safeGetLine
+    pure $ VTuple [input, token]
+  where
+    eToMaybe :: IOError -> IO (Maybe String)
+    eToMaybe _ = pure Nothing
+
+    safeGetLine :: IO (Maybe String)
+    safeGetLine = catch (Just <$> getLine) eToMaybe
+
+    maybeStringToValue :: Maybe String -> Value
+    maybeStringToValue (Just s) =
+      VTypeInstance "Maybe" "Just" [VList $ VChar <$> s]
+    maybeStringToValue Nothing  =
+      VTypeInstance "Maybe" "None" []
 
 ioDefinitions :: [(Id, Id, [FunctionCase])]
 ioDefinitions = [

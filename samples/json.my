@@ -181,5 +181,5 @@ def showJson(_):
   return "Bad input JSON"
 
 __main__ = unwrap:
-  in <- input()
-  print(showJson(run(jsonValue(), in)))
+  lines <- inputLines().map((lines): lines.join(""))
+  print(showJson(run(jsonValue(), lines)))
