@@ -122,15 +122,15 @@ run prog = do
       sequence_ $ evalP <$> exprs
 
       mainEntry <- findInScope "__main__"
-      sequence_ $ runMain <$> mainEntry
+      sequence_ $ runIOVal <$> mainEntry
 
+runIOVal :: Value -> Scoper ()
+runIOVal (VTypeInstance "IO" "IO" [mainFun]) = do
+    runFun mainFun [baseWorld] *> pure ()
+  where
     baseWorld = VTypeInstance "#IOWorldToken" "#IOWorldToken" []
-
-    runMain :: Value -> Scoper ()
-    runMain (VTypeInstance "IO" "IO" [mainFun]) = do
-      runFun mainFun [baseWorld] *> pure ()
-    runMain _ =
-      stackTrace "Read the docs. This isn't what main is buddy"
+runIOVal _ =
+  stackTrace "Tried to bootstrap a non IO value."
 
 loadMyLib :: Scoper ()
 loadMyLib = do

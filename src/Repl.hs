@@ -15,7 +15,7 @@ import PrettyPrint
 import ParserTypes
 import RunnerTypes
 import RunnerUtils
-import MontyRunner (loadMyLib, showCallStack, evaluate)
+import MontyRunner (loadMyLib, showCallStack, evaluate, runIOVal)
 import Parser.Root (exprParser, importParser)
 import Parser.Utils (ws)
 
@@ -58,8 +58,9 @@ evaluatePrint (Pos pos expr) =
       res <- eval expr
 
       case res of
-        VTuple [] -> pure () -- Don't echo void
-        nonVoid   -> liftIO $ putStrLn $ prettyPrint res
+        VTuple []                    -> pure () -- Don't echo void
+        val@(VTypeInstance "IO" _ _) -> runIOVal val
+        _                            -> liftIO $ putStrLn $ prettyPrint res
     
     printOnError :: ErrVal -> Scoper ()
     printOnError (ErrString err) = do
