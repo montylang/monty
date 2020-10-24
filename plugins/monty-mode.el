@@ -27,12 +27,11 @@
     "unwrap" "wrap" "pass")
   '(("\\bdebug\\b" . 'font-lock-builtin-face)
     ("\\b[A-Z][a-zA-Z0-9_]*\\b" . 'font-lock-type-face)
-    ("'.'" . 'font-lock-string-face)
     ("\\b[0-9]+\\b" . font-lock-constant-face)
     ("\\bdef \\([a-z][a-zA-Z0-9_]*\\)\\b" . '(1 font-lock-function-name-face))
     )
   '("\\.my$")
-  nil
+  '((lambda () (modify-syntax-entry ?' "\""))) ;; other functions to call
   "A mode for Monty files"
   )
 
