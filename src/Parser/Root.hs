@@ -38,13 +38,6 @@ namedDefParser indent = do
   def  <- addPos $ ExprDef args body
   addPos $ ExprAssignment (IdArg name) def
 
-consParser :: Indent -> Parser PExpr
-consParser indent = do
-  headExpr <- try $ exprParser' indent <* ws <* char '|' <* ws
-  tailExpr <- exprParser indent
-  exprId   <- addPos $ ExprId "Cons"
-  addPos $ ExprCall exprId [headExpr, tailExpr]
-
 defParser :: Indent -> Parser PExpr
 defParser indent = do
   args <- try $ rword "def" *> defArgParser indent <* char ':' <* eolSome
@@ -64,7 +57,7 @@ returnParser indent = rword "return" *>
 
 caseParser :: Indent -> Parser PExpr
 caseParser indent = do
-  pos    <- getSourcePos
+  pos    <- sourcePos
   _      <- rword "case"
   cond   <- exprParser indent <* ws <* char ':' <* eolSome
   blocks <- blockParser indent caseBlockParser
@@ -72,7 +65,7 @@ caseParser indent = do
 
 caseBlockParser :: Indent -> Parser (Pos CaseBlock)
 caseBlockParser indent = do
-    pos  <- getSourcePos
+    pos  <- sourcePos
     cond <- try $ argParser indent <* ws <* char ':'
     body <- (try eolSome *> multiLineP) <|> oneLineP
     pure $ Pos pos $ CaseBlock cond body
@@ -181,7 +174,7 @@ exprCharParser _ = ExprChar <$> charParser >>= addPos
 
 exprStringParser :: Indent -> Parser PExpr
 exprStringParser _ = do
-  pos   <- getSourcePos
+  pos   <- sourcePos
   inner <- stringParser
   addPos $ ExprList (Pos pos . ExprChar <$> inner)
 
@@ -258,7 +251,10 @@ tupleParser indent = try $ do
 
 chainableParser :: Indent -> PExpr -> Parser PExpr
 chainableParser indent previous =
-    sugarCallParser previous <|> normalCallParser previous <|> pure previous
+    sugarCallParser previous
+    <|> consParser previous
+    <|> normalCallParser previous
+    <|> pure previous
   where
     sugarCallParser :: PExpr -> Parser PExpr
     sugarCallParser prev = do
@@ -274,27 +270,48 @@ chainableParser indent previous =
       final   <- addPos $ ExprCall prev argList
       chainableParser indent final
 
+    consParser :: PExpr -> Parser PExpr
+    consParser prev = do
+      _        <- try $ ws <* char '|' <* ws
+      tailExpr <- exprParser indent
+      exprId   <- addPos $ ExprId "Cons"
+      addPos $ ExprCall exprId [prev, tailExpr]
+
 exprParser' :: Indent -> Parser PExpr
 exprParser' indent = chainableParser indent =<<
-    (try (parenEater $ exprParser indent) <|> content)
+    (try (parenEater $ exprParser indent) <|> cleverContent <|> otherContent)
   where
-    content = choice $ ($ indent) <$> [
-        instanceParser,
-        unwrapParser,
-        returnParser,
-        classParser,
-        caseParser,
-        namedDefParser,
-        defParser,
-        ifParser,
-        typeParser,
-        passParser,
+    cleverContent :: Parser PExpr
+    cleverContent = do
+      c <- lookAhead anySingle
+    
+      case c of
+        '['           -> listParser indent
+        '\''          -> exprCharParser indent
+        '"'           -> exprStringParser indent
+        '-'           -> exprIntParser indent
+        a | isDigit a -> exprIntParser indent
+        'i'           -> choice $ ($ indent) <$> [
+                           instanceParser,
+                           ifParser
+                         ]
+        'd'           -> choice $ ($ indent) <$> [
+                           namedDefParser,
+                           defParser
+                         ]
+        'c'           -> choice $ ($ indent) <$> [
+                           caseParser,
+                           classParser
+                         ]
+        'u'           -> unwrapParser indent
+        'r'           -> returnParser indent
+        't'           -> typeParser indent
+        'p'           -> passParser indent
+        _             -> empty
+
+    otherContent = choice $ ($ indent) <$> [
         exprVarIdParser,
-        exprTypeConsParser,
-        exprIntParser,
-        listParser,
-        exprCharParser,
-        exprStringParser
+        exprTypeConsParser
       ]
 
 exprParser :: Indent -> Parser PExpr
@@ -302,7 +319,6 @@ exprParser indent = choice $ ($ indent) <$> [
     lambdaParser,
     infixParser,
     assignmentParser,
-    consParser,
     exprParser',
     tupleParser
   ]

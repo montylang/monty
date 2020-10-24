@@ -5,6 +5,7 @@ import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer
 
 import ParserTypes
+import Control.Monad (liftM)
 
 rword :: String -> Parser ()
 rword w = try (string w *> notFollowedBy alphaNumChar) <* ws
@@ -40,9 +41,12 @@ eolMany = pure () <* (many $ try singleEol)
 eolSome :: Parser ()
 eolSome = pure () <* (some $ try singleEol)
 
+sourcePos :: Parser SourcePos
+sourcePos = pstateSourcePos <$> liftM statePosState getParserState
+
 addPos :: a -> Parser (Pos a)
 addPos expr = do
-  pos <- getSourcePos
+  pos <- sourcePos
   pure $ Pos pos expr
 
 -- Eats surrounding parens of an expr, for disambiguation
