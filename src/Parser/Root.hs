@@ -26,7 +26,10 @@ passParser indent = do
 
 assignmentParser :: Indent -> Parser PExpr
 assignmentParser indent = do
-  dest <- try $ (argParser indent <* ws <* char '=' <* ws)
+  dest <- try $ (
+      argParser indent <* ws <* char '=' <*
+      lookAhead (try $ anySingleBut '=') <* ws
+    )
   expr <- exprParser indent
   addPos $ ExprAssignment dest expr
 
@@ -272,25 +275,23 @@ chainableParser indent previous =
 
     consParser :: PExpr -> Parser PExpr
     consParser prev = do
-      _        <- try $ ws <* char '|' <* ws
+      _        <- char '|' <* ws
       tailExpr <- exprParser indent
       exprId   <- addPos $ ExprId "Cons"
       addPos $ ExprCall exprId [prev, tailExpr]
 
 exprParser' :: Indent -> Parser PExpr
-exprParser' indent = chainableParser indent =<<
-    (try (parenEater $ exprParser indent) <|> cleverContent <|> otherContent)
+exprParser' indent = cleverContent <|> contentChained
   where
+    contentChained :: Parser PExpr
+    contentChained = chainableParser indent =<<
+      try (parenEater $ exprParser indent) <|> bigBrainContent
+
     cleverContent :: Parser PExpr
     cleverContent = do
       c <- lookAhead anySingle
-    
+
       case c of
-        '['           -> listParser indent
-        '\''          -> exprCharParser indent
-        '"'           -> exprStringParser indent
-        '-'           -> exprIntParser indent
-        a | isDigit a -> exprIntParser indent
         'i'           -> choice $ ($ indent) <$> [
                            instanceParser,
                            ifParser
@@ -309,10 +310,19 @@ exprParser' indent = chainableParser indent =<<
         'p'           -> passParser indent
         _             -> empty
 
-    otherContent = choice $ ($ indent) <$> [
-        exprVarIdParser,
-        exprTypeConsParser
-      ]
+    bigBrainContent :: Parser PExpr
+    bigBrainContent = do
+      c <- lookAhead anySingle
+
+      case c of
+        '['           -> listParser indent
+        '\''          -> exprCharParser indent
+        '"'           -> exprStringParser indent
+        '-'           -> exprIntParser indent
+        a | isDigit a -> exprIntParser indent
+        a | isUpper a -> exprTypeConsParser indent
+        a | isLower a -> exprVarIdParser indent
+        _             -> empty
 
 exprParser :: Indent -> Parser PExpr
 exprParser indent = choice $ ($ indent) <$> [
