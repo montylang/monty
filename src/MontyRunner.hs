@@ -15,7 +15,6 @@ import RunnerTypes
 import CallableUtils
 import RunnerUtils
 import MorphUtils
-import Evaluators.Unwrap
 import Evaluators.Assignment
 import Evaluators.Condition
 import Evaluators.Infix
@@ -95,8 +94,6 @@ evaluate (ExprCall funExpr args) = do
 
     popFromCallStack :: Scoper ()
     popFromCallStack = callStack %= (drop 1)
-
-evaluate (ExprUnwrap content) = evalUnwrap content
 
 evaluate (ExprImport components) = do
   loadModule components

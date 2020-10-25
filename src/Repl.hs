@@ -18,6 +18,8 @@ import RunnerUtils
 import MontyRunner (loadMyLib, showCallStack, evaluate, runIOVal)
 import Parser.Root (exprParser, importParser)
 import Parser.Utils (ws)
+import Parser.Semantic (semantic, ParseExcept)
+import ModuleLoader (toParseExcept)
 
 emptyContext :: IO Context
 emptyContext = do
@@ -39,9 +41,14 @@ cmd :: String -> Repl ()
 cmd input = lift runLine
   where
     runLine :: Scoper ()
-    runLine = case runParser replParser "repl" input of
+    runLine = case runExcept parseInput of
       Right prog -> evaluatePrint prog *> pure ()
-      Left  err  -> liftIO $ (putStrLn . errorBundlePretty) err
+      Left  err  -> liftIO $ putStrLn $ show err
+
+    parseInput :: ParseExcept PExpr
+    parseInput = do
+      parsed <- toParseExcept $ runParser replParser "repl" input
+      semantic parsed
 
     replParser :: Parser PExpr
     replParser = ws *> (importParser <|> exprParser "") <* ws

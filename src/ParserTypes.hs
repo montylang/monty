@@ -143,10 +143,6 @@ instance PrettyPrint Expr where
     prettyPrint arg <>
     " <- " <> prettyPrint val
 
-  prettyPrint (ExprUnwrap body) =
-    "unwrap:\n" <>
-    (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> body) <> "\n"
-
   prettyPrint (ExprCase input bodies) =
     "case " <> prettyPrint input <> ":\n" <>
     (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> bodies) <> "\n"
