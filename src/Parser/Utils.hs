@@ -42,7 +42,9 @@ eolSome :: Parser ()
 eolSome = pure () <* (some $ try singleEol)
 
 sourcePos :: Parser SourcePos
-sourcePos = pstateSourcePos <$> liftM statePosState getParserState
+sourcePos = getSourcePos
+-- TODO: This is faster apparently, but it's broken
+--sourcePos = pstateSourcePos <$> liftM statePosState getParserState
 
 addPos :: a -> Parser (Pos a)
 addPos expr = do

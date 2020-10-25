@@ -1,0 +1,44 @@
+class State:
+  # stateFunc: s -> (a,s) 
+  State(stateFunc)
+
+def runState(State(f), initialState):
+  return f(initialState)
+
+def evalState(state, initialState):
+  return fst(runState(state, initialState))
+
+def get():
+  return State((s): (s, s))
+
+def put(newState):
+  return State((_): ((), newState))
+
+instance State of Functor:
+  def map(State(stateF), f):
+    return State(
+      def (s):
+        (a, firstState) = stateF(s)
+        return (f(a), firstState)
+    )
+
+instance State of Applicative:
+  def apply(State(sFunc), State(sValue)):
+    return State(
+      def (s):
+        (f, firstState)    = sFunc(s)
+        (val, secondState) = sValue(firstState)
+        return (f(val), secondState)
+    )
+
+  def wrap(value):
+    return State((s): (value, s))
+
+instance State of Monad:
+  def bind(State(stateFunc), f):
+    return State(
+      def (s):
+        (a, firstS) = stateFunc(s)
+        State(yoink) = f(a)
+        return yoink(firstS)
+    )
