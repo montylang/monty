@@ -52,9 +52,10 @@ addPos expr = do
   pure $ Pos pos expr
 
 -- Eats surrounding parens of an expr, for disambiguation
-parenEater :: Parser PExpr -> Parser PExpr
-parenEater innerParser =
-    char '(' *> delimWs *> innerParser <* delimWs <* char ')'
+precedenceP :: Parser PExpr -> Parser PExpr
+precedenceP innerParser = do
+    inner <- char '(' *> delimWs *> innerParser <* delimWs <* char ')'
+    addPos $ ExprPrecedence inner
   where
     delimWs = eolMany *> ws
 

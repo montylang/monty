@@ -8,6 +8,7 @@ import Data.Maybe
 import Debug.Trace
 
 import Parser.Root
+import Parser.Semantic
 import MontyRunner
 import ParserTypes
 import RunnerTypes
@@ -22,7 +23,12 @@ runWithContext context input = do
       Right res -> pure $ show res
   where
     run' :: Scoper Value
-    run' = evalP $ head parsed
+    run' = case runExcept $ head semanticed of
+      Left _    -> undefined
+      Right res -> evalP res
+
+    semanticed :: [ParseExcept PExpr]
+    semanticed = semantic <$> parsed
 
     parsed :: [PExpr]
     parsed = case parse rootBodyParser "" input of

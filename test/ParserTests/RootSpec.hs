@@ -64,7 +64,7 @@ spec = do
             pure $ ExprInt 3])
 
       (testParser exprParser "(1)") `shouldBe`
-        (Right $ pure $ ExprInt 1)
+        (Right $ pure $ ExprPrecedence $ pure $ ExprInt 1)
 
   describe "Infix parser" $ do
     it "Simple infix ops" $ do
@@ -73,9 +73,9 @@ spec = do
 
       (testParser exprParser "a + b + c") `shouldBe`
         (Right $ pure $ ExprInfix
-         (pure $ ExprInfix (pure $ ExprId "a") InfixAdd (pure $ ExprId "b"))
+         (pure $ ExprId "a")
          InfixAdd
-         (pure $ ExprId "c"))
+         (pure $ ExprInfix (pure $ ExprId "b") InfixAdd (pure $ ExprId "c")))
 
     it "Precedence" $ do
       (testParser exprParser "a + b * c") `shouldBe`
@@ -87,30 +87,32 @@ spec = do
       (testParser exprParser "a + b * c + d") `shouldBe`
         (Right $ pure $
             ExprInfix
-                (pure $ ExprInfix
-                            (pure $ ExprId "a")
-                            InfixAdd
-                            (pure $ ExprInfix
-                                    (pure $ ExprId "b")
-                                    InfixMul
-                                    (pure $ ExprId "c")))
+                (pure $ ExprId "a")
                 InfixAdd
-                (pure $ ExprId "d"))
+                (pure $ ExprInfix
+                  (pure $ ExprId "b")
+                  InfixMul
+                  (pure $ ExprInfix
+                    (pure $ ExprId "c")
+                    InfixAdd
+                    (pure $ ExprId "d"))))
 
   describe "Expr parser" $ do
     it "Paren eater" $ do
       (testParser exprParser "(a)") `shouldBe`
-        (Right $ pure $ (ExprId "a"))
+        (Right $ pure $ ExprPrecedence $ pure $ ExprId "a")
 
       (testParser exprParser "c + (a + b)") `shouldBe`
         (Right $ pure $ ExprInfix
          (pure $ ExprId "c")
          InfixAdd
-         (pure $ ExprInfix (pure $ ExprId "a") InfixAdd (pure $ ExprId "b")))
+         (pure $ ExprPrecedence $
+          pure $ ExprInfix (pure $ ExprId "a") InfixAdd (pure $ ExprId "b")))
 
       (testParser exprParser "(c + a) + b") `shouldBe`
         (Right $ pure $ ExprInfix
-         (pure $ ExprInfix (pure $ ExprId "c") InfixAdd (pure $ ExprId "a"))
+         (pure $ ExprPrecedence $
+          pure $ ExprInfix (pure $ ExprId "c") InfixAdd (pure $ ExprId "a"))
          InfixAdd
          (pure $ ExprId "b"))
 
@@ -302,11 +304,13 @@ spec = do
       (testParser exprParser $ "(1 + 2)()") `shouldBe`
         (Right $ pure $
          (ExprCall
-          (pure $ ExprInfix (pure $ ExprInt 1) InfixAdd (pure $ ExprInt 2))
+          (pure $ ExprPrecedence $ pure $
+           ExprInfix (pure $ ExprInt 1) InfixAdd (pure $ ExprInt 2))
           []))
 
       (testParser exprParser $ "(foo())()") `shouldBe`
-        (Right $ pure $ ExprCall (pure $ ExprCall (pure $ ExprId "foo") []) [])
+        (Right $ pure $ ExprCall (pure $ ExprPrecedence $
+                                  pure $ ExprCall (pure $ ExprId "foo") []) [])
 
     it "Curried function call" $ do
       (testParser exprParser $ "foo()()") `shouldBe`

@@ -102,11 +102,12 @@ ifParser indent = do
       string indent *> rword "else" *> char ':' *> eolSome *>
       bodyParser indent
 
-infixParser :: Indent -> Parser PExpr
-infixParser indent = do
-    first <- try $ exprParser' indent <* ws <* (lookAhead allOpParser)
-    rest  <- many partialOpParser
-    pure $ groupByPrecedence (((view _2) <$> arr)) ((Nothing, first):rest)
+infixParser :: PExpr -> Indent -> Parser PExpr
+infixParser lhs indent = do
+    op  <- (try $ ws *> allOpParser) <* ws
+    rhs <- exprParser' indent <* ws
+
+    addPos $ ExprInfix lhs op rhs
   where
     arr = [
         ("<>", InfixMappend),
@@ -126,36 +127,11 @@ infixParser indent = do
         ("or", InfixLogicOr)
       ]
 
-    -- What a mess
-    groupByPrecedence :: [InfixOp] -> [(Maybe InfixOp, PExpr)] -> PExpr
-    groupByPrecedence [] [] = trace "How did I get here?" undefined
-    groupByPrecedence [] [(_, x)] = x
-    groupByPrecedence [] ((Just op, (Pos p x)):xs) =
-      -- TODO: Nothing about this is ok
-      Pos p $ ExprInfix (Pos p x) op $ groupByPrecedence [] xs
-    groupByPrecedence (o:os) xs  = joinHeadOp subCases
-      where
-        subCases :: [PExpr]
-        subCases = groupByPrecedence os <$>
-          (multiSpan ((== (Just o)) . (view _1)) xs)
-
-        joinHeadOp :: [PExpr] -> PExpr
-        joinHeadOp [y] = y
-        joinHeadOp (y:ys) = foldl folderHeadOp y ys
-
-        folderHeadOp :: PExpr -> PExpr -> PExpr
-        folderHeadOp acc it = Pos (getPos it) $ ExprInfix acc o it
-
     opParser :: (String, InfixOp) -> Parser InfixOp
     opParser (s, o) = string s *> pure o
 
+    -- TODO: Be clever and lookahead one character
     allOpParser = choice $ opParser <$> arr
-
-    partialOpParser :: Parser (Maybe InfixOp, PExpr)
-    partialOpParser = do
-      op  <- try $ ws *> allOpParser <* ws
-      rhs <- exprParser' indent <* ws
-      pure (Just op, rhs)
 
 exprVarIdParser :: Indent -> Parser PExpr
 exprVarIdParser indent = ExprId <$> varIdParser indent >>= addPos
@@ -257,6 +233,7 @@ chainableParser indent previous =
     sugarCallParser previous
     <|> consParser previous
     <|> normalCallParser previous
+    <|> infixParser previous indent
     <|> pure previous
   where
     sugarCallParser :: PExpr -> Parser PExpr
@@ -285,30 +262,30 @@ exprParser' indent = cleverContent <|> contentChained
   where
     contentChained :: Parser PExpr
     contentChained = chainableParser indent =<<
-      try (parenEater $ exprParser indent) <|> bigBrainContent
+      try (precedenceP $ exprParser indent) <|> bigBrainContent
 
     cleverContent :: Parser PExpr
     cleverContent = do
       c <- lookAhead anySingle
 
       case c of
-        'i'           -> choice $ ($ indent) <$> [
-                           instanceParser,
-                           ifParser
-                         ]
-        'd'           -> choice $ ($ indent) <$> [
-                           namedDefParser,
-                           defParser
-                         ]
-        'c'           -> choice $ ($ indent) <$> [
-                           caseParser,
-                           classParser
-                         ]
-        'u'           -> unwrapParser indent
-        'r'           -> returnParser indent
-        't'           -> typeParser indent
-        'p'           -> passParser indent
-        _             -> empty
+        'i' -> choice $ ($ indent) <$> [
+                 instanceParser,
+                 ifParser
+               ]
+        'd' -> choice $ ($ indent) <$> [
+                 namedDefParser,
+                 defParser
+               ]
+        'c' -> choice $ ($ indent) <$> [
+                 caseParser,
+                 classParser
+               ]
+        'u' -> unwrapParser indent
+        'r' -> returnParser indent
+        't' -> typeParser indent
+        'p' -> passParser indent
+        _   -> empty
 
     bigBrainContent :: Parser PExpr
     bigBrainContent = do
@@ -324,10 +301,10 @@ exprParser' indent = cleverContent <|> contentChained
         a | isLower a -> exprVarIdParser indent
         _             -> empty
 
+-- NOTE: Move infixParser to be a chainable of exprParser, not prime
 exprParser :: Indent -> Parser PExpr
 exprParser indent = choice $ ($ indent) <$> [
     lambdaParser,
-    infixParser,
     assignmentParser,
     exprParser',
     tupleParser

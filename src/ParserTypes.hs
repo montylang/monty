@@ -101,6 +101,7 @@ data Expr
   | ExprUnwrap [PExpr]
   | ExprImport [String]
   | ExprCase PExpr [Pos CaseBlock]
+  | ExprPrecedence PExpr
   deriving (Show, Eq)
 
 instance PrettyPrint Expr where
