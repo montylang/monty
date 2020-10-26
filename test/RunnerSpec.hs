@@ -25,9 +25,9 @@ runWithContext context input = do
     run' :: Scoper Value
     run' = case runExcept $ head semanticed of
       Left _    -> undefined
-      Right res -> evalP res
+      Right res -> eval res
 
-    semanticed :: [ParseExcept PExpr]
+    semanticed :: [ParseExcept RExpr]
     semanticed = semantic <$> parsed
 
     parsed :: [PExpr]

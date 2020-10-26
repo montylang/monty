@@ -24,7 +24,7 @@ import ModuleLoader (toParseExcept)
 emptyContext :: IO Context
 emptyContext = do
   emptyBlock <- newIORef HM.empty
-  pure $ Context HM.empty [emptyBlock] (Executors evaluateR evaluate) []
+  pure $ Context HM.empty [emptyBlock] (Executors evaluate) []
 
 runRepl :: IO ()
 runRepl = do
@@ -45,7 +45,7 @@ cmd input = lift runLine
       Right prog -> evaluatePrint prog *> pure ()
       Left  err  -> liftIO $ putStrLn $ show err
 
-    parseInput :: ParseExcept PExpr
+    parseInput :: ParseExcept RExpr
     parseInput = do
       parsed <- toParseExcept $ runParser replParser "repl" input
       semantic parsed
@@ -53,14 +53,11 @@ cmd input = lift runLine
     replParser :: Parser PExpr
     replParser = ws *> (importParser <|> exprParser "") <* ws
 
-evaluateR :: PExpr -> Scoper Value
-evaluateR (Pos pos expr) = eval expr
-
-evaluatePrint :: PExpr -> Scoper Value
-evaluatePrint (Pos pos expr) =
+evaluatePrint :: RExpr -> Scoper Value
+evaluatePrint expr =
     catchError (evalAndPrint expr) printOnError *> pure voidValue 
   where
-    evalAndPrint :: Expr -> Scoper ()
+    evalAndPrint :: RExpr -> Scoper ()
     evalAndPrint expr = do
       res <- eval expr
 

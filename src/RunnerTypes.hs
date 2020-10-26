@@ -20,8 +20,7 @@ data ErrVal = ErrString String
   deriving (Show, Eq)
 
 data Executors = Executors {
-  _evaluatePExpr :: PExpr -> Scoper Value,
-  _evaluateExpr :: Expr -> Scoper Value
+  _evaluateExpr :: RExpr -> Scoper Value
 }
 
 data Context = Context {
@@ -59,7 +58,7 @@ instance PrettyPrint FunctionImpl where
 data FunctionCase
   = FunctionCase
       { fcaseArgs :: [Arg],
-        fcaseBody :: [PExpr]
+        fcaseBody :: [RExpr]
       }
   | InteropCase
       { fcaseArgs :: [Arg],

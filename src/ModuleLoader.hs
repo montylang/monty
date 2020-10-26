@@ -37,9 +37,9 @@ loadFiles paths = do
     sequence_ (loadFile <$> paths)
     pure ()
   where
-    evalPNotMain :: PExpr -> Scoper Value
-    evalPNotMain (Pos _ (ExprAssignment (IdArg "__main__") _)) = pure voidValue
-    evalPNotMain other = evalP other
+    evalPNotMain :: RExpr -> Scoper Value
+    evalPNotMain (RExprAssignment _ (IdArg "__main__") _) = pure voidValue
+    evalPNotMain other = eval other
 
     loadFile :: String -> Scoper ()
     loadFile path = do
@@ -53,7 +53,7 @@ toParseExcept :: Either (ParseErrorBundle String Void) a -> ParseExcept a
 toParseExcept (Right a) = pure a
 toParseExcept (Left err) = throwError $ ErrParse err
 
-montyParseFromFile :: String -> IO (ParseExcept [PExpr])
+montyParseFromFile :: String -> IO (ParseExcept [RExpr])
 montyParseFromFile file = do
   parsed <- toParseExcept <$> (runParser rootBodyParser file <$> readFile file)
   pure $ sequence =<< (semantic <$>) <$> parsed

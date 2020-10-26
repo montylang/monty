@@ -32,7 +32,7 @@ evalType typeName headers = do
     defSigToKeyValue defSig =
       (getDefSigFunName defSig, VTypeFunction defSig HM.empty)
 
-evalInstanceOf :: Id -> Id -> [PExpr] -> Scoper Value
+evalInstanceOf :: Id -> Id -> [RExpr] -> Scoper Value
 evalInstanceOf className typeName implementations = do
     classDef <- findInTypeScope className
     typeDef  <- findInTypeScope typeName
@@ -51,12 +51,12 @@ evalInstanceOf className typeName implementations = do
     addAllImplementations :: [Id] -> [DefSignature] -> Scoper Value
     addAllImplementations consNames funcDefs = do
       sequence_ $ (addImplementation className consNames funcDefs)
-        <$> getPosValue <$> implementations
+        <$> implementations
       pure voidValue
 
-addImplementation :: Id -> [Id] -> [DefSignature] -> Expr -> Scoper ()
+addImplementation :: Id -> [Id] -> [DefSignature] -> RExpr -> Scoper ()
 addImplementation cname classTypeCons available
-                  (ExprAssignment (IdArg name) (Pos _ (ExprDef args body))) = do
+                  (RExprAssignment _ (IdArg name) (RExprDef _ args body)) = do
   sigArgs  <- getSigArgs name available
   caseArgs <- markArgs cname classTypeCons args sigArgs 
   addBodyToScope cname name body caseArgs
@@ -70,7 +70,7 @@ getSigArgs cname cavailable =
     Nothing  -> stackTrace $
       cname <> " is not part of type " <> (getDefSigTypeName $ head cavailable)
 
-updateStub :: Id -> Value -> [Arg] -> [PExpr] -> Scoper Value
+updateStub :: Id -> Value -> [Arg] -> [RExpr] -> Scoper Value
 updateStub cname stub caseArgs body =
   addToStub cname (FunctionCase caseArgs $ body) stub
 
@@ -84,7 +84,7 @@ validateArgs cname classes SelfArg (PatternArg pname _) | not $ elem pname class
   stackTrace $ "Type constructor " <> pname <> " is not an " <> cname
 validateArgs _ _ _ arg = pure arg
 
-addBodyToScope :: Id -> Id -> [PExpr] -> [Arg] -> Scoper ()
+addBodyToScope :: Id -> Id -> [RExpr] -> [Arg] -> Scoper ()
 addBodyToScope cname name body caseArgs = do
   maybeStub <- findInScope name
   case maybeStub of

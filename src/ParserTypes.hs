@@ -11,19 +11,27 @@ type Indent = String
 
 type Id = String
 
-data CondBlock = CondBlock PExpr [PExpr]
+data CondBlock a = CondBlock a [a]
   deriving (Show, Eq)
 
-instance PrettyPrint CondBlock where
+instance PrettyPrint a => PrettyPrint (CondBlock a) where
   prettyPrint (CondBlock cond body) =
     "(" <> prettyPrint cond <> "):\n" <>
     (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> body) <> "\n"
 
-data CaseBlock = CaseBlock Arg [PExpr]
-  deriving (Show, Eq)
+data CaseBlock a
+  = CaseBlock
+    { cbpos :: SourcePos,
+      cbarg :: Arg,
+      cbbody :: [a] }
+  deriving (Show)
 
-instance PrettyPrint CaseBlock where
-  prettyPrint (CaseBlock arg body) =
+instance Eq a => Eq (CaseBlock a) where
+  (CaseBlock _ xarg xbody) == (CaseBlock _ yarg ybody) =
+    xarg == yarg && xbody == ybody
+
+instance PrettyPrint a => PrettyPrint (CaseBlock a) where
+  prettyPrint (CaseBlock _ arg body) =
     prettyPrint arg <> ":\n" <>
     (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> body) <> "\n"
 
@@ -82,11 +90,73 @@ instance PrettyPrint Arg where
 
 type PExpr = Pos Expr
 
+data RExpr
+  = RExprId
+      { rpos :: SourcePos
+      , rid :: Id }
+  | RExprInt
+      { rpos :: SourcePos
+      , rint :: Int }
+  | RExprChar
+      { rpos :: SourcePos
+      , rchar :: Char }
+  | RExprIfElse
+      { rpos :: SourcePos
+      , rif :: CondBlock RExpr
+      , relifs :: [CondBlock RExpr]
+      , relseBody :: [RExpr] }
+  | RExprInfix
+      { rpos :: SourcePos
+      , rlhs :: RExpr
+      , rop :: InfixOp
+      , rrhs :: RExpr }
+  | RExprAssignment
+      { rpos :: SourcePos
+      , rarg :: Arg
+      , rval :: RExpr }
+  | RExprDef
+      { rpos :: SourcePos
+      , rargs :: [Arg]
+      , rbody :: [RExpr] }
+  | RExprCall
+      { rpos :: SourcePos
+      , rfun :: RExpr
+      , rparams :: [RExpr] }
+  | RExprReturn
+      { rpos :: SourcePos
+      , rretVal :: RExpr }
+  | RExprClass
+      { rpos :: SourcePos
+      , rcname :: Id
+      , rtypecons :: [Pos TypeCons] }
+  | RExprList
+      { rpos :: SourcePos
+      , relements :: [RExpr] }
+  | RExprTuple
+      { rpos :: SourcePos
+      , relements :: [RExpr] }
+  | RExprType
+      { rpos :: SourcePos
+      , rtname :: Id
+      , rdefSigs :: [Pos DefSignature] }
+  | RExprInstanceOf
+      { rpos :: SourcePos
+      , rcname :: Id
+      , rtname :: Id
+      , rbody :: [RExpr] }
+  | RExprImport
+      { rpos :: SourcePos
+      , rpath :: [String] }
+  | RExprCase
+      { rpos :: SourcePos
+      , rinput :: RExpr
+      , rcaseBlocks :: [CaseBlock RExpr] }
+
 data Expr
   = ExprId Id
   | ExprInt Int
   | ExprChar Char
-  | ExprIfElse CondBlock [CondBlock] [PExpr]
+  | ExprIfElse (CondBlock PExpr) [CondBlock PExpr] [PExpr]
   | ExprInfix PExpr InfixOp PExpr
   | ExprAssignment Arg (PExpr)
   | ExprDef [Arg] [PExpr]
@@ -100,58 +170,49 @@ data Expr
   | ExprBind Arg PExpr
   | ExprUnwrap [PExpr]
   | ExprImport [String]
-  | ExprCase PExpr [Pos CaseBlock]
+  | ExprCase PExpr [CaseBlock PExpr]
   | ExprPrecedence PExpr
   deriving (Show, Eq)
 
-instance PrettyPrint Expr where
-  prettyPrint (ExprId id) = id
+instance PrettyPrint RExpr where
+  prettyPrint (RExprId _ id) = id
 
-  prettyPrint (ExprInt val) = show val
+  prettyPrint (RExprInt _ val) = show val
 
-  prettyPrint (ExprChar c) = "'" <> show c <> "'"
+  prettyPrint (RExprChar _ c) = "'" <> show c <> "'"
 
-  prettyPrint (ExprIfElse ifCB elifCBs elseBody) =
+  prettyPrint (RExprIfElse _ ifCB elifCBs elseBody) =
     "if " <> prettyPrint ifCB <>
     (intercalate "" $ (\x -> "elif " <> prettyPrint x) <$> elifCBs) <>
     "else:\n" <>
     (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> elseBody)
 
-  prettyPrint (ExprInfix lhs op rhs) =
+  prettyPrint (RExprInfix _ lhs op rhs) =
     "(" <> prettyPrint lhs <> prettyPrint op <> prettyPrint rhs <> ")"
 
-  prettyPrint (ExprAssignment dest expr) =
+  prettyPrint (RExprAssignment _ dest expr) =
     prettyPrint dest <> " = " <> prettyPrint expr
 
-  prettyPrint (ExprDef args body) =
+  prettyPrint (RExprDef _ args body) =
     "def(" <> (intercalate ", " $ prettyPrint <$> args) <> "):\n" <>
     (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> body) <> "\n"
 
-  prettyPrint (ExprCall fun args) =
+  prettyPrint (RExprCall _ fun args) =
     prettyPrint fun <> "(" <> (intercalate ", " $ prettyPrint <$> args) <> ")"
 
-  prettyPrint (ExprReturn val) = "return " <> prettyPrint val
+  prettyPrint (RExprReturn _ val) = "return " <> prettyPrint val
 
-  prettyPrint (ExprList values@((Pos _ (ExprChar _)):_)) = show $ tac <$> values
+  prettyPrint (RExprList _ values@((RExprChar _ _):_)) = show $ tac <$> values
     where
-      tac :: Pos Expr -> Char
-      tac (Pos _ (ExprChar c)) = c
+      tac :: RExpr -> Char
+      tac (RExprChar _ c) = c
 
-  prettyPrint (ExprList elements) =
+  prettyPrint (RExprList _ elements) =
     "[" <> (intercalate ", " $ prettyPrint <$> elements) <> "]"
 
-  prettyPrint (ExprBind arg val) =
-    prettyPrint arg <>
-    " <- " <> prettyPrint val
-
-  prettyPrint (ExprCase input bodies) =
+  prettyPrint (RExprCase _ input bodies) =
     "case " <> prettyPrint input <> ":\n" <>
     (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> bodies) <> "\n"
-
-  -- prettyPrint (ExprInstanceOf Id Id [PExpr]) =
-  -- prettyPrint (ExprClass Id [Pos TypeCons]) =
-  -- prettyPrint (ExprType Id [Pos DefSignature]) =
-  -- prettyPrint (ExprImport [String]) =
 
 data DefSignature = DefSignature {
     getDefSigTypeName :: Id,

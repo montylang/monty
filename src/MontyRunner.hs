@@ -23,89 +23,77 @@ import Evaluators.Case
 import ModuleLoader
 import Interop.Prelude
 
-evaluateP :: PExpr -> Scoper Value
-evaluateP (Pos pos expr) = catchError (eval expr) exitOnError
-  where
-    exitOnError :: ErrVal -> Scoper Value
-    exitOnError (ErrString err) = do
-      stack <- use callStack
-      liftIO $ die $
-        sourcePosPretty pos <> ": " <> err <> "\n" <> showCallStack stack
-
-evaluate :: Expr -> Scoper Value
-evaluate (ExprId "_") = stackTrace "Cannot use black hole as variable"
-evaluate (ExprId name) = do
+evaluate :: RExpr -> Scoper Value
+evaluate (RExprId _ "_") = stackTrace "Cannot use black hole as variable"
+evaluate (RExprId _ name) = do
   value <- findInScope name
   case value of
     Just val -> pure val
     Nothing  -> stackTrace (name <> " is not in scope")
 
-evaluate (ExprClass name constructors) =
+evaluate (RExprClass _ name constructors) =
   evalClass name constructors
 
-evaluate (ExprType name headers) =
+evaluate (RExprType _ name headers) =
   evalType name headers
 
-evaluate (ExprInstanceOf className typeName implementations) =
+evaluate (RExprInstanceOf _ className typeName implementations) =
   evalInstanceOf className typeName implementations
 
-evaluate (ExprInt a) = pure $ VInt a
-evaluate (ExprChar a) = pure $ VChar a
+evaluate (RExprInt _ a) = pure $ VInt a
+evaluate (RExprChar _ a) = pure $ VChar a
 
-evaluate (ExprInfix first op second) = evalInfix first op second
+evaluate (RExprInfix _ first op second) = evalInfix first op second
 
-evaluate (ExprIfElse ifCond elifConds elseBody) =
+evaluate (RExprIfElse _ ifCond elifConds elseBody) =
   evalCondition ifCond elifConds elseBody
 
-evaluate (ExprCase input bodies) =
+evaluate (RExprCase _ input bodies) =
   evalCase input bodies
 
-evaluate (ExprTuple values) =
-  VTuple <$> (sequence $ evalP <$> values)
+evaluate (RExprTuple _ values) =
+  VTuple <$> (sequence $ eval <$> values)
 
-evaluate (ExprList []) = pure $ VList []
-evaluate (ExprList (x:xs)) = do
-    headEvaled <- evalP x
+evaluate (RExprList _ []) = pure $ VList []
+evaluate (RExprList _ (x:xs)) = do
+    headEvaled <- eval x
     tailEvaled <- sequence $ enforceType headEvaled <$> xs
     pure $ VList (headEvaled:tailEvaled)
   where
-    enforceType :: Value -> PExpr -> Scoper Value
+    enforceType :: Value -> RExpr -> Scoper Value
     enforceType headVal expr = do
-      evaled <- evalP expr
+      evaled <- eval expr
       assert (typesEqual evaled headVal) "List must be of the same type"
       pure evaled
 
-evaluate (ExprDef args body) = do
+evaluate (RExprDef _ args body) = do
   types    <- sequence $ argToType <$> args
   VScoped (VFunction $ FunctionImpl [FunctionCase args body] types) <$> use scope
-      
 
-evaluate (ExprAssignment dest value) =
+evaluate (RExprAssignment _ dest value) =
   evalAssignment dest value
 
-evaluate (ExprCall funExpr args) = do
+evaluate (RExprCall _ funExpr args) = do
     pushToCallStack funExpr
-    fun        <- evalP funExpr
-    evaledArgs <- sequence $ evalP <$> args
+    fun        <- eval funExpr
+    evaledArgs <- sequence $ eval <$> args
     runFun fun evaledArgs <* popFromCallStack
   where
-    pushToCallStack :: PExpr -> Scoper ()
-    pushToCallStack (Pos p _) = callStack %= (p:)
+    pushToCallStack :: RExpr -> Scoper ()
+    pushToCallStack expr = callStack %= ((rpos expr):)
 
     popFromCallStack :: Scoper ()
     popFromCallStack = callStack %= (drop 1)
 
-evaluate (ExprImport components) = do
+evaluate (RExprImport _ components) = do
   loadModule components
   pure voidValue
-
-evaluate other = stackTrace ("Error (unimplemented expr evaluate): " <> show other)
 
 showCallStack :: [SourcePos] -> String
 showCallStack positions = intercalate "\n" $
   ("    " <>) <$> sourcePosPretty <$> positions
 
-run :: [PExpr] -> IO ()
+run :: [RExpr] -> IO ()
 run prog = do
     eContext <- emptyContext
     val <- runExceptT (evalStateT (run' prog) eContext)
@@ -113,10 +101,10 @@ run prog = do
       Left (ErrString message) -> die message 
       _                        -> pure ()
   where
-    run' :: [PExpr] -> Scoper ()
+    run' :: [RExpr] -> Scoper ()
     run' exprs = do
       loadMyLib
-      sequence_ $ evalP <$> exprs
+      sequence_ $ eval <$> exprs
 
       mainEntry <- findInScope "__main__"
       sequence_ $ runIOVal <$> mainEntry
@@ -154,7 +142,16 @@ loadMyLib = do
     caseToTypes :: FunctionCase -> Scoper [Type]
     caseToTypes c = sequence $ argToType <$> (fcaseArgs c)
 
+evaluateCatch :: RExpr -> Scoper Value
+evaluateCatch rexpr = catchError (evaluate rexpr) exitOnError
+  where
+    exitOnError :: ErrVal -> Scoper Value
+    exitOnError (ErrString err) = do
+      stack <- use callStack
+      liftIO $ die $
+        sourcePosPretty (rpos rexpr) <> ": " <> err <> "\n" <> showCallStack stack
+
 emptyContext :: IO Context
 emptyContext = do
   emptyBlock <- newIORef HM.empty
-  pure $ Context HM.empty [emptyBlock] (Executors evaluateP evaluate) []
+  pure $ Context HM.empty [emptyBlock] (Executors evaluateCatch) []

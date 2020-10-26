@@ -9,6 +9,9 @@ import Parser.Root
 
 import ParserTests.Helpers
 
+emptySp :: SourcePos
+emptySp = SourcePos "" (mkPos maxBound) (mkPos maxBound)
+
 spec :: Spec
 spec = do
   describe "Import parser" $ do
@@ -395,8 +398,8 @@ spec = do
           ]) `shouldBe`
         (Right $ pure $ ExprCase
           (pure $ ExprInt 1) [
-            pure $ CaseBlock (IntArg 2) [pure $ ExprInt 3],
-            pure $ CaseBlock (IntArg 4) [pure $ ExprInt 5, pure $ ExprInt 6],
-            pure $ CaseBlock (IdArg "_") [pure $ ExprInt 7]
+            CaseBlock emptySp (IntArg 2) [pure $ ExprInt 3],
+            CaseBlock emptySp (IntArg 4) [pure $ ExprInt 5, pure $ ExprInt 6],
+            CaseBlock emptySp (IdArg "_") [pure $ ExprInt 7]
           ])
         

@@ -98,16 +98,17 @@ evaluateCases cases params = runWithTempScope $ do
 
 runFcase :: FunctionCase -> Scoper Value
 runFcase (FunctionCase _ body) = do
-    sequence_ $ evalP <$> beginning
-    evalP returnExpr
+    sequence_ $ eval <$> beginning
+    eval returnExpr
   where
     (beginning, returnExpr) = splitReturn body
 
 runFcase (InteropCase _ body) = body
 
-splitReturn :: [PExpr] -> ([PExpr], PExpr)
+splitReturn :: [RExpr] -> ([RExpr], RExpr)
 splitReturn exprs =
-  let (beginning, ([Pos _ (ExprReturn returnExpr)])) = splitAt ((length exprs) - 1) exprs
+  let (beginning, [RExprReturn _ returnExpr]) =
+        splitAt ((length exprs) - 1) exprs
   in (beginning, returnExpr)
 
 runFun :: Value -> [Value] -> Scoper Value

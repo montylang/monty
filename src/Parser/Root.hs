@@ -66,12 +66,12 @@ caseParser indent = do
   blocks <- blockParser indent caseBlockParser
   pure $ Pos pos $ ExprCase cond blocks
 
-caseBlockParser :: Indent -> Parser (Pos CaseBlock)
+caseBlockParser :: Indent -> Parser (CaseBlock PExpr)
 caseBlockParser indent = do
     pos  <- sourcePos
     cond <- try $ argParser indent <* ws <* char ':'
     body <- (try eolSome *> multiLineP) <|> oneLineP
-    pure $ Pos pos $ CaseBlock cond body
+    pure $ CaseBlock pos cond body
   where
     oneLineP :: Parser [PExpr]
     oneLineP = pure <$> (ws *> exprParser indent)
@@ -80,7 +80,7 @@ caseBlockParser indent = do
     multiLineP = blockParser indent exprParser
 
 -- TODO: Support this `if foo: print('reeee')`
-condBlockParser :: String -> Indent -> Parser CondBlock
+condBlockParser :: String -> Indent -> Parser (CondBlock PExpr)
 condBlockParser initialKeyword indent = do
   cond <- try $ rword initialKeyword *> exprParser indent
           <* ws <* char ':' <* eolSome
@@ -94,7 +94,7 @@ ifParser indent = do
     esle <- elseParser
     addPos $ ExprIfElse fi file esle
   where
-    elifsParser :: Parser [CondBlock]
+    elifsParser :: Parser [CondBlock PExpr]
     elifsParser = many (try $ condBlockParser "elif" indent)
 
     elseParser :: Parser [PExpr]

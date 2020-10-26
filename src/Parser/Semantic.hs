@@ -45,42 +45,41 @@ infixPrecedence = [
   ]
 
 -- What a mess
-groupByPrecedence :: [InfixOp] -> [(Maybe InfixOp, PExpr)] -> PExpr
+groupByPrecedence :: [InfixOp] -> [(Maybe InfixOp, RExpr)] -> RExpr
 groupByPrecedence [] [] = trace "How did I get here?" undefined
 groupByPrecedence [] [(_, x)] = x
-groupByPrecedence [] ((Just op, (Pos p x)):xs) =
-  -- TODO: Nothing about this is ok
-  Pos p $ ExprInfix (Pos p x) op $ groupByPrecedence [] xs
-groupByPrecedence (o:os) xs  = joinHeadOp subCases
+groupByPrecedence [] ((Just op, x):xs) =
+  RExprInfix (rpos x) x op $ groupByPrecedence [] xs
+groupByPrecedence (o:os) xs = joinHeadOp subCases
   where
-    subCases :: [PExpr]
+    subCases :: [RExpr]
     subCases = groupByPrecedence os <$>
       (multiSpan ((== (Just o)) . (view _1)) xs)
 
-    joinHeadOp :: [PExpr] -> PExpr
+    joinHeadOp :: [RExpr] -> RExpr
     joinHeadOp [y] = y
     joinHeadOp (y:ys) = foldl folderHeadOp y ys
 
-    folderHeadOp :: PExpr -> PExpr -> PExpr
-    folderHeadOp acc it = Pos (getPos it) $ ExprInfix acc o it
+    folderHeadOp :: RExpr -> RExpr -> RExpr
+    folderHeadOp acc it = RExprInfix (rpos it) acc o it
 
-semanticInfixChain :: PExpr -> [(InfixOp, PExpr)] -> PExpr
+semanticInfixChain :: RExpr -> [(InfixOp, RExpr)] -> RExpr
 semanticInfixChain first rest =
     groupByPrecedence infixPrecedence ((Nothing, first):maybeRest)
   where
-    maybeTup :: (InfixOp, PExpr) -> (Maybe InfixOp, PExpr)
+    maybeTup :: (InfixOp, RExpr) -> (Maybe InfixOp, RExpr)
     maybeTup (op, expr) = (Just op, expr) 
 
-    maybeRest :: [(Maybe InfixOp, PExpr)]
+    maybeRest :: [(Maybe InfixOp, RExpr)]
     maybeRest = maybeTup <$> rest
 
-semanticInfix :: PExpr -> InfixOp -> PExpr -> ParseExcept PExpr
+semanticInfix :: PExpr -> InfixOp -> PExpr -> ParseExcept RExpr
 semanticInfix lhs op rhs = do
   semanticLhs <- semantic lhs
   semanticRhs <- infixFlatten op rhs
   pure $ semanticInfixChain semanticLhs semanticRhs
 
-infixFlatten :: InfixOp -> PExpr -> ParseExcept [(InfixOp, PExpr)]
+infixFlatten :: InfixOp -> PExpr -> ParseExcept [(InfixOp, RExpr)]
 infixFlatten op (Pos p (ExprInfix lhs nextOp rhs)) = do
   semanticLhs  <- semantic lhs
   semanticRest <- infixFlatten nextOp rhs
@@ -89,38 +88,40 @@ infixFlatten op rhs = do
   semanticRhs  <- semantic rhs
   pure [(op, semanticRhs)]
 
-semanticUnwrap :: [PExpr] -> ParseExcept PExpr
+semanticUnwrap :: [PExpr] -> ParseExcept RExpr
 semanticUnwrap [] = throwError $ ErrString "Empty unwrap body"
 semanticUnwrap [(Pos p (ExprBind _ _))] =
   throwError $ ErrPos p "Cannot have bind on last line of unwrap"
-semanticUnwrap [last] = pure last
+semanticUnwrap [last] = semantic last
 semanticUnwrap ((Pos p (ExprBind arg expr)):xs) = do
-  recursive <- semanticUnwrap xs
-  pure $ Pos p $ ExprCall
-    (Pos p (ExprId "bind"))
-    [expr, Pos p $ ExprDef [arg] [addReturn recursive]]
+  recursive    <- semanticUnwrap xs
+  semanticExpr <- semantic expr
+
+  pure $ RExprCall p
+    (RExprId p "bind")
+    [semanticExpr, RExprDef p [arg] [addReturn recursive]]
 semanticUnwrap ((Pos p _):_) =
   throwError $ ErrPos p "All non-tails in unwrap must be binds"
 
-addReturn :: PExpr -> PExpr
-addReturn (Pos a e) = Pos a $ ExprReturn (Pos a e)
+addReturn :: RExpr -> RExpr
+addReturn e = RExprReturn (rpos e) e
 
-semanticCondBlock :: CondBlock -> ParseExcept CondBlock
+semanticCondBlock :: CondBlock PExpr -> ParseExcept (CondBlock RExpr)
 semanticCondBlock (CondBlock cond body) = do
   newCond <- semantic cond
   newBody <- sequence $ semantic <$> body
   pure $ CondBlock newCond newBody
 
-semanticCaseBlock :: Pos CaseBlock -> ParseExcept (Pos CaseBlock)
-semanticCaseBlock (Pos p (CaseBlock arg body)) = do
+semanticCaseBlock :: CaseBlock PExpr -> ParseExcept (CaseBlock RExpr)
+semanticCaseBlock (CaseBlock p arg body) = do
   newBody <- sequence $ semantic <$> body
-  pure $ Pos p $ CaseBlock arg newBody
+  pure $ CaseBlock p arg newBody
 
-semantic :: PExpr -> ParseExcept PExpr
+semantic :: PExpr -> ParseExcept RExpr
 -- Actual semantic alterations
 semantic (Pos p (ExprUnwrap body)) = do
-  semanticBodies <- sequence $ semantic <$> body
-  semanticUnwrap semanticBodies
+  --semanticBodies <- sequence $ semantic <$> body
+  semanticUnwrap body
 
 semantic (Pos p (ExprInfix lhs op rhs)) =
   semanticInfix lhs op rhs
@@ -132,34 +133,44 @@ semantic (Pos p (ExprIfElse ifCond elifConds elseBody)) = do
   newIfCond    <- semanticCondBlock ifCond 
   newElifConds <- sequence $ semanticCondBlock <$> elifConds 
   newElseBody  <- sequence $ semantic          <$> elseBody
-  pure $ Pos p $ ExprIfElse newIfCond newElifConds newElseBody
+  pure $ RExprIfElse p newIfCond newElifConds newElseBody
 semantic (Pos p (ExprAssignment arg value)) = do
   newValue <- semantic value
-  pure $ Pos p $ ExprAssignment arg newValue
+  pure $ RExprAssignment p arg newValue
 semantic (Pos p (ExprDef args body)) = do
   newBody <- sequence $ semantic <$> body
-  pure $ Pos p $ ExprDef args newBody
+  pure $ RExprDef p args newBody
 semantic (Pos p (ExprCall func params)) = do
   newFunc <- semantic func 
   newParams <- sequence $ semantic <$> params 
-  pure $ Pos p $ ExprCall newFunc newParams
+  pure $ RExprCall p newFunc newParams
 semantic (Pos p (ExprReturn retVal)) = do
   newRetVal <- semantic retVal 
-  pure $ Pos p $ ExprReturn newRetVal
+  pure $ RExprReturn p newRetVal
 semantic (Pos p (ExprList elements)) = do
   newElements <- sequence $ semantic <$> elements 
-  pure $ Pos p $ ExprList newElements
+  pure $ RExprList p newElements
 semantic (Pos p (ExprTuple elements)) = do
   newElements <- sequence $ semantic <$> elements 
-  pure $ Pos p $ ExprTuple newElements
+  pure $ RExprTuple p newElements
 semantic (Pos p (ExprInstanceOf tname cname elements)) = do
   newElements <- sequence $ semantic <$> elements 
-  pure $ Pos p $ ExprInstanceOf tname cname newElements
-semantic (Pos p (ExprBind arg value)) = do
-  newValue <- semantic value 
-  pure $ Pos p $ ExprBind arg newValue
+  pure $ RExprInstanceOf p tname cname newElements
 semantic (Pos p (ExprCase input blocks)) = do
   newInput <- semantic input
   newBlocks <- sequence $ semanticCaseBlock <$> blocks
-  pure $ Pos p $ ExprCase newInput newBlocks
-semantic other = pure other
+  pure $ RExprCase p newInput newBlocks
+-- One to one maps
+semantic (Pos p (ExprClass cname typeCons)) = do
+  pure $ RExprClass p cname typeCons
+semantic (Pos p (ExprType tname defSigs)) = do
+  pure $ RExprType p tname defSigs
+semantic (Pos p (ExprId name)) = do
+  pure $ RExprId p name
+semantic (Pos p (ExprChar value)) = do
+  pure $ RExprChar p value
+semantic (Pos p (ExprInt value)) = do
+  pure $ RExprInt p value
+
+semantic (Pos p other) = throwError $ ErrPos p $
+  "Unexpected expr in semnatic: " <> show other

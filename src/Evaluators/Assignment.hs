@@ -8,9 +8,9 @@ import RunnerTypes
 import RunnerUtils
 import MatchUtils
 
-evalAssignment :: Arg -> PExpr -> Scoper Value
+evalAssignment :: Arg -> RExpr -> Scoper Value
 evalAssignment (IdArg name) value = do
-    evaledValue  <- evalP value
+    evaledValue  <- eval value
     inScopeValue <- findInTopScope name
     
     case inScopeValue of
@@ -29,7 +29,7 @@ evalAssignment (IdArg name) value = do
     appendFunctionCase _ _ _ = stackTrace $ "Cannot mutate " <> name
 
 evalAssignment arg value = do
-    evaled  <- evalP value
+    evaled  <- eval value
 
     case zipArgToValue arg evaled of
       Right res -> (sequence $ uncurry addToScope <$> res) *> pure evaled
