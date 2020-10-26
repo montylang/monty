@@ -102,37 +102,6 @@ ifParser indent = do
       string indent *> rword "else" *> char ':' *> eolSome *>
       bodyParser indent
 
-infixParser :: PExpr -> Indent -> Parser PExpr
-infixParser lhs indent = do
-    op  <- (try $ ws *> allOpParser) <* ws
-    rhs <- exprParser' indent <* ws
-
-    addPos $ ExprInfix lhs op rhs
-  where
-    arr = [
-        ("<>", InfixMappend),
-        ("+", InfixAdd),
-        ("-", InfixSub),
-        ("*", InfixMul),
-        ("/", InfixDiv),
-        ("%", InfixMod),
-        ("!=", InfixNe),
-        ("==", InfixEq),
-        ("is", InfixEq),
-        ("<=", InfixLe),
-        (">=", InfixGe),
-        (">", InfixGt),
-        ("<", InfixLt),
-        ("and", InfixLogicAnd),
-        ("or", InfixLogicOr)
-      ]
-
-    opParser :: (String, InfixOp) -> Parser InfixOp
-    opParser (s, o) = string s *> pure o
-
-    -- TODO: Be clever and lookahead one character
-    allOpParser = choice $ opParser <$> arr
-
 exprVarIdParser :: Indent -> Parser PExpr
 exprVarIdParser indent = ExprId <$> varIdParser indent >>= addPos
 
@@ -229,13 +198,50 @@ tupleParser indent = try $ do
   addPos tup
 
 chainableParser :: Indent -> PExpr -> Parser PExpr
-chainableParser indent previous =
-    sugarCallParser previous
-    <|> consParser previous
-    <|> normalCallParser previous
-    <|> infixParser previous indent
-    <|> pure previous
+chainableParser indent previous = do
+    mayC <- fancyLookAhead
+
+    case mayC of
+      Nothing -> pure previous
+      Just c  -> choosy c <|> pure previous
   where
+    fancyLookAhead :: Parser (Maybe Char)
+    fancyLookAhead =
+      lookAhead $ eolMany *> ws *>
+      ((Just <$> anySingle) <|> (eof *> pure Nothing))
+
+    choosy :: Char -> Parser PExpr
+    choosy c = case c of
+      '.' -> sugarCallParser previous
+      '(' -> normalCallParser previous
+      '|' -> consParser previous
+      '<' -> choice [
+          infixP "<>" InfixMappend previous,
+          infixP "<=" InfixLe previous,
+          infixP "<"  InfixLt previous
+        ]
+      '>' -> choice [
+          infixP ">=" InfixGe previous,
+          infixP ">"  InfixGt previous
+        ]
+      '+' -> infixP "+" InfixAdd previous
+      '-' -> infixP "-" InfixSub previous
+      '*' -> infixP "*" InfixMul previous
+      '/' -> infixP "/" InfixDiv previous
+      '%' -> infixP "%" InfixMod previous
+      '!' -> infixP "!=" InfixNe previous
+      '=' -> infixP "==" InfixEq previous
+      'i' -> infixP "is" InfixEq previous
+      'a' -> infixP "and" InfixLogicAnd previous
+      'o' -> infixP "or" InfixLogicOr previous
+      _   -> empty
+
+    infixP :: String -> InfixOp -> PExpr -> Parser PExpr
+    infixP opString op lhs = do
+      op  <- try $ ws *> string opString *> pure op <* ws
+      rhs <- exprParser' indent
+      addPos $ ExprInfix lhs op rhs
+
     sugarCallParser :: PExpr -> Parser PExpr
     sugarCallParser prev = do
       _       <- try $ eolMany *> ws *> char '.'
@@ -301,7 +307,6 @@ exprParser' indent = cleverContent <|> contentChained
         a | isLower a -> exprVarIdParser indent
         _             -> empty
 
--- NOTE: Move infixParser to be a chainable of exprParser, not prime
 exprParser :: Indent -> Parser PExpr
 exprParser indent = choice $ ($ indent) <$> [
     lambdaParser,
