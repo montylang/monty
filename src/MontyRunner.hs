@@ -114,6 +114,9 @@ runIOVal (VTypeInstance "IO" "IO" [mainFun]) = do
     runFun mainFun [baseWorld] *> pure ()
   where
     baseWorld = VTypeInstance "#IOWorldToken" "#IOWorldToken" []
+runIOVal v@(VInferred _ _ _) = do
+  inferredIO <- applyInferredType "IO" v
+  runIOVal inferredIO
 runIOVal _ =
   stackTrace "Tried to bootstrap a non IO value."
 

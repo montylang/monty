@@ -12,3 +12,8 @@ def some(v):
       many(v).bind((res): wrap(xs.append(res)))
 
   return v.map((x): [x]).bind(more)
+
+def liftM(f, m):
+  return unwrap:
+    x <- m
+    wrap(f(x))

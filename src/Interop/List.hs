@@ -90,8 +90,27 @@ listAppendImpl _ = stackTrace "You must append a list to a list"
 listMemptyImpl :: [Value] -> Scoper Value
 listMemptyImpl [] = pure $ VList []
 
+consStrImpl :: [Value] -> Scoper Value
+consStrImpl [VChar x, VList xs] =
+  pure $ VList $ [VChar '"', VChar x] <> xs <> [VChar '"']
+consStrImpl [x, VList xs] = do
+  impl  <- findImplsInScope "str" x
+  inner <- sequence $ (evaluateImpl impl) . pure <$> x:xs
+  pure $ VList $ [VChar '['] <> inner <> [VChar ']']
+
+nilStrImpl :: [Value] -> Scoper Value
+nilStrImpl [_] = pure $ VList [VChar '[', VChar ']']
+
 listDefinitions :: [(Id, Id, [FunctionCase])]
 listDefinitions = [
+    ("List", "str", [
+        generateInteropCase
+          [PatternArg "Cons" [IdArg "head", IdArg "tail"]]
+          consStrImpl,
+        generateInteropCase
+          [PatternArg "Nil" []]
+          nilStrImpl
+    ]),
     ("List", "map", [
         generateInteropCase
           [PatternArg "Cons" [IdArg "head", IdArg "tail"], IdArg "func"]

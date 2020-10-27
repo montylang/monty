@@ -43,3 +43,6 @@ type Alternative:
 
 type Traversable:
   def traverse(self, function)
+
+type MonadTransformer:
+  def lift(toLift)

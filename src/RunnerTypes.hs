@@ -167,8 +167,8 @@ instance PrettyPrint Value where
   -- show (VDict) = undefined
   prettyPrint (VTuple values) = 
     "(" <> intercalate "," (show <$> values) <> ")"
-  -- show (VInferred fname tname vals) =
-  --   "VInferred " <> fname <> " " <> tname <> " " <> show vals
+  prettyPrint (VInferred fname tname vals) =
+    "(inferreed)" <> fname <> " " <> tname <> " " <> (show $ prettyPrint <$> vals)
 
 $(makeLenses ''Executors)
 $(makeLenses ''Context)

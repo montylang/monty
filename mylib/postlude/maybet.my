@@ -1,0 +1,35 @@
+class MaybeT:
+  MaybeT(thing)
+
+def runMaybeT(MaybeT(thing)):
+  return thing
+
+instance MaybeT of Functor:
+  def map(MaybeT(x), f):
+    return MaybeT(x.map((y): y.map(f)))
+
+instance MaybeT of Monad:
+  def bind(x, f):
+    return MaybeT(unwrap:
+      v <- runMaybeT(x)
+      case v:
+        None:    wrap(None)
+        Just(y): runMaybeT(f(y)))
+
+instance MaybeT of Applicative:
+  def wrap(x):
+    return MaybeT(wrap(Just(x)))
+
+  def apply(mf, mx):
+    return MaybeT(unwrap:
+      # FIXME: Inferrence is broken apparently
+      mb_f <- runMaybeT(mf)
+      case mb_f:
+        None:    wrap(None)
+        Just(f): unwrap:
+          mb_x <- runMaybeT(mx)
+          wrap(mb_x.map(f)))
+
+instance MaybeT of MonadTransformer:
+  def lift(x):
+    return MaybeT(liftM(Just, x))
