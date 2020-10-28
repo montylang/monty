@@ -69,6 +69,15 @@ spec = do
       (testParser exprParser "(1)") `shouldBe`
         (Right $ pure $ ExprPrecedence $ pure $ ExprInt 1)
 
+  describe "Prefix op parser" $ do
+    it "Negation op" $ do
+      (testParser exprParser "-a") `shouldBe`
+        (Right $ pure $ ExprPrefixOp PrefixNegate (pure $ ExprId "a"))
+
+    it "Not op" $ do
+      (testParser exprParser "not a") `shouldBe`
+        (Right $ pure $ ExprPrefixOp PrefixNot (pure $ ExprId "a"))
+
   describe "Infix parser" $ do
     it "Simple infix ops" $ do
       (testParser exprParser "a + b") `shouldBe`

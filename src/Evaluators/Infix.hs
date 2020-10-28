@@ -20,9 +20,11 @@ evalInfix first op second = do
   case f of
     (VInt _)                   -> intInfixEval f op s
     (VList _)                  -> concatInfixEval f op s
-    (VTypeInstance "Bool" _ _) ->
-      boolInfixEval (valueToBool f) op (valueToBool s)
-    _                          -> genericInfixEval f op s
+    (VTypeInstance "Bool" _ _) -> do
+      firstBool <- valueToBool f
+      secondBool <- valueToBool s
+      boolInfixEval firstBool op secondBool
+    _ -> genericInfixEval f op s
 
   where
     inferTypes :: Value -> Value -> Scoper (Value, Value)

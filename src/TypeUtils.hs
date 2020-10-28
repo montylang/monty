@@ -2,6 +2,7 @@ module TypeUtils where
 
 import Debug.Trace
 
+import RunnerUtils
 import RunnerTypes
 import ParserTypes
 
@@ -15,10 +16,10 @@ toBoolValue :: Bool -> Value
 toBoolValue True  = vtrue
 toBoolValue False = vfalse
 
-valueToBool :: Value -> Bool
-valueToBool (VTypeInstance "Bool" "True" _)  = True
-valueToBool (VTypeInstance "Bool" "False" _) = False
-valueToBool _ = trace "What have you done" undefined
+valueToBool :: Value -> Scoper Bool
+valueToBool (VTypeInstance "Bool" "True" _)  = pure True
+valueToBool (VTypeInstance "Bool" "False" _) = pure False
+valueToBool v = stackTrace $ show v <> " is not a bool"
 
 isVInstanceNamed :: Id -> Value -> Bool
 isVInstanceNamed expected (VTypeInstance _ iname _) = iname == expected

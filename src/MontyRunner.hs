@@ -18,6 +18,7 @@ import MorphUtils
 import Evaluators.Assignment
 import Evaluators.Condition
 import Evaluators.Infix
+import Evaluators.Prefix
 import Evaluators.Types
 import Evaluators.Case
 import ModuleLoader
@@ -42,6 +43,8 @@ evaluate (RExprInstanceOf _ className typeName implementations) =
 
 evaluate (RExprInt _ a) = pure $ VInt a
 evaluate (RExprChar _ a) = pure $ VChar a
+
+evaluate (RExprPrefixOp _ op ex) = evalPrefix op ex
 
 evaluate (RExprInfix _ first op second) = evalInfix first op second
 

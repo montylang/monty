@@ -36,23 +36,22 @@ instance PrettyPrint a => PrettyPrint (CaseBlock a) where
     (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> body) <> "\n"
 
 data InfixOp
-  = InfixAdd  -- Semiring add(a, b): semiring
-  | InfixSub  -- Ring
-  | InfixMul  -- Semiring
+  = InfixAdd
+  | InfixSub
+  | InfixMul
   | InfixDiv
-  | InfixMod  -- Semiring
+  | InfixMod
   | InfixEq
   | InfixNe
   | InfixGt
   | InfixLt
   | InfixLe
   | InfixGe
-  | InfixLogicAnd -- Logic: lor(a, b): bool
+  | InfixLogicAnd
   | InfixLogicOr
   | InfixCons
   | InfixMappend
   deriving (Show, Eq)
-
 
 instance PrettyPrint InfixOp where
   prettyPrint InfixAdd      = "+"
@@ -71,6 +70,14 @@ instance PrettyPrint InfixOp where
   prettyPrint InfixCons     = "|"
   prettyPrint InfixMappend  = "<>"
 
+data PrefixOp
+  = PrefixNot
+  | PrefixNegate
+  deriving (Show, Eq)
+
+instance PrettyPrint PrefixOp where
+  prettyPrint PrefixNot = "not"
+  prettyPrint PrefixNegate = "-"
 
 data Arg
   = IdArg Id
@@ -108,8 +115,12 @@ data RExpr
   | RExprInfix
       { rpos :: SourcePos
       , rlhs :: RExpr
-      , rop :: InfixOp
+      , rinfixOp :: InfixOp
       , rrhs :: RExpr }
+  | RExprPrefixOp
+      { rpos :: SourcePos
+      , rprefixOp :: PrefixOp
+      , rexpr :: RExpr }
   | RExprAssignment
       { rpos :: SourcePos
       , rarg :: Arg
@@ -158,6 +169,7 @@ data Expr
   | ExprChar Char
   | ExprIfElse (CondBlock PExpr) [CondBlock PExpr] [PExpr]
   | ExprInfix PExpr InfixOp PExpr
+  | ExprPrefixOp PrefixOp PExpr
   | ExprAssignment Arg (PExpr)
   | ExprDef [Arg] [PExpr]
   | ExprCall PExpr [PExpr]

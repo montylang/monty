@@ -52,6 +52,9 @@ spec = do
   exprRepr <- runWithContext <$> runIO loadPrelude
 
   describe "Arithmetic tests" $ do
+    it "Should negate int exprs" $ do
+      exprRepr "-(1 + 2)" >>= shouldBe "-3"
+
     it "Should add integers" $ do
       exprRepr "3 + 4 + 2" >>= shouldBe "9"
       exprRepr "1 + 1 + 1" >>= shouldBe "3"
@@ -60,7 +63,7 @@ spec = do
 
     it "Should multiply integers" $ do
       exprRepr "3 * 2"   >>= shouldBe "6"
-      exprRepr "-1 * -1" >>= shouldBe "1"
+      exprRepr "-(1) * -1" >>= shouldBe "1"
       exprRepr "-3 * 2"  >>= shouldBe "-6"
 
     it "Should follow BEDMAS" $ do

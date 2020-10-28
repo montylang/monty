@@ -8,7 +8,7 @@ import Parser.Utils
 import ParserTypes
 
 intParser :: Parser Int
-intParser = signed sc decimal
+intParser = try $ signed sc decimal
 
 charParser :: Parser Char
 charParser = char '\'' *> charLiteral <* char '\''

@@ -127,6 +127,9 @@ semantic (Pos p (ExprInfix lhs op rhs)) =
   semanticInfix lhs op rhs
 
 -- Traversals
+semantic (Pos p (ExprPrefixOp op ex)) = do
+  semanticEx <- semantic ex
+  pure $ RExprPrefixOp p op semanticEx
 semantic (Pos _ (ExprPrecedence inner)) =
   semantic inner
 semantic (Pos p (ExprIfElse ifCond elifConds elseBody)) = do

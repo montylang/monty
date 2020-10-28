@@ -192,12 +192,16 @@ argToType (PatternArg "Cons" _) = pure $ TUser "List"
 argToType (PatternArg "Nil" _)  = pure $ TUser "List"
 argToType (PatternArg name _)   = do
   lookup <- findInScope name
-  case lookup >>= yoinkType of
+  case lookup >>= valueToType of
     Just t -> pure t
     Nothing -> stackTrace $ "Could not find type for " <> name
 argToType (IntArg _)  = pure TInt
 argToType (CharArg _) = pure TChar
 
-yoinkType :: Value -> Maybe Type
-yoinkType (VTypeCons t _ _) = Just $ TUser t
-yoinkType _ = Nothing
+valueToType :: Value -> Maybe Type
+valueToType (VTypeCons t _ _) = Just $ TUser t
+valueToType (VInt _) = Just $ TInt
+valueToType (VChar _) = Just $ TChar
+valueToType (VList _) = Just $ TUser "List"
+valueToType (VTuple _) = Just $ TUser "Tuple"
+valueToType _ = Nothing
