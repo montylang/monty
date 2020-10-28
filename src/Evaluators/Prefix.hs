@@ -13,6 +13,7 @@ evalPrefix PrefixNegate ex = do
 
   case evaled of
     VInt value -> pure $ VInt (-value)
+    VDouble value -> pure $ VDouble (-value)
     _          -> stackTrace "Can only negate numbers"
 evalPrefix PrefixNot ex = do
   evaled <- eval ex

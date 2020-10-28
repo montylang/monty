@@ -18,3 +18,9 @@ def until(initial, predicate, func):
 
 def comp(first, second):
   return (a): first(second(a))
+
+def range(start, end):
+  return if end < start:
+    []
+  else:
+    start|range(start + 1, end)

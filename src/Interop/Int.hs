@@ -23,11 +23,14 @@ intStrImpl [(VInt value)] = pure $ VList $ VChar <$> show value
 intChrImpl :: [Value] -> Scoper Value
 intChrImpl [(VInt val)] = pure $ VChar $ chr val
 
-intIntImpl :: [Value] -> Scoper Value
-intIntImpl [(VList vals)] = pure $ VInt $ read $ toStr vals
+intStrIntImpl :: [Value] -> Scoper Value
+intStrIntImpl [(VList vals)] = pure $ VInt $ read $ toStr vals
   where
     toStr :: [Value] -> String
     toStr vals = vChr <$> vals
+
+intDoubleIntImpl :: [Value] -> Scoper Value
+intDoubleIntImpl [(VDouble value)] = pure $ VInt $ floor value
 
 intDefinitions :: [(Id, Id, [FunctionCase])]
 intDefinitions = [
@@ -49,6 +52,11 @@ intDefinitions = [
     ("List", "int", [
         generateInteropCase
           [TypedIdArg "value" "List"]
-          intIntImpl
+          intStrIntImpl
+    ]),
+    ("Double", "int", [
+        generateInteropCase
+          [TypedIdArg "value" "Double"]
+          intDoubleIntImpl
     ])
   ]

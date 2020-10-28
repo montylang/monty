@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: eb51aff343d05cc0a8b3c4a90cb9e9384baac19768280c92f172bcabaa92c561
+-- hash: 07e1e0c4eee296b736d3c65ba87ce99f248ce328fdd55a0babcf9eddc5bf6b42
 
 name:           monty
 version:        0.1.0.0
@@ -34,6 +34,7 @@ library
       Evaluators.Prefix
       Evaluators.Types
       Interop.Char
+      Interop.Double
       Interop.Helpers
       Interop.Int
       Interop.IO

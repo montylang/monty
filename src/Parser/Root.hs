@@ -117,6 +117,9 @@ exprTypeConsParser indent = do
 exprIntParser :: Indent -> Parser PExpr
 exprIntParser _ = ExprInt <$> intParser >>= addPos
 
+exprDoubleParser :: Indent -> Parser PExpr
+exprDoubleParser _ = ExprDouble <$> doubleParser >>= addPos
+
 exprCharParser :: Indent -> Parser PExpr
 exprCharParser _ = ExprChar <$> charParser >>= addPos
 
@@ -313,10 +316,14 @@ exprParser' indent = unchainableContent <|> contentChained
         '\''-> exprCharParser indent
         '"' -> exprStringParser indent
         '-' -> choice $ ($ indent) <$> [
+                 exprDoubleParser,
                  exprIntParser,
                  prefixNegate
                ]
-        a | isDigit a -> exprIntParser indent
+        a | isDigit a -> choice $ ($ indent) <$> [
+                 exprDoubleParser,
+                 exprIntParser
+               ]
         a | isUpper a -> exprTypeConsParser indent
         a | isLower a -> choice $ ($ indent) <$> [
                  prefixNot,

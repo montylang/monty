@@ -1,0 +1,14 @@
+def isEven(n):
+  return (n % 2) == 0
+
+def pi(0):
+  return 0.0
+
+def pi(n):
+  sign = if isEven(n):
+    -1
+  else:
+    1
+  return sign * 4 / (2 * n - 1) + pi(n - 1)
+
+debug(range(1, 5).map(multiply(10)).map(pi))

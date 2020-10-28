@@ -23,6 +23,7 @@ eval expr = use (executors . evaluateExpr) >>= ($ expr)
 typesEqual :: Value -> Value -> Bool
 typesEqual (VTypeInstance t1 _ _) (VTypeInstance t2 _ _) = t1 == t2
 typesEqual (VInt _) (VInt _)                   = True
+typesEqual (VDouble _) (VDouble _)             = True
 typesEqual (VChar _) (VChar _)                 = True
 typesEqual (VList (x:_)) (VList (y:_))         = typesEqual x y
 typesEqual (VList _) (VList _)                 = True
@@ -101,6 +102,7 @@ addToTypeScope key value = do
 classForValue :: Value -> Maybe Id
 classForValue (VList _)   = Just "List"
 classForValue (VInt _)    = Just "Int"
+classForValue (VDouble _) = Just "Double"
 classForValue (VChar _)   = Just "Char"
 classForValue (VTypeInstance cname _ _) = Just cname
 classForValue _ = Nothing
@@ -184,13 +186,14 @@ combineType old new = if new == old
     " Got " <> show new <> ", expected " <> show old
 
 argToType :: Arg -> Scoper Type
-argToType (IdArg _)             = pure TAnything
-argToType (TypedIdArg _ "Char") = pure TChar
-argToType (TypedIdArg _ "Int")  = pure TInt
-argToType (TypedIdArg _ t)      = pure $ TUser t
-argToType (PatternArg "Cons" _) = pure $ TUser "List"
-argToType (PatternArg "Nil" _)  = pure $ TUser "List"
-argToType (PatternArg name _)   = do
+argToType (IdArg _)               = pure TAnything
+argToType (TypedIdArg _ "Char")   = pure TChar
+argToType (TypedIdArg _ "Int")    = pure TInt
+argToType (TypedIdArg _ "Double") = pure TDouble
+argToType (TypedIdArg _ t)        = pure $ TUser t
+argToType (PatternArg "Cons" _)   = pure $ TUser "List"
+argToType (PatternArg "Nil" _)    = pure $ TUser "List"
+argToType (PatternArg name _)     = do
   lookup <- findInScope name
   case lookup >>= valueToType of
     Just t -> pure t
@@ -200,8 +203,9 @@ argToType (CharArg _) = pure TChar
 
 valueToType :: Value -> Maybe Type
 valueToType (VTypeCons t _ _) = Just $ TUser t
-valueToType (VInt _) = Just $ TInt
-valueToType (VChar _) = Just $ TChar
-valueToType (VList _) = Just $ TUser "List"
-valueToType (VTuple _) = Just $ TUser "Tuple"
-valueToType _ = Nothing
+valueToType (VInt _)          = Just $ TInt
+valueToType (VDouble _)       = Just $ TDouble
+valueToType (VChar _)         = Just $ TChar
+valueToType (VList _)         = Just $ TUser "List"
+valueToType (VTuple _)        = Just $ TUser "Tuple"
+valueToType _                 = Nothing

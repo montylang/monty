@@ -104,6 +104,9 @@ data RExpr
   | RExprInt
       { rpos :: SourcePos
       , rint :: Int }
+  | RExprDouble
+      { rpos :: SourcePos
+      , rdouble :: Double }
   | RExprChar
       { rpos :: SourcePos
       , rchar :: Char }
@@ -166,6 +169,7 @@ data RExpr
 data Expr
   = ExprId Id
   | ExprInt Int
+  | ExprDouble Double
   | ExprChar Char
   | ExprIfElse (CondBlock PExpr) [CondBlock PExpr] [PExpr]
   | ExprInfix PExpr InfixOp PExpr

@@ -12,6 +12,7 @@ import CallableUtils
 
 import Interop.List
 import Interop.Int
+import Interop.Double
 import Interop.Char
 import Interop.IO
 
@@ -33,6 +34,7 @@ preludeDefinitions :: [(Id, Id, [FunctionCase])]
 preludeDefinitions =
   listDefinitions <>
   intDefinitions <>
+  doubleDefinitions <>
   charDefinitions <>
   miscDefinitions <>
   ioDefinitions

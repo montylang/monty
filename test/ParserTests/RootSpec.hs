@@ -22,6 +22,11 @@ spec = do
         (Right $ pure $ ExprImport ["foo", "bar", "it"])
       (parse (importParser <* eof) "" "import foo.") `shouldSatisfy` isLeft
 
+  describe "Double parser" $ do
+    it "Parses doubles" $ do
+      (testParser exprParser "3.14") `shouldBe` (Right $ pure $ ExprDouble 3.14)
+      (testParser exprParser "-3.14") `shouldBe` (Right $ pure $ ExprDouble $ -3.14)
+
   describe "Int parser" $ do
     it "Parses ints" $ do
       (testParser exprParser "123") `shouldBe` (Right $ pure $ ExprInt 123)

@@ -174,6 +174,8 @@ semantic (Pos p (ExprChar value)) = do
   pure $ RExprChar p value
 semantic (Pos p (ExprInt value)) = do
   pure $ RExprInt p value
+semantic (Pos p (ExprDouble value)) = do
+  pure $ RExprDouble p value
 
 semantic (Pos p other) = throwError $ ErrPos p $
   "Unexpected expr in semnatic: " <> show other

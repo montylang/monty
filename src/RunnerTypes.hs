@@ -35,12 +35,14 @@ type Scoper = StateT Context (ExceptT ErrVal IO)
 data Type
   = TInt
   | TChar
+  | TDouble
   | TUser Id
   | TAnything
   deriving (Show, Eq)
 
 instance PrettyPrint Type where
   prettyPrint TInt      = "int"
+  prettyPrint TDouble   = "double"
   prettyPrint TChar     = "char"
   prettyPrint TAnything = "any"
   prettyPrint (TUser t) = t
@@ -85,6 +87,7 @@ voidValue = VTuple []
 
 data Value
   = VInt Int
+  | VDouble Double
   | VChar { vChr :: Char }
   | VCurried Value [Value]
   | VFunction FunctionImpl
@@ -119,6 +122,7 @@ data Value
 
 instance Show Value where
   show (VInt value) = show value
+  show (VDouble value) = show value
   show (VChar value) = show value
   show (VFunction cases) = "fun:" <> show cases
   show (VTypeCons _ name args) =
@@ -145,6 +149,7 @@ instance Show Value where
 
 instance PrettyPrint Value where
   prettyPrint (VInt value) = show value
+  prettyPrint (VDouble value) = show value
   prettyPrint (VChar value) = show value
   prettyPrint (VFunction impl) = prettyPrint impl
   prettyPrint (VTypeCons _ name args) =

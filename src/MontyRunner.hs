@@ -42,6 +42,7 @@ evaluate (RExprInstanceOf _ className typeName implementations) =
   evalInstanceOf className typeName implementations
 
 evaluate (RExprInt _ a) = pure $ VInt a
+evaluate (RExprDouble _ a) = pure $ VDouble a
 evaluate (RExprChar _ a) = pure $ VChar a
 
 evaluate (RExprPrefixOp _ op ex) = evalPrefix op ex

@@ -19,6 +19,7 @@ evalInfix first op second = do
 
   case f of
     (VInt _)                   -> intInfixEval f op s
+    (VDouble _)                -> doubleInfixEval f op s
     (VList _)                  -> concatInfixEval f op s
     (VTypeInstance "Bool" _ _) -> do
       firstBool <- valueToBool f
@@ -30,6 +31,10 @@ evalInfix first op second = do
     inferTypes :: Value -> Value -> Scoper (Value, Value)
     inferTypes v@(VInferred _ _ _) other = inferFromOther v other
     inferTypes other v@(VInferred _ _ _) = swap <$> inferFromOther v other
+    inferTypes (VInt v1) (VDouble v2) =
+      pure (VDouble $ fromIntegral v1, VDouble v2)
+    inferTypes (VDouble v1) (VInt v2) =
+      pure (VDouble v1, VDouble $ fromIntegral v2)
     inferTypes v1 v2 = pure (v1, v2)
 
     inferFromOther :: Value -> Value -> Scoper (Value, Value)
@@ -72,15 +77,31 @@ applyBinaryFun fname f s = do
   evaluateImpl impl [f, s]
 
 intInfixEval :: Value -> InfixOp -> Value -> Scoper Value
-intInfixEval (VInt first) InfixAdd (VInt second) = pure $ VInt $ first + second
-intInfixEval (VInt first) InfixSub (VInt second) = pure $ VInt $ first - second
-intInfixEval (VInt first) InfixMul (VInt second) = pure $ VInt $ first * second
-intInfixEval (VInt first) InfixEq (VInt second) = pure $ toBoolValue $ first == second
-intInfixEval (VInt first) InfixGt (VInt second) = pure $ toBoolValue $ first > second
-intInfixEval (VInt first) InfixLt (VInt second) = pure $ toBoolValue $ first < second
-intInfixEval (VInt first) InfixGe (VInt second) = pure $ toBoolValue $ first >= second
-intInfixEval (VInt first) InfixLe (VInt second) = pure $ toBoolValue $ first <= second
-intInfixEval _ other _ = stackTrace ("Unimplemented infix: " <> show other)
+intInfixEval (VInt x) InfixAdd (VInt y) = pure $ VInt $ x + y
+intInfixEval (VInt x) InfixSub (VInt y) = pure $ VInt $ x - y
+intInfixEval (VInt x) InfixMul (VInt y) = pure $ VInt $ x * y
+intInfixEval (VInt x) InfixMod (VInt y) = pure $ VInt $ mod x y
+intInfixEval (VInt x) InfixDiv (VInt y) =
+  pure $ VDouble $ (fromIntegral x) / (fromIntegral y)
+intInfixEval (VInt x) InfixEq (VInt y) = pure $ toBoolValue $ x == y
+intInfixEval (VInt x) InfixGt (VInt y) = pure $ toBoolValue $ x > y
+intInfixEval (VInt x) InfixLt (VInt y) = pure $ toBoolValue $ x < y
+intInfixEval (VInt x) InfixGe (VInt y) = pure $ toBoolValue $ x >= y
+intInfixEval (VInt x) InfixLe (VInt y) = pure $ toBoolValue $ x <= y
+intInfixEval _ other _ = stackTrace ("Unimplemented int infix: " <> show other)
+
+doubleInfixEval :: Value -> InfixOp -> Value -> Scoper Value
+doubleInfixEval (VDouble x) InfixAdd (VDouble y) = pure $ VDouble $ x + y
+doubleInfixEval (VDouble x) InfixSub (VDouble y) = pure $ VDouble $ x - y
+doubleInfixEval (VDouble x) InfixMul (VDouble y) = pure $ VDouble $ x * y
+doubleInfixEval (VDouble x) InfixDiv (VDouble y) = pure $ VDouble $ x / y
+doubleInfixEval (VDouble x) InfixEq (VDouble y) = pure $ toBoolValue $ x == y
+doubleInfixEval (VDouble x) InfixGt (VDouble y) = pure $ toBoolValue $ x > y
+doubleInfixEval (VDouble x) InfixLt (VDouble y) = pure $ toBoolValue $ x < y
+doubleInfixEval (VDouble x) InfixGe (VDouble y) = pure $ toBoolValue $ x >= y
+doubleInfixEval (VDouble x) InfixLe (VDouble y) = pure $ toBoolValue $ x <= y
+doubleInfixEval _ other _ =
+  stackTrace ("Unimplemented double infix: " <> show other)
 
 opToComp :: InfixOp -> Value -> Bool
 opToComp InfixGt value = isVInstanceNamed "GT" value

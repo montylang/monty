@@ -204,7 +204,13 @@ spec = do
       exprRepr "True or False"  >>= shouldBe "True"
 
     it "Misc int stuff" $ do
-      exprRepr "int(\"42\")" >>= shouldBe "42"
+      exprRepr "int(\"42\")"    >>= shouldBe "42"
+      exprRepr "int(3.001)"     >>= shouldBe "3"
+      exprRepr "int(3.9999995)" >>= shouldBe "3"
+
+    it "Misc double stuff" $ do
+      exprRepr "str(3.001)"     >>= shouldBe "\"3.001\""
+      exprRepr "3.001 > 2.6"     >>= shouldBe "True"
 
     it "Uncurry" $ do
       exprRepr "uncurry(add)((3, 4))" >>= shouldBe "7"
