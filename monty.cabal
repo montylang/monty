@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 07e1e0c4eee296b736d3c65ba87ce99f248ce328fdd55a0babcf9eddc5bf6b42
+-- hash: 4a51149ecebb742017896202aebdea1d5f2697fa16985d746e1f2096e99dcafd
 
 name:           monty
 version:        0.1.0.0
@@ -40,6 +40,7 @@ library
       Interop.IO
       Interop.List
       Interop.Prelude
+      Interop.Tuple
       MatchUtils
       ModuleLoader
       MontyRunner

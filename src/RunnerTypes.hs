@@ -115,9 +115,9 @@ data Value
     }
   | VScoped Value Scope
   | VClass [Id]
-  | VList [Value]
+  | VList { lElements :: [Value] }
   | VDict    
-  | VTuple [Value]
+  | VTuple { tElements :: [Value] }
   deriving (Eq)
 
 instance Show Value where

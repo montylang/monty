@@ -22,6 +22,7 @@ zipArgToValue (TypedIdArg name "Int") val@(VInt _)       = Right [(name, val)]
 zipArgToValue (TypedIdArg name "Double") val@(VDouble _) = Right [(name, val)]
 zipArgToValue (TypedIdArg name "Char") val@(VChar _)     = Right [(name, val)]
 zipArgToValue (TypedIdArg name "List") val@(VList _)     = Right [(name, val)]
+zipArgToValue (TypedIdArg name "Tuple") val@(VTuple _)   = Right [(name, val)]
 
 zipArgToValue (IntArg expected) (VInt actual) =
   if expected == actual

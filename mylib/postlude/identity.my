@@ -1,0 +1,21 @@
+class Identity:
+  Identity(thing)
+
+instance Identity of Functor:
+  def map(Identity(value), f):
+    return Identity(f(value))
+
+instance Identity of Applicative:
+  def apply(Identity(f), Identity(val)):
+    return Identity(f(val))
+
+  def wrap(value):
+    return Identity(value)
+
+instance Identity of Monad:
+  def bind(Identity(value), f):
+    return f(value)
+
+
+def runIdentity(Identity(inside)):
+  return inside

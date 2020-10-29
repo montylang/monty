@@ -1,44 +1,62 @@
-class State:
-  # stateFunc: s -> (a,s) 
-  State(stateFunc)
+class StateT:
+  # stateFunc: s -> m (a,s) 
+  StateT(stateFunc)
 
-def runState(State(f), initialState):
-  return f(initialState)
+def runState(state, initialState):
+  return runIdentity(runStateT(state, initialState))
 
 def evalState(state, initialState):
-  return fst(runState(state, initialState))
+  return runIdentity(evalStateT(state, initialState))
+
+def runStateT(StateT(f), initialState):
+  return f(initialState)
+
+def evalStateT(state, initialState):
+  return runStateT(state, initialState).map(fst)
 
 def get():
-  return State((s): (s, s))
+  return StateT((s): wrap((s, s)))
 
 def put(newState):
-  return State((_): ((), newState))
+  return StateT((_): wrap(((), newState)))
 
-instance State of Functor:
-  def map(State(stateF), f):
-    return State(
-      def (s):
-        (a, firstState) = stateF(s)
-        return (f(a), firstState)
+instance StateT of Functor:
+  # stateF: s -> m (a, s)
+  # want: s -> m (f a, s)
+  def map(StateT(stateF), f):
+    return StateT(
+      (s): unwrap:
+        (a, firstState) <- stateF(s)
+        wrap((f(a), firstState))
     )
 
-instance State of Applicative:
-  def apply(State(sFunc), State(sValue)):
-    return State(
-      def (s):
-        (f, firstState)    = sFunc(s)
-        (val, secondState) = sValue(firstState)
-        return (f(val), secondState)
+instance StateT of Applicative:
+  def apply(StateT(sFunc), StateT(sValue)):
+    return StateT(
+      (s): unwrap:
+        (f, firstState)    <- sFunc(s)
+        (val, secondState) <- sValue(firstState)
+        wrap((f(val), secondState))
     )
 
   def wrap(value):
-    return State((s): (value, s))
+    return StateT((s): wrap((value, s)))
 
-instance State of Monad:
-  def bind(State(stateFunc), f):
-    return State(
-      def (s):
-        (a, firstS) = stateFunc(s)
-        State(yoink) = f(a)
-        return yoink(firstS)
+instance StateT of Monad:
+  def bind(StateT(stateFunc), f):
+    def extract(StateT(inner)):
+      return inner
+
+    return StateT(
+      (s): unwrap:
+        (a, firstS) <- stateFunc(s)
+        extract(f(a))(firstS)
+    )
+
+instance StateT of MonadTransformer:
+  def lift(toLift):
+    return StateT(
+      (s): unwrap:
+        a <- toLift
+        wrap((a, s))
     )

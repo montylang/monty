@@ -15,6 +15,7 @@ import Interop.Int
 import Interop.Double
 import Interop.Char
 import Interop.IO
+import Interop.Tuple
 
 debugImpl :: [Value] -> Scoper Value
 debugImpl [input] = do
@@ -37,4 +38,5 @@ preludeDefinitions =
   doubleDefinitions <>
   charDefinitions <>
   miscDefinitions <>
+  tupleDefinitions <>
   ioDefinitions

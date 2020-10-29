@@ -10,6 +10,7 @@ import RunnerUtils
 import CallableUtils
 import Data.Foldable (foldrM)
 import Data.Char (ord, chr)
+import Data.List
 
 consMapImpl :: [Value] -> Scoper Value
 consMapImpl [x, (VList xs), func] = do
@@ -96,7 +97,9 @@ consStrImpl [VChar x, VList xs] =
 consStrImpl [x, VList xs] = do
   impl  <- findImplsInScope "str" x
   inner <- sequence $ (evaluateImpl impl) . pure <$> x:xs
-  pure $ VList $ [VChar '['] <> inner <> [VChar ']']
+  pure $ VList $ [VChar '['] <>
+    (intercalate [VChar ',', VChar ' '] $ lElements <$> inner) <>
+    [VChar ']']
 
 nilStrImpl :: [Value] -> Scoper Value
 nilStrImpl [_] = pure $ VList [VChar '[', VChar ']']

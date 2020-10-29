@@ -101,6 +101,7 @@ addToTypeScope key value = do
 
 classForValue :: Value -> Maybe Id
 classForValue (VList _)   = Just "List"
+classForValue (VTuple _)  = Just "Tuple"
 classForValue (VInt _)    = Just "Int"
 classForValue (VDouble _) = Just "Double"
 classForValue (VChar _)   = Just "Char"
@@ -189,6 +190,7 @@ argToType :: Arg -> Scoper Type
 argToType (IdArg _)               = pure TAnything
 argToType (TypedIdArg _ "Char")   = pure TChar
 argToType (TypedIdArg _ "Int")    = pure TInt
+argToType (TypedIdArg _ "Tuple")  = pure $ TUser "Tuple"
 argToType (TypedIdArg _ "Double") = pure TDouble
 argToType (TypedIdArg _ t)        = pure $ TUser t
 argToType (PatternArg "Cons" _)   = pure $ TUser "List"

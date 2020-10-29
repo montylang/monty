@@ -63,8 +63,8 @@ tryInferral target fname vals = do
 
 inferTypeValue :: Type -> Value -> Scoper Value
 inferTypeValue (TUser tid) v@(VTypeInstance tname _ _) | tid == tname = pure v
-inferTypeValue (TUser tid) v@(VInferred fname _ vals) =
-  tryInferral tid fname vals
+inferTypeValue t@(TUser tid) v@(VInferred fname _ vals) =
+  inferTypeValue t =<< tryInferral tid fname vals
 inferTypeValue TAnything v                  = pure v
 inferTypeValue TInt v@(VInt _)              = pure v
 inferTypeValue TDouble v@(VDouble _)        = pure v
