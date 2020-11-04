@@ -1,4 +1,10 @@
-module ModuleLoader (loadModule, montyParseFromFile, toParseExcept) where
+module ModuleLoader
+  ( loadModule,
+    montyParseFromFile,
+    toParseExcept,
+    montyRunSemantic,
+  )
+where
 
 import System.Directory
 import System.Exit
@@ -44,17 +50,28 @@ loadFiles paths = do
 
     loadFile :: String -> Scoper ()
     loadFile path = do
-      parsed <- liftIO $ montyParseFromFile path
+      parsed <- liftIO $ montyRunSemantic . filterMains =<< montyParseFromFile path
 
       case runExcept parsed of
         Right exprs -> (sequence $ evaluate <$> exprs) *> pure ()
         Left err    -> liftIO $ die $ show err
 
+    filterMains :: ParseExcept [PExpr] -> ParseExcept [PExpr]
+    filterMains = fmap $ filter (not . isMain)
+
+    isMain :: PExpr -> Bool
+    isMain (Pos _ (ExprAssignment (IdArg "__main__") _)) = True
+    isMain _ = False
+
 toParseExcept :: Either (ParseErrorBundle String Void) a -> ParseExcept a
 toParseExcept (Right a) = pure a
 toParseExcept (Left err) = throwError $ ErrParse err
 
-montyParseFromFile :: String -> IO (ParseExcept [ET])
+montyParseFromFile :: String -> IO (ParseExcept [PExpr])
 montyParseFromFile file = do
   parsed <- toParseExcept <$> (runParser rootBodyParser file <$> readFile file)
+  pure parsed
+
+montyRunSemantic :: ParseExcept [PExpr] -> IO (ParseExcept [ET])
+montyRunSemantic parsed = do
   pure $ sequence =<< (semantic <$>) <$> parsed

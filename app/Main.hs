@@ -7,11 +7,11 @@ import Control.Monad.Except
 import MontyRunner (run)
 import Repl (runRepl)
 import Parser.Root (rootBodyParser)
-import ModuleLoader (montyParseFromFile)
+import ModuleLoader (montyParseFromFile, montyRunSemantic)
 
 runFile :: String -> IO ()
 runFile path = do
-  parsedProgram <- montyParseFromFile path
+  parsedProgram <- montyRunSemantic =<< montyParseFromFile path
 
   case runExcept parsedProgram of
     (Right prog) -> run prog
