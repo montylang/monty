@@ -1,16 +1,34 @@
-module Evaluators.Assignment (evalAssignment) where
+module Evaluators.Assignment (RAssignment(..)) where
 
 import Data.IORef
 import Control.Monad.State.Strict
+import Text.Megaparsec hiding (Pos)
 
+import Evaluators.Evaluatable
+import PrettyPrint
 import ParserTypes
 import RunnerTypes
 import RunnerUtils
 import MatchUtils
 
-evalAssignment :: Arg -> RExpr -> Scoper Value
-evalAssignment (IdArg name) value = do
-    evaledValue  <- eval value
+data RAssignment a where
+  RAssignment :: Evaluatable a =>
+    { rAssPos :: SourcePos,
+      rAssArg :: Arg,
+      rAssValue :: a
+    } -> RAssignment a
+
+instance Evaluatable (RAssignment a) where
+  getPos RAssignment {rAssPos} = rAssPos
+  evaluate (RAssignment _ rAssArg rAssValue) = evalAssignment rAssArg rAssValue
+
+instance PrettyPrint a => PrettyPrint (RAssignment a) where
+  prettyPrint (RAssignment _ rAssArg rAssValue) =
+    prettyPrint rAssArg <> " = " <> prettyPrint rAssValue
+
+evalAssignment :: Evaluatable a => Arg -> a -> Scoper Value
+evalAssignment (IdArg name) rhs = do
+    evaledValue  <- evaluate rhs
     inScopeValue <- findInTopScope name
     
     case inScopeValue of
@@ -28,8 +46,8 @@ evalAssignment (IdArg name) value = do
       pure $ VScoped (VFunction combined) newScope
     appendFunctionCase _ _ _ = stackTrace $ "Cannot mutate " <> name
 
-evalAssignment arg value = do
-    evaled  <- eval value
+evalAssignment arg rhs = do
+    evaled  <- evaluate rhs
 
     case zipArgToValue arg evaled of
       Right res -> (sequence $ uncurry addToScope <$> res) *> pure evaled

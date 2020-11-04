@@ -17,9 +17,6 @@ assert :: Bool -> String -> Scoper ()
 assert False message = throwError $ ErrString message
 assert True _        = pure ()
 
-eval :: RExpr -> Scoper Value
-eval expr = use (executors . evaluateExpr) >>= ($ expr)
-
 typesEqual :: Value -> Value -> Bool
 typesEqual (VTypeInstance t1 _ _) (VTypeInstance t2 _ _) = t1 == t2
 typesEqual (VInt _) (VInt _)                   = True
@@ -134,7 +131,7 @@ runWithTempScope :: Scoper Value -> Scoper Value
 runWithTempScope = runScopeWithSetup pushEmptyScopeBlock
 
 generateInteropCase :: [Arg] -> ([Value] -> Scoper Value) -> FunctionCase
-generateInteropCase args fun = InteropCase args $ do
+generateInteropCase args fun = FunctionCase args $ do
     inputValues <- findArgsInScope args
     fun inputValues
   where

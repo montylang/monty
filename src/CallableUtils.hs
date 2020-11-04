@@ -15,6 +15,7 @@ import RunnerTypes
 import ParserTypes
 import PrettyPrint
 import Data.Either (isRight)
+import Evaluators.Evaluatable
 
 evaluateTf :: DefSignature -> HM.HashMap Id FunctionImpl -> [Value] -> Scoper Value
 evaluateTf (DefSignature tname fname args retSelf) impls params = do
@@ -84,7 +85,7 @@ evaluateCases cases params = runWithTempScope $ do
   case find isRight (prepare <$> cases) of
     Just (Right (fcase, zipped)) -> do
       sequence_ $ uncurry addToScope <$> zipped
-      runFcase fcase
+      fcaseBody fcase
     Nothing -> stackTrace "Non-exhaustive pattern matches for function"
   where
     prepare :: FunctionCase -> Either String (FunctionCase, [(Id, Value)])
@@ -96,21 +97,6 @@ evaluateCases cases params = runWithTempScope $ do
         "Mismatched argument length. Got: " <>
         show (prettyPrint <$> params) <> ", but expected: " <>
         show (prettyPrint <$> fcaseArgs fcase)
-
-runFcase :: FunctionCase -> Scoper Value
-runFcase (FunctionCase _ body) = do
-    sequence_ $ eval <$> beginning
-    eval returnExpr
-  where
-    (beginning, returnExpr) = splitReturn body
-
-runFcase (InteropCase _ body) = body
-
-splitReturn :: [RExpr] -> ([RExpr], RExpr)
-splitReturn exprs =
-  let (beginning, [RExprReturn _ returnExpr]) =
-        splitAt ((length exprs) - 1) exprs
-  in (beginning, returnExpr)
 
 runFun :: Value -> [Value] -> Scoper Value
 runFun (VScoped func fscope) params = do

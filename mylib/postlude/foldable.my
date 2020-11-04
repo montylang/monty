@@ -1,0 +1,2 @@
+def len(someFoldable):
+  return someFoldable.foldl(0, (acc, _): acc + 1)

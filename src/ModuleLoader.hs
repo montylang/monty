@@ -9,6 +9,7 @@ import Control.Monad.State.Strict
 import Control.Monad.Except
 import Text.Megaparsec
 
+import Evaluators.Evaluatable
 import ParserTypes
 import RunnerTypes
 import RunnerUtils
@@ -37,23 +38,23 @@ loadFiles paths = do
     sequence_ (loadFile <$> paths)
     pure ()
   where
-    evalPNotMain :: RExpr -> Scoper Value
-    evalPNotMain (RExprAssignment _ (IdArg "__main__") _) = pure voidValue
-    evalPNotMain other = eval other
+    -- evalPNotMain :: RExpr -> Scoper Value
+    -- evalPNotMain (RExprAssignment _ (IdArg "__main__") _) = pure voidValue
+    -- evalPNotMain other = eval other
 
     loadFile :: String -> Scoper ()
     loadFile path = do
       parsed <- liftIO $ montyParseFromFile path
 
       case runExcept parsed of
-        Right exprs -> (sequence $ evalPNotMain <$> exprs) *> pure ()
+        Right exprs -> (sequence $ evaluate <$> exprs) *> pure ()
         Left err    -> liftIO $ die $ show err
 
 toParseExcept :: Either (ParseErrorBundle String Void) a -> ParseExcept a
 toParseExcept (Right a) = pure a
 toParseExcept (Left err) = throwError $ ErrParse err
 
-montyParseFromFile :: String -> IO (ParseExcept [RExpr])
+montyParseFromFile :: String -> IO (ParseExcept [ET])
 montyParseFromFile file = do
   parsed <- toParseExcept <$> (runParser rootBodyParser file <$> readFile file)
   pure $ sequence =<< (semantic <$>) <$> parsed

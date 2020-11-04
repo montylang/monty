@@ -19,14 +19,9 @@ type Scope      = [ScopeBlock]
 data ErrVal = ErrString String
   deriving (Show, Eq)
 
-data Executors = Executors {
-  _evaluateExpr :: RExpr -> Scoper Value
-}
-
 data Context = Context {
   _typeScope :: ScopeMap,
   _scope :: Scope,
-  _executors :: Executors,
   _callStack :: [SourcePos]
 }
 
@@ -57,24 +52,15 @@ instance PrettyPrint FunctionImpl where
     "sig(" <> intercalate ", " (prettyPrint <$> typeSig) <> "):\n" <>
     (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> cases)
 
-data FunctionCase
-  = FunctionCase
+data FunctionCase =
+  FunctionCase
       { fcaseArgs :: [Arg],
-        fcaseBody :: [RExpr]
-      }
-  | InteropCase
-      { fcaseArgs :: [Arg],
-        fcaseInteropBody :: (Scoper Value)
+        fcaseBody :: Scoper Value
       }
 
 instance PrettyPrint FunctionCase where
   prettyPrint (FunctionCase args body) =
-    "def(" <> (intercalate ", " $ prettyPrint <$> args) <> "):\n" <>
-    (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> body) <> "\n"
-
-  prettyPrint (InteropCase args _) =
-    "def(" <> (intercalate ", " $ prettyPrint <$> args) <> "):\n" <>
-    "  <interop body>" <> "\n"
+    "def(" <> (intercalate ", " $ prettyPrint <$> args) <> "):"
 
 instance Show FunctionCase where
   show fcase = "def (" <> intercalate "," (show <$> args) <> ")"
@@ -175,5 +161,4 @@ instance PrettyPrint Value where
   prettyPrint (VInferred fname tname vals) =
     "(inferreed)" <> fname <> " " <> tname <> " " <> (show $ prettyPrint <$> vals)
 
-$(makeLenses ''Executors)
 $(makeLenses ''Context)

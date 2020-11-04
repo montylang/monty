@@ -11,11 +11,12 @@ import System.Console.Repline
 import Text.Megaparsec
 import Debug.Trace
 
+import Evaluators.Evaluatable
 import PrettyPrint
 import ParserTypes
 import RunnerTypes
 import RunnerUtils
-import MontyRunner (loadMyLib, showCallStack, evaluate, runIOVal)
+import MontyRunner (loadMyLib, showCallStack, runIOVal)
 import Parser.Root (exprParser, importParser)
 import Parser.Utils (ws)
 import Parser.Semantic (semantic, ParseExcept)
@@ -24,7 +25,7 @@ import ModuleLoader (toParseExcept)
 emptyContext :: IO Context
 emptyContext = do
   emptyBlock <- newIORef HM.empty
-  pure $ Context HM.empty [emptyBlock] (Executors evaluate) []
+  pure $ Context HM.empty [emptyBlock] []
 
 runRepl :: IO ()
 runRepl = do
@@ -45,7 +46,7 @@ cmd input = lift runLine
       Right prog -> evaluatePrint prog *> pure ()
       Left  err  -> liftIO $ putStrLn $ show err
 
-    parseInput :: ParseExcept RExpr
+    parseInput :: ParseExcept ET
     parseInput = do
       parsed <- toParseExcept $ runParser replParser "repl" input
       semantic parsed
@@ -53,13 +54,13 @@ cmd input = lift runLine
     replParser :: Parser PExpr
     replParser = ws *> (importParser <|> exprParser "") <* ws
 
-evaluatePrint :: RExpr -> Scoper Value
-evaluatePrint expr =
-    catchError (evalAndPrint expr) printOnError *> pure voidValue 
+evaluatePrint :: ET -> Scoper Value
+evaluatePrint evalable =
+    catchError (evalAndPrint evalable) printOnError *> pure voidValue 
   where
-    evalAndPrint :: RExpr -> Scoper ()
-    evalAndPrint expr = do
-      res <- eval expr
+    evalAndPrint :: ET -> Scoper ()
+    evalAndPrint evalable = do
+      res <- evaluate evalable
 
       case res of
         VTuple []                    -> pure () -- Don't echo void

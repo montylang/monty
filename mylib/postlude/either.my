@@ -16,12 +16,6 @@ instance Either of Foldable:
   def foldl(_, initial, _):
     return initial
 
-  def len(Right(_)):
-    return 1
-
-  def len(_):
-    return 0
-
 instance Either of Applicative:
   def apply(Right(f), inputMaybe):
     return map(inputMaybe, f)

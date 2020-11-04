@@ -32,6 +32,9 @@ dependencies:
 
 library:
   source-dirs: src
+  default-extensions:
+    - NamedFieldPuns
+    - GADTs
 
 executables:
   monty-exe:

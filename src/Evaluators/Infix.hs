@@ -1,7 +1,9 @@
-module Evaluators.Infix (evalInfix) where
+module Evaluators.Infix where
 
+import Text.Megaparsec hiding (Pos)
 import Data.Tuple
 
+import Evaluators.Evaluatable
 import ParserTypes
 import RunnerTypes
 import RunnerUtils
@@ -9,11 +11,28 @@ import TypeUtils
 import CallableUtils
 import PrettyPrint
 
-evalInfix :: RExpr -> InfixOp -> RExpr -> Scoper Value
+data RInfix = RInfix
+    { rInfixPos :: SourcePos,
+      rInfixLhs :: ET,
+      rInfixOp  :: InfixOp,
+      rInfixRhs :: ET
+    }
+
+instance Evaluatable RInfix where
+  getPos RInfix {rInfixPos} = rInfixPos
+  evaluate (RInfix _ lhs op rhs) = do
+    lhsValue <- evaluate lhs
+    rhsValue <- evaluate rhs
+    evalInfix lhsValue op rhsValue
+
+instance PrettyPrint RInfix where
+  prettyPrint (RInfix _ lhs op rhs) =
+    "<infix>"
+    --"(" <> prettyPrint lhs <> prettyPrint op <> prettyPrint rhs <> ")"
+
+evalInfix :: Value -> InfixOp -> Value -> Scoper Value
 evalInfix first op second = do
-  f' <- eval first
-  s' <- eval second
-  (f, s) <- inferTypes f' s'
+  (f, s) <- inferTypes first second
   assert (typesEqual f s) $ "Cannot operate on values of different types: " <>
     prettyPrint f <> " " <> prettyPrint s
 

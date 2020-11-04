@@ -13,6 +13,7 @@ import MontyRunner
 import ParserTypes
 import RunnerTypes
 import RunnerUtils
+import Evaluators.Evaluatable
 
 runWithContext :: Context -> String -> IO String
 runWithContext context input = do
@@ -25,9 +26,9 @@ runWithContext context input = do
     run' :: Scoper Value
     run' = case runExcept $ head semanticed of
       Left _    -> undefined
-      Right res -> eval res
+      Right res -> evaluate res
 
-    semanticed :: [ParseExcept RExpr]
+    semanticed :: [ParseExcept ET]
     semanticed = semantic <$> parsed
 
     parsed :: [PExpr]

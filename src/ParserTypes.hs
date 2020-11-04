@@ -97,75 +97,6 @@ instance PrettyPrint Arg where
 
 type PExpr = Pos Expr
 
-data RExpr
-  = RExprId
-      { rpos :: SourcePos
-      , rid :: Id }
-  | RExprInt
-      { rpos :: SourcePos
-      , rint :: Int }
-  | RExprDouble
-      { rpos :: SourcePos
-      , rdouble :: Double }
-  | RExprChar
-      { rpos :: SourcePos
-      , rchar :: Char }
-  | RExprIfElse
-      { rpos :: SourcePos
-      , rif :: CondBlock RExpr
-      , relifs :: [CondBlock RExpr]
-      , relseBody :: [RExpr] }
-  | RExprInfix
-      { rpos :: SourcePos
-      , rlhs :: RExpr
-      , rinfixOp :: InfixOp
-      , rrhs :: RExpr }
-  | RExprPrefixOp
-      { rpos :: SourcePos
-      , rprefixOp :: PrefixOp
-      , rexpr :: RExpr }
-  | RExprAssignment
-      { rpos :: SourcePos
-      , rarg :: Arg
-      , rval :: RExpr }
-  | RExprDef
-      { rpos :: SourcePos
-      , rargs :: [Arg]
-      , rbody :: [RExpr] }
-  | RExprCall
-      { rpos :: SourcePos
-      , rfun :: RExpr
-      , rparams :: [RExpr] }
-  | RExprReturn
-      { rpos :: SourcePos
-      , rretVal :: RExpr }
-  | RExprClass
-      { rpos :: SourcePos
-      , rcname :: Id
-      , rtypecons :: [Pos TypeCons] }
-  | RExprList
-      { rpos :: SourcePos
-      , relements :: [RExpr] }
-  | RExprTuple
-      { rpos :: SourcePos
-      , relements :: [RExpr] }
-  | RExprType
-      { rpos :: SourcePos
-      , rtname :: Id
-      , rdefSigs :: [Pos DefSignature] }
-  | RExprInstanceOf
-      { rpos :: SourcePos
-      , rcname :: Id
-      , rtname :: Id
-      , rbody :: [RExpr] }
-  | RExprImport
-      { rpos :: SourcePos
-      , rpath :: [String] }
-  | RExprCase
-      { rpos :: SourcePos
-      , rinput :: RExpr
-      , rcaseBlocks :: [CaseBlock RExpr] }
-
 data Expr
   = ExprId Id
   | ExprInt Int
@@ -190,45 +121,39 @@ data Expr
   | ExprPrecedence PExpr
   deriving (Show, Eq)
 
-instance PrettyPrint RExpr where
-  prettyPrint (RExprId _ id) = id
+-- instance PrettyPrint RExpr where
+--   prettyPrint (RExprIfElse _ ifCB elifCBs elseBody) =
+--     "if " <> prettyPrint ifCB <>
+--     (intercalate "" $ (\x -> "elif " <> prettyPrint x) <$> elifCBs) <>
+--     "else:\n" <>
+--     (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> elseBody)
 
-  prettyPrint (RExprInt _ val) = show val
+--   prettyPrint (RExprInfix _ lhs op rhs) =
+--     "(" <> prettyPrint lhs <> prettyPrint op <> prettyPrint rhs <> ")"
 
-  prettyPrint (RExprChar _ c) = "'" <> show c <> "'"
+--   prettyPrint (RExprAssignment _ dest expr) =
+--     prettyPrint dest <> " = " <> prettyPrint expr
 
-  prettyPrint (RExprIfElse _ ifCB elifCBs elseBody) =
-    "if " <> prettyPrint ifCB <>
-    (intercalate "" $ (\x -> "elif " <> prettyPrint x) <$> elifCBs) <>
-    "else:\n" <>
-    (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> elseBody)
+--   prettyPrint (RExprDef _ args body) =
+--     "def(" <> (intercalate ", " $ prettyPrint <$> args) <> "):\n" <>
+--     (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> body) <> "\n"
 
-  prettyPrint (RExprInfix _ lhs op rhs) =
-    "(" <> prettyPrint lhs <> prettyPrint op <> prettyPrint rhs <> ")"
+--   prettyPrint (RExprCall _ fun args) =
+--     prettyPrint fun <> "(" <> (intercalate ", " $ prettyPrint <$> args) <> ")"
 
-  prettyPrint (RExprAssignment _ dest expr) =
-    prettyPrint dest <> " = " <> prettyPrint expr
+--   prettyPrint (RExprReturn _ val) = "return " <> prettyPrint val
 
-  prettyPrint (RExprDef _ args body) =
-    "def(" <> (intercalate ", " $ prettyPrint <$> args) <> "):\n" <>
-    (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> body) <> "\n"
+--   prettyPrint (RExprList _ values@((RExprChar _ _):_)) = show $ tac <$> values
+--     where
+--       tac :: RExpr -> Char
+--       tac (RExprChar _ c) = c
 
-  prettyPrint (RExprCall _ fun args) =
-    prettyPrint fun <> "(" <> (intercalate ", " $ prettyPrint <$> args) <> ")"
+--   prettyPrint (RExprList _ elements) =
+--     "[" <> (intercalate ", " $ prettyPrint <$> elements) <> "]"
 
-  prettyPrint (RExprReturn _ val) = "return " <> prettyPrint val
-
-  prettyPrint (RExprList _ values@((RExprChar _ _):_)) = show $ tac <$> values
-    where
-      tac :: RExpr -> Char
-      tac (RExprChar _ c) = c
-
-  prettyPrint (RExprList _ elements) =
-    "[" <> (intercalate ", " $ prettyPrint <$> elements) <> "]"
-
-  prettyPrint (RExprCase _ input bodies) =
-    "case " <> prettyPrint input <> ":\n" <>
-    (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> bodies) <> "\n"
+--   prettyPrint (RExprCase _ input bodies) =
+--     "case " <> prettyPrint input <> ":\n" <>
+--     (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> bodies) <> "\n"
 
 data DefSignature = DefSignature {
     getDefSigTypeName :: Id,
@@ -245,7 +170,7 @@ data TypeCons = TypeCons {
   deriving (Show, Eq)
 
 data Pos a = Pos {
-    getPos :: SourcePos,
+    getPosPos :: SourcePos,
     getPosValue :: a
   }
 

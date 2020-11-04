@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4a51149ecebb742017896202aebdea1d5f2697fa16985d746e1f2096e99dcafd
+-- hash: 23de8e642f06e808ab8374aad561144b8ae88e54707e6bd07043f6345b928b16
 
 name:           monty
 version:        0.1.0.0
@@ -27,12 +27,21 @@ source-repository head
 library
   exposed-modules:
       CallableUtils
+      Evaluators.All
       Evaluators.Assignment
+      Evaluators.Call
       Evaluators.Case
+      Evaluators.Class
       Evaluators.Condition
+      Evaluators.Def
+      Evaluators.Evaluatable
+      Evaluators.Id
+      Evaluators.Import
       Evaluators.Infix
+      Evaluators.InstanceOf
       Evaluators.Prefix
-      Evaluators.Types
+      Evaluators.Primitive
+      Evaluators.Type
       Interop.Char
       Interop.Double
       Interop.Helpers
@@ -60,6 +69,7 @@ library
       Paths_monty
   hs-source-dirs:
       src
+  default-extensions: NamedFieldPuns GADTs
   build-depends:
       base >=4.7 && <5
     , directory

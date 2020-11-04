@@ -3,7 +3,6 @@ type Functor:
 
 type Foldable:
   def foldl(self, initial, folder)
-  def len(self)
 
 type Applicative:
   # Second parameter: Expects a function inside

@@ -50,12 +50,6 @@ consFoldrImpl [x, (VList xs), initial, folder] =
 nilFoldrImpl :: [Value] -> Scoper Value
 nilFoldrImpl [initial, _] = pure initial
 
-consLenImpl :: [Value] -> Scoper Value
-consLenImpl [x, (VList xs)] = pure $ VInt $ length (x:xs)
-
-nilLenImpl :: [Value] -> Scoper Value
-nilLenImpl [] = pure $ VInt 0
-
 consBindImpl :: [Value] -> Scoper Value
 consBindImpl [consHead, consTail, func] = do
     mapped <- consMapImpl [consHead, consTail, func]
@@ -145,14 +139,6 @@ listDefinitions = [
            IdArg "initial",
            IdArg "folder"]
           nilFoldrImpl
-    ]),
-    ("List", "len", [
-        generateInteropCase
-          [PatternArg "Cons" [IdArg "head", IdArg "tail"]]
-          consLenImpl,
-        generateInteropCase
-          [PatternArg "Nil" []]
-          nilLenImpl
     ]),
     ("List", "bind", [
         generateInteropCase
