@@ -24,7 +24,7 @@ dependencies:
 - unordered-containers
 - hashable
 - mtl
-- microlens-platform
+- lens
 - directory
 - filepath
 - parser-combinators
@@ -35,6 +35,7 @@ library:
   default-extensions:
     - NamedFieldPuns
     - GADTs
+    - TemplateHaskell
 
 executables:
   monty-exe:

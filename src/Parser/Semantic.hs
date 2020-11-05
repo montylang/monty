@@ -6,7 +6,7 @@ import Debug.Trace
 import System.Exit
 import Text.Megaparsec hiding (Pos)
 import Control.Monad.Except
-import Lens.Micro.Platform
+import Control.Lens
 
 import ParserTypes hiding (RExpr)
 import RunnerUtils
@@ -94,6 +94,8 @@ semanticUnwrap :: [PExpr] -> ParseExcept ET
 semanticUnwrap [] = throwError $ ErrString "Empty unwrap body"
 semanticUnwrap [(Pos p (ExprBind _ _))] =
   throwError $ ErrPos p "Cannot have bind on last line of unwrap"
+semanticUnwrap [(Pos p (ExprAssignment _ _))] =
+  throwError $ ErrPos p "Cannot have assignment on last line of unwrap"
 semanticUnwrap [last] = semantic last
 semanticUnwrap ((Pos p (ExprBind arg expr)):xs) = do
   recursive    <- semanticUnwrap xs
@@ -102,8 +104,8 @@ semanticUnwrap ((Pos p (ExprBind arg expr)):xs) = do
   pure $ ET $ RCall p
     (ET $ RId p "bind")
     [ET semanticExpr, ET $ RDef p [arg] [recursive]]
-semanticUnwrap ((Pos p _):_) =
-  throwError $ ErrPos p "All non-tails in unwrap must be binds"
+semanticUnwrap ((Pos p expr):xs) = do
+  semanticUnwrap $ (Pos p $ ExprBind (IdArg "_") (Pos p expr)):xs
 
 semanticCondBlock :: CondBlock PExpr -> ParseExcept (CondBlock ET)
 semanticCondBlock (CondBlock cond body) = do

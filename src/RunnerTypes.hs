@@ -7,7 +7,7 @@ import Control.Monad.State.Strict
 import Control.Monad.Except
 import ParserTypes
 import PrettyPrint
-import Lens.Micro.Platform
+import Control.Lens
 import Text.Megaparsec hiding (Pos)
 import Data.IORef (IORef)
 import Debug.Trace
@@ -19,13 +19,13 @@ type Scope      = [ScopeBlock]
 data ErrVal = ErrString String
   deriving (Show, Eq)
 
-data Context = Context {
+data Runtime = Runtime {
   _typeScope :: ScopeMap,
   _scope :: Scope,
   _callStack :: [SourcePos]
 }
 
-type Scoper = StateT Context (ExceptT ErrVal IO)
+type Scoper = StateT Runtime (ExceptT ErrVal IO)
 
 data Type
   = TInt
@@ -161,4 +161,4 @@ instance PrettyPrint Value where
   prettyPrint (VInferred fname tname vals) =
     "(inferreed)" <> fname <> " " <> tname <> " " <> (show $ prettyPrint <$> vals)
 
-$(makeLenses ''Context)
+$(makeLenses ''Runtime)

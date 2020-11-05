@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 23de8e642f06e808ab8374aad561144b8ae88e54707e6bd07043f6345b928b16
+-- hash: 9933e8ad7b481b4bb7b0d4b1b25f4ab4bd40329491c15551a89b5886f53a7c39
 
 name:           monty
 version:        0.1.0.0
@@ -69,14 +69,14 @@ library
       Paths_monty
   hs-source-dirs:
       src
-  default-extensions: NamedFieldPuns GADTs
+  default-extensions: NamedFieldPuns GADTs TemplateHaskell
   build-depends:
       base >=4.7 && <5
     , directory
     , filepath
     , hashable
+    , lens
     , megaparsec
-    , microlens-platform
     , mtl
     , parser-combinators
     , repline >=0.4.0.0
@@ -95,8 +95,8 @@ executable monty-exe
     , directory
     , filepath
     , hashable
+    , lens
     , megaparsec
-    , microlens-platform
     , monty
     , mtl
     , parser-combinators
@@ -125,8 +125,8 @@ test-suite monty-test
     , filepath
     , hashable
     , hspec
+    , lens
     , megaparsec
-    , microlens-platform
     , monty
     , mtl
     , parser-combinators

@@ -1,7 +1,7 @@
 module Repl (runRepl) where
 
 import qualified Data.HashMap.Strict as HM
-import Lens.Micro.Platform
+import Control.Lens
 import Control.Monad.State.Strict
 import Control.Monad.Except
 import Data.List
@@ -22,10 +22,10 @@ import Parser.Utils (ws)
 import Parser.Semantic (semantic, ParseExcept)
 import ModuleLoader (toParseExcept)
 
-emptyContext :: IO Context
+emptyContext :: IO Runtime
 emptyContext = do
   emptyBlock <- newIORef HM.empty
-  pure $ Context HM.empty [emptyBlock] []
+  pure $ Runtime HM.empty [emptyBlock] []
 
 runRepl :: IO ()
 runRepl = do

@@ -15,7 +15,7 @@ import RunnerTypes
 import RunnerUtils
 import Evaluators.Evaluatable
 
-runWithContext :: Context -> String -> IO String
+runWithContext :: Runtime -> String -> IO String
 runWithContext context input = do
     val <- runExceptT $ evalStateT run' context
     
@@ -36,7 +36,7 @@ runWithContext context input = do
       Left  err -> trace (errorBundlePretty err) undefined
       Right res -> res
 
-loadPrelude :: IO Context
+loadPrelude :: IO Runtime
 loadPrelude = do
     eContext <- emptyContext
     val      <- runExceptT $ evalStateT load eContext
@@ -45,7 +45,7 @@ loadPrelude = do
       Left _    -> undefined
       Right res -> pure res
   where
-    load :: Scoper Context
+    load :: Scoper Runtime
     load = loadMyLib *> get
 
 spec :: Spec

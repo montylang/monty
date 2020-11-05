@@ -2,7 +2,7 @@ module Evaluators.Import where
 
 import Text.Megaparsec hiding (Pos)
 import Data.List
-import Lens.Micro.Platform
+import Control.Lens
 
 import ModuleLoader
 import ParserTypes

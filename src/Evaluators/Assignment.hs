@@ -1,8 +1,9 @@
-module Evaluators.Assignment (RAssignment(..)) where
+module Evaluators.Assignment where
 
 import Data.IORef
 import Control.Monad.State.Strict
 import Text.Megaparsec hiding (Pos)
+import Control.Lens
 
 import Evaluators.Evaluatable
 import PrettyPrint
@@ -13,13 +14,25 @@ import MatchUtils
 
 data RAssignment a where
   RAssignment :: Evaluatable a =>
-    { rAssPos :: SourcePos,
-      rAssArg :: Arg,
-      rAssValue :: a
+    { _rAssPos :: SourcePos,
+      _rAssArg :: Arg,
+      _rAssValue :: a
     } -> RAssignment a
 
+rAssPos :: Lens' (RAssignment a) SourcePos
+rAssPos f ass@(RAssignment {_rAssPos}) =
+  (\rAssPos' -> ass {_rAssPos = rAssPos'}) <$> f _rAssPos
+
+rAssArg :: Lens' (RAssignment a) Arg
+rAssArg f ass@(RAssignment {_rAssArg}) =
+  (\rAssArg' -> ass {_rAssArg = rAssArg'}) <$> f _rAssArg
+
+rAssValue :: Lens' (RAssignment a) a
+rAssValue f ass@(RAssignment {_rAssValue}) =
+  (\rAssValue' -> ass {_rAssValue = rAssValue'}) <$> f _rAssValue
+
 instance Evaluatable (RAssignment a) where
-  getPos RAssignment {rAssPos} = rAssPos
+  getPos assignment = assignment ^. rAssPos
   evaluate (RAssignment _ rAssArg rAssValue) = evalAssignment rAssArg rAssValue
 
 instance PrettyPrint a => PrettyPrint (RAssignment a) where

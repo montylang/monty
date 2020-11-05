@@ -6,7 +6,7 @@ import Data.Maybe
 import Text.Megaparsec hiding (Pos)
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer
-import Lens.Micro.Platform
+import Control.Lens
 
 import ParserTypes
 import MorphUtils
@@ -183,7 +183,7 @@ unwrapParser indent = do
     addPos $ ExprUnwrap content
   where
     wrappableParser :: Indent -> Parser PExpr
-    wrappableParser ind = bindParser ind <|> exprParser' ind
+    wrappableParser ind = bindParser ind <|> exprParser ind
 
     bindParser :: Indent -> Parser PExpr
     bindParser ind = do

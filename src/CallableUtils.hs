@@ -3,7 +3,7 @@ module CallableUtils (runFun, evaluateImpl, applyInferredType) where
 import Prelude
 import Data.List
 import Data.Maybe
-import Lens.Micro.Platform
+import Control.Lens
 import Debug.Trace
 import qualified Data.HashMap.Strict as HM
 import Data.IORef

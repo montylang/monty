@@ -4,6 +4,7 @@ import Data.Void
 import Text.Megaparsec hiding (Pos)
 import PrettyPrint
 import Data.List
+import Control.Lens
 
 type Parser = Parsec Void String
 
@@ -80,13 +81,20 @@ instance PrettyPrint PrefixOp where
   prettyPrint PrefixNegate = "-"
 
 data Arg
-  = IdArg Id
-  | TypedIdArg Id Id
-  | PatternArg Id [Arg]
+  = IdArg { _idArgVal :: Id }
+  | TypedIdArg
+    { _typedIdVal :: Id
+    , _typeIdType :: Id }
+  | PatternArg
+    { _patternName :: Id
+    , _patternArgs :: [Arg] }
   | SelfArg
-  | IntArg Int
-  | CharArg Char
+  | IntArg { _intArgVal :: Int }
+  | CharArg { _charArgVal :: Char }
   deriving (Show, Eq)
+
+(makeLenses ''Arg)
+(makePrisms ''Arg)
 
 instance PrettyPrint Arg where
   prettyPrint (IdArg id)             = id

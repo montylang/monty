@@ -7,7 +7,7 @@ import Control.Monad.Except
 import Text.Megaparsec
 import System.Exit
 import Data.List
-import Lens.Micro.Platform
+import Control.Lens
 import Data.IORef
 
 import ParserTypes
@@ -75,7 +75,7 @@ loadMyLib = do
     caseToTypes :: FunctionCase -> Scoper [Type]
     caseToTypes c = sequence $ argToType <$> (fcaseArgs c)
 
-emptyContext :: IO Context
+emptyContext :: IO Runtime
 emptyContext = do
   emptyBlock <- newIORef HM.empty
-  pure $ Context HM.empty [emptyBlock] []
+  pure $ Runtime HM.empty [emptyBlock] []

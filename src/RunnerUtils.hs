@@ -4,7 +4,7 @@ import Data.Maybe
 import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict
 import Control.Monad.Except
-import Lens.Micro.Platform
+import Control.Lens
 import Data.IORef
 
 import RunnerTypes

@@ -1,6 +1,6 @@
 module MorphUtils where
 
-import Lens.Micro.Platform
+import Control.Lens
 import Debug.Trace
 
 multiSpan :: (a -> Bool) -> [a] -> [[a]]

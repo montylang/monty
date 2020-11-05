@@ -3,6 +3,7 @@ module Evaluators.InstanceOf where
 import Text.Megaparsec hiding (Pos)
 import qualified Data.HashMap.Strict as HM
 import Data.List
+import Control.Lens
 
 import Evaluators.Evaluatable
 import Evaluators.Assignment
@@ -14,17 +15,37 @@ import RunnerUtils
 import Debug.Trace
 
 data RInstanceOf = RInstanceOf
-  { rInstancePos :: SourcePos,
-    rInstanceClassName :: Id,
-    rInstanceTypeName :: Id,
-    rInstanceBody :: [RAssignment RDef]
+  { _rInstancePos :: SourcePos,
+    _rInstanceClassName :: Id,
+    _rInstanceTypeName :: Id,
+    _rInstanceImpls :: [RAssignment RDef]
   }
 
-instance Evaluatable RInstanceOf where
-  getPos RInstanceOf {rInstancePos} = rInstancePos
-  evaluate RInstanceOf {rInstanceClassName, rInstanceTypeName, rInstanceBody} =
-    evalInstanceOf rInstanceClassName rInstanceTypeName rInstanceBody
+$(makeLenses ''RInstanceOf)
 
+instance Evaluatable RInstanceOf where
+  getPos instanceOf = instanceOf ^. rInstancePos
+  evaluate (RInstanceOf _ className typeName implementations) = do
+      classDef <- findInTypeScope className
+      typeDef  <- findInTypeScope typeName
+      funcDefs <- typeDefSigs typeDef
+      
+      if className == "List" then
+        addAllImplementations ["Nil", "Cons"] funcDefs
+      else case classDef of
+        Just (VClass consNames) -> addAllImplementations consNames funcDefs
+        _ -> stackTrace $ "Attempted to use undefined class: " <> className
+    where
+      typeDefSigs :: Maybe Value -> Scoper [DefSignature]
+      typeDefSigs (Just (VTypeDef _ sigs)) = pure sigs
+      typeDefSigs _ = stackTrace $ "Type " <> typeName <> " not found"
+  
+      addAllImplementations :: [Id] -> [DefSignature] -> Scoper Value
+      addAllImplementations consNames defSigs = do
+        sequence_ $ (addImplementation className consNames defSigs)
+          <$> implementations
+        pure voidValue
+    
 evalInstanceOf :: Id -> Id -> [RAssignment RDef] -> Scoper Value
 evalInstanceOf className typeName implementations = do
     classDef <- findInTypeScope className
@@ -48,12 +69,13 @@ evalInstanceOf className typeName implementations = do
       pure voidValue
 
 addImplementation :: Id -> [Id] -> [DefSignature] -> RAssignment RDef -> Scoper ()
-addImplementation cname classTypeCons available
-                  (RAssignment {rAssArg = (IdArg name),
-                                rAssValue = RDef {rDefArgs, rDefBody}}) = do
+addImplementation cname classTypeCons available ass = do
+  -- TODO: Will die if not IdArg... Probably shouldn't
+  let name = ass ^. rAssArg . idArgVal 
+  let def = ass ^. rAssValue
   sigArgs  <- getSigArgs name available
-  caseArgs <- markArgs cname classTypeCons rDefArgs sigArgs 
-  addBodyToScope cname name (runBody rDefBody) caseArgs
+  caseArgs <- markArgs cname classTypeCons (def ^. rDefArgs) sigArgs 
+  addBodyToScope cname name (runBody $ def ^. rDefBody) caseArgs
 
 getSigArgs :: Id -> [DefSignature] -> Scoper [Arg]
 getSigArgs cname cavailable =
