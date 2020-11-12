@@ -1,6 +1,7 @@
 module Evaluators.All (module Evaluators) where
 
 import Evaluators.Assignment as Evaluators
+import Evaluators.Block as Evaluators
 import Evaluators.Call as Evaluators
 import Evaluators.Case as Evaluators
 import Evaluators.Class as Evaluators

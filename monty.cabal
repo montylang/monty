@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9933e8ad7b481b4bb7b0d4b1b25f4ab4bd40329491c15551a89b5886f53a7c39
+-- hash: 1c0bdb94bd9f38cf1313e2f9dd01b3631d9598ee0bca81ad8aa306eef7e2e3f1
 
 name:           monty
 version:        0.1.0.0
@@ -29,6 +29,7 @@ library
       CallableUtils
       Evaluators.All
       Evaluators.Assignment
+      Evaluators.Block
       Evaluators.Call
       Evaluators.Case
       Evaluators.Class

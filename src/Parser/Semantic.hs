@@ -98,12 +98,17 @@ semanticUnwrap [(Pos p (ExprAssignment _ _))] =
   throwError $ ErrPos p "Cannot have assignment on last line of unwrap"
 semanticUnwrap [last] = semantic last
 semanticUnwrap ((Pos p (ExprBind arg expr)):xs) = do
-  recursive    <- semanticUnwrap xs
   semanticExpr <- semantic expr
+  recursive    <- semanticUnwrap xs
 
   pure $ ET $ RCall p
     (ET $ RId p "bind")
     [ET semanticExpr, ET $ RDef p [arg] [recursive]]
+semanticUnwrap (expr@(Pos p (ExprAssignment _ _)):xs) = do
+  semanticExpr <- semantic expr
+  recursive    <- semanticUnwrap xs
+
+  pure $ ET $ RBlock p [semanticExpr, recursive]
 semanticUnwrap ((Pos p expr):xs) = do
   semanticUnwrap $ (Pos p $ ExprBind (IdArg "_") (Pos p expr)):xs
 
