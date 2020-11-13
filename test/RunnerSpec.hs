@@ -17,7 +17,7 @@ import Evaluators.Evaluatable
 
 runWithContext :: Runtime -> String -> IO String
 runWithContext context input = do
-    val <- runExceptT $ evalStateT run' context
+    val <- evalStateT (runExceptT run') context
     
     case val of
       Left _    -> undefined
@@ -39,7 +39,7 @@ runWithContext context input = do
 loadPrelude :: IO Runtime
 loadPrelude = do
     eContext <- emptyContext
-    val      <- runExceptT $ evalStateT load eContext
+    val      <- evalStateT (runExceptT load) eContext
     
     case val of
       Left _    -> undefined
