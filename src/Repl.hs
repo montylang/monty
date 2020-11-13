@@ -16,21 +16,16 @@ import PrettyPrint
 import ParserTypes
 import RunnerTypes
 import RunnerUtils
-import MontyRunner (loadMyLib, showCallStack, runIOVal)
+import MontyRunner (loadMyLib, showCallStack, runIOVal, emptyContext)
 import Parser.Root (exprParser, importParser)
 import Parser.Utils (ws)
 import Parser.Semantic (semantic, ParseExcept)
 import ModuleLoader (toParseExcept)
 
-emptyContext :: IO Runtime
-emptyContext = do
-  emptyBlock <- newIORef HM.empty
-  pure $ Runtime HM.empty [emptyBlock] []
-
 runRepl :: IO ()
 runRepl = do
   eContext <- emptyContext
-  val <- runExceptT (evalStateT repl eContext)
+  val <- evalStateT (runExceptT repl) eContext
   case val of
     Left (ErrString message) -> die message 
     _                        -> pure ()
@@ -60,7 +55,7 @@ evaluatePrint evalable =
   where
     evalAndPrint :: ET -> Scoper ()
     evalAndPrint evalable = do
-      res <- evaluate evalable
+      res <- eval evalable
 
       case res of
         VTuple []                    -> pure () -- Don't echo void

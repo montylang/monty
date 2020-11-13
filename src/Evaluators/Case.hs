@@ -30,7 +30,7 @@ instance PrettyPrint RCase where
 
 evalCase :: ET -> [CaseBlock ET] -> Scoper Value
 evalCase input bodies = runWithTempScope $ do
-  evaledInput <- evaluate input
+  evaledInput <- eval input
 
   assertCbsType bodies
 
@@ -42,8 +42,8 @@ evalCase input bodies = runWithTempScope $ do
 
 runCaseBody :: [ET] -> Scoper Value
 runCaseBody exprs = do
-    sequence_ $ evaluate <$> beginning
-    evaluate lastExpr
+    sequence_ $ eval <$> beginning
+    eval lastExpr
   where
     (beginning, [lastExpr]) = splitAt ((length exprs) - 1) exprs
 

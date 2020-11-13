@@ -21,8 +21,8 @@ data RInfix = RInfix
 instance Evaluatable RInfix where
   getPos RInfix {rInfixPos} = rInfixPos
   evaluate (RInfix _ lhs op rhs) = do
-    lhsValue <- evaluate lhs
-    rhsValue <- evaluate rhs
+    lhsValue <- eval lhs
+    rhsValue <- eval rhs
     evalInfix lhsValue op rhsValue
 
 instance PrettyPrint RInfix where

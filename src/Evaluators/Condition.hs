@@ -40,7 +40,7 @@ evalCondition ifCond elifConds elseBody = do
     pickBody :: [CondBlock ET] -> Scoper [ET]
     pickBody [] = pure $ elseBody
     pickBody ((CondBlock condition condBody):xs) = do
-      condVal <- evaluate condition
+      condVal <- eval condition
 
       case condVal of
         (VTypeInstance _ "True" _)  -> pure condBody
@@ -49,5 +49,5 @@ evalCondition ifCond elifConds elseBody = do
 
 evalBody :: [ET] -> Scoper Value
 evalBody body = do
-  vals <- sequence $ evaluate <$> body
+  vals <- sequence $ eval <$> body
   pure $ last vals

@@ -26,15 +26,23 @@ showCallStack positions = intercalate "\n" $
 run :: [ET] -> IO ()
 run prog = do
     eContext <- emptyContext
-    val <- runExceptT (evalStateT (run' prog) eContext)
+    val <- evalStateT (runExceptT runCatch) eContext
     case val of
       Left (ErrString message) -> die message
-      _                        -> pure ()
+      _                  -> pure ()
   where
+    exitOnError :: ErrVal -> Scoper ()
+    exitOnError (ErrString err) = do
+      stack <- use callStack
+      liftIO $ die $ "StackTrace: " <> err <> "\n" <> showCallStack stack
+
+    runCatch :: Scoper ()
+    runCatch = catchError (run' prog) exitOnError
+
     run' :: [ET] -> Scoper ()
     run' exprs = do
       loadMyLib
-      sequence_ $ evaluate <$> exprs
+      sequence_ $ eval <$> exprs
 
       mainEntry <- findInScope "__main__"
       sequence_ $ runIOVal <$> mainEntry
@@ -77,5 +85,8 @@ loadMyLib = do
 
 emptyContext :: IO Runtime
 emptyContext = do
-  emptyBlock <- newIORef HM.empty
-  pure $ Runtime HM.empty [emptyBlock] []
+    emptyBlock <- newIORef HM.empty
+    pure $ Runtime HM.empty [emptyBlock] [] emptySp
+  where
+    emptySp :: SourcePos
+    emptySp = SourcePos "" (mkPos maxBound) (mkPos maxBound)

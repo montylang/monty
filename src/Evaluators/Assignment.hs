@@ -41,7 +41,7 @@ instance PrettyPrint a => PrettyPrint (RAssignment a) where
 
 evalAssignment :: Evaluatable a => Arg -> a -> Scoper Value
 evalAssignment (IdArg name) rhs = do
-    evaledValue  <- evaluate rhs
+    evaledValue  <- eval rhs
     inScopeValue <- findInTopScope name
     
     case inScopeValue of
@@ -60,7 +60,7 @@ evalAssignment (IdArg name) rhs = do
     appendFunctionCase _ _ _ = stackTrace $ "Cannot mutate " <> name
 
 evalAssignment arg rhs = do
-    evaled  <- evaluate rhs
+    evaled  <- eval rhs
 
     case zipArgToValue arg evaled of
       Right res -> (sequence $ uncurry addToScope <$> res) *> pure evaled

@@ -22,10 +22,11 @@ data ErrVal = ErrString String
 data Runtime = Runtime {
   _typeScope :: ScopeMap,
   _scope :: Scope,
-  _callStack :: [SourcePos]
+  _callStack :: [SourcePos],
+  _currentPos :: SourcePos
 }
 
-type Scoper = StateT Runtime (ExceptT ErrVal IO)
+type Scoper = ExceptT ErrVal (StateT Runtime IO)
 
 data Type
   = TInt

@@ -49,19 +49,19 @@ instance Evaluatable RChar where
 
 instance Evaluatable RTuple where
   getPos RTuple {rTuplePos} = rTuplePos
-  evaluate RTuple {rTupleElements} = VTuple <$> (sequence $ evaluate <$> rTupleElements)
+  evaluate RTuple {rTupleElements} = VTuple <$> (sequence $ eval <$> rTupleElements)
 
 instance Evaluatable RList where
   getPos RList {rListPos} = rListPos
   evaluate RList {rListElements = []} = pure $ VList []
   evaluate RList {rListElements = (x:xs)} = do
-      headEvaled <- evaluate x
+      headEvaled <- eval x
       tailEvaled <- sequence $ enforceType headEvaled <$> xs
       pure $ VList (headEvaled:tailEvaled)
     where
       enforceType :: Evaluatable a => Value -> a -> Scoper Value
       enforceType headVal expr = do
-        evaled <- evaluate expr
+        evaled <- eval expr
         assert (typesEqual evaled headVal) "List must be of the same type"
         pure evaled
 

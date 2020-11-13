@@ -53,7 +53,7 @@ loadFiles paths = do
       parsed <- liftIO $ montyRunSemantic . filterMains =<< montyParseFromFile path
 
       case runExcept parsed of
-        Right exprs -> (sequence $ evaluate <$> exprs) *> pure ()
+        Right exprs -> (sequence $ eval <$> exprs) *> pure ()
         Left err    -> liftIO $ die $ show err
 
     filterMains :: ParseExcept [PExpr] -> ParseExcept [PExpr]

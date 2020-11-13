@@ -19,7 +19,7 @@ data RPrefix = RPrefix
 instance Evaluatable RPrefix where
   getPos RPrefix {rPrefixPos} = rPrefixPos
   evaluate (RPrefix _ op rhs) = do
-    rhsValue <- evaluate rhs
+    rhsValue <- eval rhs
     evalPrefix op rhsValue
 
 instance PrettyPrint RPrefix where

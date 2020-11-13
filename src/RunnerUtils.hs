@@ -10,11 +10,16 @@ import Data.IORef
 import RunnerTypes
 import ParserTypes
 
+import Debug.Trace
+
 stackTrace :: String -> Scoper a
-stackTrace message = throwError $ ErrString message
+stackTrace message = do
+  cp <- use currentPos
+  callStack %= (cp:)
+  throwError $ ErrString message
 
 assert :: Bool -> String -> Scoper ()
-assert False message = throwError $ ErrString message
+assert False message = stackTrace message
 assert True _        = pure ()
 
 typesEqual :: Value -> Value -> Bool

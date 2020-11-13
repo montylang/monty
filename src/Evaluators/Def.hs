@@ -31,5 +31,5 @@ instance PrettyPrint RDef where
     "def(" <> (intercalate ", " $ prettyPrint <$> args) <> ")"
 
 runBody :: [ET] -> Scoper Value
-runBody [b]    = evaluate b
-runBody (b:bs) = evaluate b *> runBody bs
+runBody [b]    = eval b
+runBody (b:bs) = eval b *> runBody bs
