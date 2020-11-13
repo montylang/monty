@@ -35,7 +35,7 @@ assignmentParser indent = do
 
 namedDefParser :: Indent -> Parser PExpr
 namedDefParser indent = do
-  name <- try $ string "def" *> ws1 *> varIdParser indent
+  name <- try $ string "def" *> ws1 *> varIdParser
   args <- defArgParser indent <* char ':' <* eolSome
   body <- bodyParser indent
   def  <- addPos $ ExprDef args body
@@ -103,14 +103,14 @@ ifParser indent = do
       bodyParser indent
 
 exprVarIdParser :: Indent -> Parser PExpr
-exprVarIdParser indent = ExprId <$> varIdParser indent >>= addPos
+exprVarIdParser indent = ExprId <$> varIdParser >>= addPos
 
 exprTypeIdParser :: Indent -> Parser PExpr
-exprTypeIdParser indent = ExprId <$> typeIdParser indent >>= addPos
+exprTypeIdParser indent = ExprId <$> typeIdParser >>= addPos
 
 exprTypeConsParser :: Indent -> Parser PExpr
 exprTypeConsParser indent = do
-  name <- ExprId <$> typeIdParser indent >>= addPos
+  name <- ExprId <$> typeIdParser >>= addPos
   args <- (multiParenParser '(' ')' $ exprParser indent) <|> pure []
   addPos $ ExprCall name args
 
@@ -129,41 +129,42 @@ exprStringParser _ = do
   inner <- stringParser
   addPos $ ExprList (Pos pos . ExprChar <$> inner)
 
--- TODO: Only allow in root scopes
-classParser :: Indent -> Parser PExpr
-classParser indent = do
-  _ <- try $ string "class" <* ws1
-  name <- typeIdParser indent
-  _ <- ws <* char ':' <* eolSome
-  defs <- blockParser indent typeConsParser
-  addPos $ ExprClass name defs
-
+classParser :: Parser PExpr
+classParser = do
+    pos <- sourcePos
+    _ <- try $ string "class" <* ws1
+    name <- typeIdParser
+    _ <- ws <* char ':' <* eolSome
+    defs <- blockParser "" typeConsParser
+    pure $ Pos pos $ ExprClass name defs
   where
     typeConsParser :: Indent -> Parser (Pos TypeCons)
     typeConsParser ind = do
-      name <- typeIdParser ind <* ws
+      name <- typeIdParser <* ws
       args <- (try $ typeConsArgParser ind) <|> pure []
       addPos $ TypeCons name args
 
-instanceParser :: Indent -> Parser PExpr
-instanceParser indent = do
-    name        <- try $ string "instance" *> ws1 *> typeIdParser indent
+instanceParser :: Parser PExpr
+instanceParser = do
+    pos         <- sourcePos
+    name        <- try $ string "instance" *> ws1 *> typeIdParser
     _           <- ws1 <* string "of" <* ws1
-    typeClass   <- typeIdParser indent <* ws <* char ':' <* eolSome
-    definitions <- blockParser indent namedDefParser
-    addPos $ ExprInstanceOf name typeClass definitions
+    typeClass   <- typeIdParser <* ws <* char ':' <* eolSome
+    definitions <- blockParser "" namedDefParser
+    pure $ Pos pos $ ExprInstanceOf name typeClass definitions
 
-typeParser :: Indent -> Parser PExpr
-typeParser indent = do
+typeParser :: Parser PExpr
+typeParser = do
+    pos  <- sourcePos
     _    <- try $ string "type" <* ws1
-    name <- typeIdParser indent <* ws <* char ':' <* eolSome
-    body <- blockParser indent $ typeBodyParser name
-    addPos $ ExprType name body
+    name <- typeIdParser <* ws <* char ':' <* eolSome
+    body <- blockParser "" $ typeBodyParser name
+    pure $ Pos pos $ ExprType name body
   where
     typeBodyParser :: Id -> Indent -> Parser (Pos DefSignature)
     typeBodyParser typeName ind = do
-      name    <- string "def" *> ws1 *> varIdParser ind
-      args    <- multiParenParser '(' ')' (varIdParser ind)
+      name    <- string "def" *> ws1 *> varIdParser
+      args    <- multiParenParser '(' ')' varIdParser
       retSelf <- mustReturnSelfP
       addPos $ DefSignature typeName name (nameToArg <$> args) retSelf
 
@@ -289,21 +290,14 @@ exprParser' indent = unchainableContent <|> contentChained
       c <- lookAhead anySingle
 
       case c of
-        'i' -> choice $ ($ indent) <$> [
-                 instanceParser,
-                 ifParser
-               ]
+        'i' -> ifParser indent
         'd' -> choice $ ($ indent) <$> [
                  namedDefParser,
                  defParser
                ]
-        'c' -> choice $ ($ indent) <$> [
-                 caseParser,
-                 classParser
-               ]
+        'c' -> caseParser indent
         'u' -> unwrapParser indent
         'r' -> returnParser indent
-        't' -> typeParser indent
         'p' -> passParser indent
         _   -> empty
 
@@ -341,19 +335,32 @@ exprParser indent = choice $ ($ indent) <$> [
 
 importParser :: Parser PExpr
 importParser = do
-  _    <- rword "import"
-  path <- sepBy1 (varIdParser "") (char '.')
+  _ <- rword "import"
+  path <- sepBy1 varIdParser (char '.')
   addPos $ ExprImport path
+
+statementParser :: Parser PExpr
+statementParser = do
+    c <- lookAhead anySingle
+
+    case c of
+      'i' -> instanceParser
+      'c' -> classParser
+      't' -> typeParser
+      _   -> empty
 
 bodyParser :: Indent -> Parser [PExpr]
 bodyParser base = blockParser base exprParser
+
+rootPeep :: Parser PExpr
+rootPeep = statementParser <|> exprParser ""
 
 rootBodyParser :: Parser [PExpr]
 rootBodyParser = do
     _ <- many $ try singleEol
     imports <- many (importParser <* eolSome)
     _ <- many $ try singleEol
-    first <- exprParser "" <* lookAhead (try singleEol <|> eof)
+    first <- rootPeep <* lookAhead (try singleEol <|> eof)
     rest  <- many stmt <* commentableEof
     pure $ imports <> (first:(catMaybes rest))
   where
@@ -364,4 +371,4 @@ rootBodyParser = do
     blankLine = eolSome *> pure Nothing
 
     rootExpr :: Parser (Maybe PExpr)
-    rootExpr = Just <$> exprParser ""
+    rootExpr = Just <$> rootPeep

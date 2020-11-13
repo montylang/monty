@@ -340,7 +340,7 @@ spec = do
 
   describe "Classes but really just data" $ do
     it "Constructs" $ do
-      (testParser exprParser $ unlines [
+      (testParserNoIndent classParser $ unlines [
             "class Maybe:",
             "  None()",
             "  Just(you)"
@@ -350,9 +350,15 @@ spec = do
               pure $ TypeCons "Just" ["you"]
             ])
 
+      (testParser exprParser $ unlines [
+            "def foo():",
+            "  class Maybe:",
+            "    None()"
+          ]) `shouldSatisfy` isLeft
+
   describe "Instances but really just instances" $ do
     it "Instances" $ do
-      (testParser instanceParser $ unlines [
+      (testParserNoIndent instanceParser $ unlines [
             "instance Maybe of Functor:",
             "  def bar():",
             "    return 0"
@@ -362,6 +368,13 @@ spec = do
                 (IdArg "bar")
                 (pure $ ExprDef [] [pure $ ExprReturn (pure $ ExprInt 0)])
             ])
+
+      (testParser exprParser $ unlines [
+            "def foo():",
+            "  instance Maybe of Functor:",
+            "    def bar():",
+            "      return 0"
+          ]) `shouldSatisfy` isLeft
 
   describe "Unwrap parser" $ do
     it "Parses uwrap statements" $ do

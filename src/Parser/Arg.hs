@@ -22,7 +22,7 @@ argParser indent = choice $ try <$> [
   ]
   where
     idArgParser :: Parser Arg
-    idArgParser = IdArg <$> varIdParser indent
+    idArgParser = IdArg <$> varIdParser
 
     intArgParser :: Parser Arg
     intArgParser = IntArg <$> intParser
@@ -35,7 +35,7 @@ argParser indent = choice $ try <$> [
 
     patternArgParser :: Parser Arg
     patternArgParser = do
-      name <- typeIdParser indent <* ws
+      name <- typeIdParser <* ws
       args <- try (defArgParser indent) <|> pure []
       pure $ PatternArg name args
 
@@ -62,19 +62,19 @@ defArgParser :: Indent -> Parser [Arg]
 defArgParser indent = multiParenParser '(' ')' (argParser indent) <* ws
 
 typeConsArgParser :: Indent -> Parser [Id]
-typeConsArgParser indent = multiParenParser '(' ')' (varIdParser indent) <* ws
+typeConsArgParser indent = multiParenParser '(' ')' varIdParser <* ws
 
-varIdParser :: Indent -> Parser Id
-varIdParser _ = do
+varIdParser :: Parser Id
+varIdParser = do
   x  <- char '_' <|> satisfy isLower
   xs <- many $ (char '_' <|> alphaNumChar)
   pure $ x:xs
 
-typeIdParser :: Indent -> Parser Id
-typeIdParser _ = do
+typeIdParser :: Parser Id
+typeIdParser = do
   firstChar <- satisfy isUpper
   rest      <- many $ (char '_' <|> alphaNumChar)
   pure $ firstChar:rest
 
-anyIdParser :: Indent -> Parser Id
-anyIdParser indent = try (varIdParser indent) <|> typeIdParser indent
+anyIdParser :: Parser Id
+anyIdParser = try varIdParser <|> typeIdParser
