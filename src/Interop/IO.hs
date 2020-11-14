@@ -17,7 +17,7 @@ import Interop.Helpers
 ioPrintStrT :: [Value] -> Scoper Value
 ioPrintStrT [VList str@((VChar _):_), token] = do
   liftIO $ putStrLn $ (vChr <$> str)
-  pure $ VTuple [voidValue, token]
+  pure $ VTuple [unitValue, token]
 
 ioReadStrT :: [Value] -> Scoper Value
 ioReadStrT [token] = do

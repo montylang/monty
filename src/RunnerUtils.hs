@@ -22,6 +22,9 @@ assert :: Bool -> String -> Scoper ()
 assert False message = stackTrace message
 assert True _        = pure ()
 
+unitValue :: Value
+unitValue = VTuple []
+
 loadModule :: [String] -> Scoper ()
 loadModule path = do
   lm <- use loadModuleImpl
@@ -157,8 +160,8 @@ generateInteropCase args fun = FunctionCase args $ do
       where 
         ids = cargs >>= idsInArg
 
-addToStub :: Id -> FunctionCase -> Value -> Scoper Value
-addToStub cname newCase (VTypeFunction defSig impls) = do
+addToStub :: Id -> Id -> FunctionCase -> Value -> Scoper Value
+addToStub fname cname newCase (VTypeFunction defSig impls) = do
     res <- case impls ^. at cname of
       Just impl -> updateClassImpl newCase impl
       Nothing -> caseToImpl newCase
@@ -167,19 +170,19 @@ addToStub cname newCase (VTypeFunction defSig impls) = do
     caseToImpl :: FunctionCase -> Scoper FunctionImpl
     caseToImpl fcase = do
       types <- sequence $ argToType <$> (fcaseArgs fcase)
-      pure $ FunctionImpl [fcase] types
-    
+      pure $ FunctionImpl (Just fname) [fcase] types
+
     updateClassImpl :: FunctionCase -> FunctionImpl -> Scoper FunctionImpl
     updateClassImpl newCase oldImpl = do
       newImpl <- caseToImpl newCase
       combineImpls oldImpl newImpl
 
-addToStub _ _ _ = stackTrace "Cannot add stub case to non v-type function"
+addToStub _ _ _ _ = stackTrace "Cannot add stub case to non v-type function"
 
 combineImpls :: FunctionImpl -> FunctionImpl -> Scoper FunctionImpl
-combineImpls (FunctionImpl xCases xTypes) (FunctionImpl yCases yTypes) = do
+combineImpls (FunctionImpl xName xCases xTypes) (FunctionImpl _ yCases yTypes) = do
   typeSig <- combineTypes xTypes yTypes
-  pure $ FunctionImpl (xCases <> yCases) typeSig
+  pure $ FunctionImpl xName (xCases <> yCases) typeSig
 
 combineTypes :: [Type] -> [Type] -> Scoper [Type]
 combineTypes xs ys = sequence $ (uncurry combineType) <$> (zip xs ys)

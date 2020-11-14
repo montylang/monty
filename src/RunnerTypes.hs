@@ -45,13 +45,15 @@ instance PrettyPrint Type where
   prettyPrint (TUser t) = t
 
 data FunctionImpl = FunctionImpl
-  { fcases :: [FunctionCase],
+  { fname :: Maybe Id,
+    fcases :: [FunctionCase],
     ftypeSig :: [Type]
   } deriving (Show, Eq)
 
 instance PrettyPrint FunctionImpl where
-  prettyPrint (FunctionImpl cases typeSig) =
-    "sig(" <> intercalate ", " (prettyPrint <$> typeSig) <> "):\n" <>
+  prettyPrint (FunctionImpl name cases typeSig) =
+    "sig(" <> show name <> ": " <>
+    intercalate ", " (prettyPrint <$> typeSig) <> "):\n" <>
     (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> cases)
 
 data FunctionCase =
@@ -70,8 +72,6 @@ instance Show FunctionCase where
 
 instance Eq FunctionCase where
   (==) first second = fcaseArgs first == fcaseArgs second
-
-voidValue = VTuple []
 
 data Value
   = VInt Int

@@ -62,22 +62,25 @@ tryInferral target fname vals = do
   impl <- implForClass target fname
   evaluateImpl impl vals
 
-inferTypeValue :: Type -> Value -> Scoper Value
-inferTypeValue (TUser tid) v@(VTypeInstance tname _ _) | tid == tname = pure v
-inferTypeValue t@(TUser tid) v@(VInferred fname _ vals) =
-  inferTypeValue t =<< tryInferral tid fname vals
-inferTypeValue TAnything v                  = pure v
-inferTypeValue TInt v@(VInt _)              = pure v
-inferTypeValue TDouble v@(VDouble _)        = pure v
-inferTypeValue TChar v@(VChar _)            = pure v
-inferTypeValue (TUser "List") v@(VList _)   = pure v
-inferTypeValue (TUser "Tuple") v@(VTuple _) = pure v
-inferTypeValue t v = stackTrace $ "I shit my pants! " <>
-  show t <> "," <> prettyPrint v
+fitValueToType :: Maybe Id -> Type -> Value -> Scoper Value
+fitValueToType _ (TUser tid) v@(VTypeInstance tname _ _) | tid == tname = pure v
+fitValueToType name t@(TUser tid) v@(VInferred fname _ vals) =
+  fitValueToType name t =<< tryInferral tid fname vals
+fitValueToType _ TAnything v                  = pure v
+fitValueToType _ TInt v@(VInt _)              = pure v
+fitValueToType _ TDouble v@(VDouble _)        = pure v
+fitValueToType _ TChar v@(VChar _)            = pure v
+fitValueToType _ (TUser "List") v@(VList _)   = pure v
+fitValueToType _ (TUser "Tuple") v@(VTuple _) = pure v
+fitValueToType name t v =
+    stackTrace $ nameStr <> " expected: '" <>
+      prettyPrint t <> "' but got: '" <> prettyPrint v <> "'"
+  where
+    nameStr = fromMaybe "Function" name
 
 evaluateImpl :: FunctionImpl -> [Value] -> Scoper Value
-evaluateImpl (FunctionImpl cases typeSig) values = do
-  inferred <- sequence $ (uncurry inferTypeValue) <$> zip typeSig values
+evaluateImpl (FunctionImpl name cases typeSig) values = do
+  inferred <- sequence $ (uncurry $ fitValueToType name) <$> zip typeSig values
   evaluateCases cases inferred
 
 evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
@@ -111,7 +114,7 @@ runFun value params = runScopedFun value params
 
 handleCurrying :: Int -> [Value] -> Value -> Value
 handleCurrying expectedLen params thingToCurry = 
-    VFunction $ FunctionImpl [
+    VFunction $ FunctionImpl Nothing [
         generateInteropCase newArgs
           (\rest -> runFun thingToCurry (newParams <> rest))
       ] newTypes
@@ -123,7 +126,7 @@ handleCurrying expectedLen params thingToCurry =
     newTypes    = drop actualLen $ extractTypeSig thingToCurry
 
     extractTypeSig :: Value -> [Type]
-    extractTypeSig (VFunction (FunctionImpl _ types)) = types
+    extractTypeSig (VFunction (FunctionImpl _ _ types)) = types
     extractTypeSig (VTypeCons _ _ vals) = TAnything <$ vals
     extractTypeSig _ = []
 
@@ -141,7 +144,7 @@ curryWrapper og evaluator errMessage params =
       length cargs
     argLenForFuncLike (VTypeFunction (DefSignature _ _ args _) _) =
       length args
-    argLenForFuncLike (VFunction (FunctionImpl (x:_) _)) =
+    argLenForFuncLike (VFunction (FunctionImpl _ (x:_) _)) =
       length $ fcaseArgs x
     argLenForFuncLike v = trace ("Not a func-like: " <> show v) undefined
 

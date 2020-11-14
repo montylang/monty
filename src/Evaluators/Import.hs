@@ -17,7 +17,7 @@ data RImport = RImport
 
 instance Evaluatable RImport where
   getPos _ = undefined
-  evaluate RImport {riPath} = voidValue <$ loadModule riPath
+  evaluate RImport {riPath} = unitValue <$ loadModule riPath
 
 instance PrettyPrint RImport where
   prettyPrint _ = "<import>"

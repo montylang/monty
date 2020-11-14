@@ -13,6 +13,7 @@ import Debug.Trace
 
 data RDef = RDef
   { _rDefPos :: SourcePos,
+    _rDefName :: Maybe Id,
     _rDefArgs :: [Arg],
     _rDefBody :: [ET]
   }
@@ -21,14 +22,14 @@ data RDef = RDef
 
 instance Evaluatable RDef where
   getPos def = def ^. rDefPos
-  evaluate (RDef _ args body) = do
+  evaluate (RDef _ name args body) = do
     types    <- sequence $ argToType <$> args
     let fcase = FunctionCase args (runBody body)
-    VScoped (VFunction $ FunctionImpl [fcase] types) <$> use scope
+    VScoped (VFunction $ FunctionImpl name [fcase] types) <$> use scope
 
 instance PrettyPrint RDef where
-  prettyPrint (RDef _ args body) =
-    "def(" <> (intercalate ", " $ prettyPrint <$> args) <> ")"
+  prettyPrint (RDef _ name args body) =
+    "def " <> show name <> "(" <> (intercalate ", " $ prettyPrint <$> args) <> ")"
 
 runBody :: [ET] -> Scoper Value
 runBody [b]    = eval b

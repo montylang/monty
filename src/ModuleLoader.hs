@@ -44,10 +44,6 @@ loadFiles paths = do
     sequence_ (loadFile <$> paths)
     pure ()
   where
-    -- evalPNotMain :: RExpr -> Scoper Value
-    -- evalPNotMain (RExprAssignment _ (IdArg "__main__") _) = pure voidValue
-    -- evalPNotMain other = eval other
-
     loadFile :: String -> Scoper ()
     loadFile path = do
       parsed <- liftIO $ montyRunSemantic . filterMains =<< montyParseFromFile path

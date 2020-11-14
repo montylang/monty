@@ -44,7 +44,7 @@ instance Evaluatable RInstanceOf where
       addAllImplementations consNames defSigs = do
         sequence_ $ (addImplementation className consNames defSigs)
           <$> implementations
-        pure voidValue
+        pure unitValue
     
 evalInstanceOf :: Id -> Id -> [RAssignment RDef] -> Scoper Value
 evalInstanceOf className typeName implementations = do
@@ -66,7 +66,7 @@ evalInstanceOf className typeName implementations = do
     addAllImplementations consNames defSigs = do
       sequence_ $ (addImplementation className consNames defSigs)
         <$> implementations
-      pure voidValue
+      pure unitValue
 
 addImplementation :: Id -> [Id] -> [DefSignature] -> RAssignment RDef -> Scoper ()
 addImplementation cname classTypeCons available ass = do
@@ -95,12 +95,12 @@ validateArgs cname classes SelfArg (PatternArg pname _) | not $ elem pname class
 validateArgs _ _ _ arg = pure arg
 
 addBodyToScope :: Id -> Id -> Scoper Value -> [Arg] -> Scoper ()
-addBodyToScope cname name body caseArgs = do
-  maybeStub <- findInScope name
+addBodyToScope cname fname body caseArgs = do
+  maybeStub <- findInScope fname
   case maybeStub of
-    Just val -> (replaceInScope name =<< updateStub cname val caseArgs body)
-    _        -> stackTrace $ name <> " is not in scope"
+    Just val -> (replaceInScope fname =<< updateStub fname cname val caseArgs body)
+    _        -> stackTrace $ fname <> " is not in scope"
 
-updateStub :: Id -> Value -> [Arg] -> (Scoper Value) -> Scoper Value
-updateStub cname stub caseArgs body =
-  addToStub cname (FunctionCase caseArgs $ body) stub
+updateStub :: Id -> Id -> Value -> [Arg] -> (Scoper Value) -> Scoper Value
+updateStub fname cname stub caseArgs body =
+  addToStub fname cname (FunctionCase caseArgs $ body) stub

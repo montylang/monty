@@ -61,19 +61,19 @@ runIOVal _ =
 loadMyLib :: Scoper ()
 loadMyLib = do
     loadModule ["mylib", "prelude"]
-    sequence_ $ (uncurry3 addOrUpdateInterops) <$> preludeDefinitions
     loadModule ["mylib", "postlude"]
+    sequence_ $ (uncurry3 addOrUpdateInterops) <$> preludeDefinitions
   where
     addOrUpdateInterops :: Id -> Id -> [FunctionCase] -> Scoper ()
-    addOrUpdateInterops cname name cases = do
-      result <- findInTopScope name
+    addOrUpdateInterops cname fname cases = do
+      result <- findInTopScope fname
       newInterops <- case result of
-        Just a  -> foldM (flip $ addToStub cname) a cases
+        Just a  -> foldM (flip $ addToStub fname cname) a cases
         Nothing -> do
           comb <- casesToTypes cases
-          pure $ VFunction $ FunctionImpl cases comb
+          pure $ VFunction $ FunctionImpl (Just fname) cases comb
 
-      replaceInScope name newInterops
+      replaceInScope fname newInterops
 
     casesToTypes :: [FunctionCase] -> Scoper [Type]
     casesToTypes cases = do

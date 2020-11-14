@@ -104,7 +104,7 @@ semanticUnwrap ((Pos p (ExprBind arg expr)):xs) = do
 
   pure $ ET $ RCall p
     (ET $ RId p "bind")
-    [ET semanticExpr, ET $ RDef p [arg] [recursive]]
+    [ET semanticExpr, ET $ RDef p Nothing [arg] [recursive]]
 semanticUnwrap (expr@(Pos p (ExprAssignment _ _)):xs) = do
   semanticExpr <- semantic expr
   recursive    <- semanticUnwrap xs
@@ -125,7 +125,8 @@ semanticCaseBlock (CaseBlock p arg body) = do
   pure $ CaseBlock p arg newBody
 
 semanticInstanceDef :: PExpr -> ParseExcept (RAssignment RDef)
-semanticInstanceDef = semanticAss semanticDef
+semanticInstanceDef expr@(Pos _ (ExprAssignment (IdArg name) _)) =
+  semanticAss (semanticDef $ Just name) expr
 
 semanticAss :: Evaluatable a
   => (PExpr -> ParseExcept a)
@@ -136,11 +137,11 @@ semanticAss rhsSemantic (Pos p (ExprAssignment arg value)) = do
   pure $ RAssignment p arg rhs
 semanticAss _ (Pos p _) = throwError $ ErrPos p $ "Not an assignment"
 
-semanticDef :: PExpr -> ParseExcept RDef
-semanticDef (Pos p (ExprDef args body)) = do
+semanticDef :: Maybe Id -> PExpr -> ParseExcept RDef
+semanticDef name (Pos p (ExprDef args body)) = do
   newBody <- sequence $ semantic <$> body
-  pure $ RDef p args newBody
-semanticDef (Pos p _) = throwError $ ErrPos p $ "Not a def"
+  pure $ RDef p name args newBody
+semanticDef _ (Pos p _) = throwError $ ErrPos p $ "Not a def"
 
 semantic :: PExpr -> ParseExcept ET
 -- Actual semantic alterations
@@ -162,10 +163,12 @@ semantic (Pos p (ExprIfElse ifCond elifConds elseBody)) = do
   newElifConds <- sequence $ semanticCondBlock <$> elifConds 
   newElseBody  <- sequence $ semantic          <$> elseBody
   pure $ ET $ RCondition p newIfCond newElifConds newElseBody
+semantic ass@(Pos _ (ExprAssignment arg@(IdArg name) value@(Pos _ (ExprDef _ _)))) = do
+  ET <$> semanticAss (semanticDef $ Just name) ass
 semantic ass@(Pos _ (ExprAssignment _ _)) = do
   ET <$> semanticAss semantic ass
 semantic def@(Pos _ (ExprDef {})) = do
-  ET <$> semanticDef def
+  ET <$> semanticDef Nothing def
 semantic (Pos p (ExprCall func params)) = do
   newFunc <- semantic func 
   newParams <- sequence $ semantic <$> params 

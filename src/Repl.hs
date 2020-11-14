@@ -47,11 +47,11 @@ cmd input = lift runLine
       semantic parsed
 
     replParser :: Parser PExpr
-    replParser = ws *> (importParser <|> exprParser "") <* ws
+    replParser = ws *> (importParser <|> exprParser "") <* ws <* eof
 
 evaluatePrint :: ET -> Scoper Value
 evaluatePrint evalable =
-    catchError (evalAndPrint evalable) printOnError *> pure voidValue 
+    catchError (evalAndPrint evalable) printOnError *> pure unitValue
   where
     evalAndPrint :: ET -> Scoper ()
     evalAndPrint evalable = do
@@ -65,6 +65,7 @@ evaluatePrint evalable =
     printOnError :: ErrVal -> Scoper ()
     printOnError (ErrString err) = do
       stack <- use callStack
+      callStack .= []
       liftIO $ putStrLn $ err <> "\n" <> showCallStack stack
 
 -- Tab Completion: return a completion for partial words entered
