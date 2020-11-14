@@ -125,17 +125,46 @@ def listToMaybe(Nil):
 def listToMaybe(head|_):
   return Just(head)
 
-
+#| Converts a maybe into a list
+#|
+#| @example
+#| >>> maybeToList(Just(2))
+#| [2]
+#|
+#| @example
+#| >>> maybeToList(None)
+#| []
+#|
+#| @param #1 Maybe(a)
+#| @return [a]
 def maybeToList(None):
   return []
 
 def maybeToList(Just(x)):
   return [x]
 
-
+#| Creates a new list containing only the Just values contained in the input list.
+#|
+#| @example
+#| >>> catMaybes([Just(2), Nothing, Just(4)])
+#| [2, 4]
+#|
+#| @param maybeList [Maybe(a)]
+#| @return [a]
 def catMaybes(maybeList):
   return maybeList.bind(maybeToList)
 
-
+#| Apply a function that returns maybes to each element of the list.
+#| Then create a new list containing only the Just values from that list.
+#|
+#| @example
+#| >>> [1, 2, 3, 4, 5].mapMaybe(
+#|       (x): if x < 4: Just(x) else: None
+#|     )
+#| [1, 2, 3]
+#|
+#| @param inputList [a]
+#| @param fun (a): Maybe(b)
+#| @return [b]
 def mapMaybe(inputList, fun):
   return inputList.map(fun).catMaybes()
