@@ -86,7 +86,13 @@ loadMyLib = do
 emptyContext :: IO Runtime
 emptyContext = do
     emptyBlock <- newIORef HM.empty
-    pure $ Runtime HM.empty [emptyBlock] [] emptySp
+    pure $ Runtime
+      { _typeScope = HM.empty
+      , _scope = [emptyBlock]
+      , _loadModuleImpl = loadModuleFunction
+      , _callStack = []
+      , _currentPos = emptySp
+      }
   where
     emptySp :: SourcePos
     emptySp = SourcePos "" (mkPos maxBound) (mkPos maxBound)

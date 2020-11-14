@@ -14,6 +14,7 @@ import CallableUtils
 import MorphUtils
 
 import Evaluators.All
+import Evaluators.Import
 
 data ParseErr
   = ErrPos SourcePos String
@@ -185,6 +186,8 @@ semantic (Pos p (ExprCase input blocks)) = do
   newBlocks <- sequence $ semanticCaseBlock <$> blocks
   pure $ ET $ RCase p newInput newBlocks
 -- One to one maps
+semantic (Pos p (ExprImport path)) = do
+  pure $ ET $ RImport p path
 semantic (Pos p (ExprClass cname typeCons)) = do
   pure $ ET $ RClass p cname typeCons
 semantic (Pos p (ExprType tname defSigs)) = do

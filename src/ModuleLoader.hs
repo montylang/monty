@@ -1,5 +1,5 @@
 module ModuleLoader
-  ( loadModule,
+  ( loadModuleFunction,
     montyParseFromFile,
     toParseExcept,
     montyRunSemantic,
@@ -22,8 +22,8 @@ import RunnerUtils
 import Parser.Root
 import Parser.Semantic
 
-loadModule :: [String] -> Scoper ()
-loadModule components = do
+loadModuleFunction :: [String] -> Scoper ()
+loadModuleFunction components = do
     isFile <- liftIO $ doesFileExist (path <> ".my")
     isDir  <- liftIO $ doesDirectoryExist path
 

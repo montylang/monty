@@ -22,6 +22,11 @@ assert :: Bool -> String -> Scoper ()
 assert False message = stackTrace message
 assert True _        = pure ()
 
+loadModule :: [String] -> Scoper ()
+loadModule path = do
+  lm <- use loadModuleImpl
+  lm path
+
 typesEqual :: Value -> Value -> Bool
 typesEqual (VTypeInstance t1 _ _) (VTypeInstance t2 _ _) = t1 == t2
 typesEqual (VInt _) (VInt _)                   = True

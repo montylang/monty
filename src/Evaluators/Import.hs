@@ -4,7 +4,6 @@ import Text.Megaparsec hiding (Pos)
 import Data.List
 import Control.Lens
 
-import ModuleLoader
 import ParserTypes
 import RunnerTypes
 import Evaluators.Evaluatable

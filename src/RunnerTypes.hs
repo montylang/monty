@@ -22,6 +22,7 @@ data ErrVal = ErrString String
 data Runtime = Runtime {
   _typeScope :: ScopeMap,
   _scope :: Scope,
+  _loadModuleImpl :: [String] -> Scoper (),
   _callStack :: [SourcePos],
   _currentPos :: SourcePos
 }
