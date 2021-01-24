@@ -14,23 +14,23 @@ import CallableUtils
 import Interop.Helpers
 
 intCompareImpl :: [Value] -> Scoper Value
-intCompareImpl [(VInt first), (VInt second)] =
+intCompareImpl [VInt first, VInt second] =
   pure $ ordToVal $ compare first second
 
 intStrImpl :: [Value] -> Scoper Value
-intStrImpl [(VInt value)] = pure $ VList $ VChar <$> show value
+intStrImpl [VInt value] = pure $ VList $ VChar <$> show value
 
 intChrImpl :: [Value] -> Scoper Value
-intChrImpl [(VInt val)] = pure $ VChar $ chr val
+intChrImpl [VInt val] = pure $ VChar $ chr val
 
 intStrIntImpl :: [Value] -> Scoper Value
-intStrIntImpl [(VList vals)] = pure $ VInt $ read $ toStr vals
+intStrIntImpl [VList vals] = pure $ VInt $ read $ toStr vals
   where
     toStr :: [Value] -> String
     toStr vals = vChr <$> vals
 
 intDoubleIntImpl :: [Value] -> Scoper Value
-intDoubleIntImpl [(VDouble value)] = pure $ VInt $ floor value
+intDoubleIntImpl [VDouble value] = pure $ VInt $ floor value
 
 intDefinitions :: [(Id, Id, [FunctionCase])]
 intDefinitions = [

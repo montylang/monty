@@ -42,7 +42,7 @@ instance Evaluatable RInstanceOf where
   
       addAllImplementations :: [Id] -> [DefSignature] -> Scoper Value
       addAllImplementations consNames defSigs = do
-        sequence_ $ (addImplementation className consNames defSigs)
+        sequence_ $ addImplementation className consNames defSigs
           <$> implementations
         pure unitValue
     
@@ -64,7 +64,7 @@ evalInstanceOf className typeName implementations = do
 
     addAllImplementations :: [Id] -> [DefSignature] -> Scoper Value
     addAllImplementations consNames defSigs = do
-      sequence_ $ (addImplementation className consNames defSigs)
+      sequence_ $ addImplementation className consNames defSigs
         <$> implementations
       pure unitValue
 
@@ -82,15 +82,15 @@ getSigArgs cname cavailable =
   case find ((cname ==) . getDefSigFunName) cavailable of
     Just sig -> pure $ getDefSigArgs sig
     Nothing  -> stackTrace $
-      cname <> " is not part of type " <> (getDefSigTypeName $ head cavailable)
+      cname <> " is not part of type " <> getDefSigTypeName (head cavailable)
 
 markArgs :: Id -> [Id] -> [Arg] -> [Arg] -> Scoper [Arg]
 markArgs cname classes argsA dargs =
-  sequence $ (uncurry (validateArgs cname classes)) <$> zip dargs argsA
+  sequence $ uncurry (validateArgs cname classes) <$> zip dargs argsA
 
 validateArgs :: Id -> [Id] -> Arg -> Arg -> Scoper Arg
 validateArgs cname _ SelfArg (IdArg argName) = pure $ TypedIdArg argName cname
-validateArgs cname classes SelfArg (PatternArg pname _) | not $ elem pname classes =
+validateArgs cname classes SelfArg (PatternArg pname _) | notElem pname classes =
   stackTrace $ "Type constructor " <> pname <> " is not an " <> cname
 validateArgs _ _ _ arg = pure arg
 
@@ -98,9 +98,9 @@ addBodyToScope :: Id -> Id -> Scoper Value -> [Arg] -> Scoper ()
 addBodyToScope cname fname body caseArgs = do
   maybeStub <- findInScope fname
   case maybeStub of
-    Just val -> (replaceInScope fname =<< updateStub fname cname val caseArgs body)
+    Just val -> replaceInScope fname =<< updateStub fname cname val caseArgs body
     _        -> stackTrace $ fname <> " is not in scope"
 
-updateStub :: Id -> Id -> Value -> [Arg] -> (Scoper Value) -> Scoper Value
+updateStub :: Id -> Id -> Value -> [Arg] -> Scoper Value -> Scoper Value
 updateStub fname cname stub caseArgs body =
-  addToStub fname cname (FunctionCase caseArgs $ body) stub
+  addToStub fname cname (FunctionCase caseArgs body) stub

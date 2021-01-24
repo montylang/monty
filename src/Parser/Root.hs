@@ -26,7 +26,7 @@ passParser indent = do
 
 assignmentParser :: Indent -> Parser PExpr
 assignmentParser indent = do
-  dest <- try $ (
+  dest <- try (
       argParser indent <* ws <* char '=' <*
       lookAhead (try $ anySingleBut '=') <* ws
     )
@@ -56,7 +56,7 @@ lambdaParser indent = do
 
 returnParser :: Indent -> Parser PExpr
 returnParser indent = rword "return" *>
-  (ExprReturn <$> (exprParser indent) >>= addPos)
+  (exprParser indent >>= addPos . ExprReturn)
 
 caseParser :: Indent -> Parser PExpr
 caseParser indent = do
@@ -103,25 +103,25 @@ ifParser indent = do
       bodyParser indent
 
 exprVarIdParser :: Indent -> Parser PExpr
-exprVarIdParser indent = ExprId <$> varIdParser >>= addPos
+exprVarIdParser indent = varIdParser >>= addPos . ExprId
 
 exprTypeIdParser :: Indent -> Parser PExpr
-exprTypeIdParser indent = ExprId <$> typeIdParser >>= addPos
+exprTypeIdParser indent = typeIdParser >>= addPos . ExprId
 
 exprTypeConsParser :: Indent -> Parser PExpr
 exprTypeConsParser indent = do
-  name <- ExprId <$> typeIdParser >>= addPos
-  args <- (multiParenParser '(' ')' $ exprParser indent) <|> pure []
+  name <- typeIdParser >>= addPos . ExprId
+  args <- multiParenParser '(' ')' (exprParser indent) <|> pure []
   addPos $ ExprCall name args
 
 exprIntParser :: Indent -> Parser PExpr
-exprIntParser _ = ExprInt <$> intParser >>= addPos
+exprIntParser _ = intParser >>= addPos . ExprInt
 
 exprDoubleParser :: Indent -> Parser PExpr
-exprDoubleParser _ = ExprDouble <$> doubleParser >>= addPos
+exprDoubleParser _ = doubleParser >>= addPos . ExprDouble
 
 exprCharParser :: Indent -> Parser PExpr
-exprCharParser _ = ExprChar <$> charParser >>= addPos
+exprCharParser _ = charParser >>= addPos . ExprChar
 
 exprStringParser :: Indent -> Parser PExpr
 exprStringParser _ = do
@@ -141,7 +141,7 @@ classParser = do
     typeConsParser :: Indent -> Parser (Pos TypeCons)
     typeConsParser ind = do
       name <- typeIdParser <* ws
-      args <- (try $ typeConsArgParser ind) <|> pure []
+      args <- try (typeConsArgParser ind) <|> pure []
       addPos $ TypeCons name args
 
 instanceParser :: Parser PExpr
@@ -171,7 +171,7 @@ typeParser = do
     mustReturnSelfP :: Parser Bool
     mustReturnSelfP = do
       ret <- optional $ ws *> string "->" *> ws *> string "self"
-      pure (maybe False (== "self") ret)
+      pure (Just "self" == ret)
 
     nameToArg :: Id -> Arg
     nameToArg "self" = SelfArg
@@ -194,7 +194,7 @@ unwrapParser indent = do
 
 listParser :: Indent -> Parser PExpr
 listParser indent =
-  ExprList <$> multiParenParser '[' ']' (exprParser indent) >>= addPos
+  multiParenParser '[' ']' (exprParser indent) >>= addPos . ExprList
 
 tupleParser :: Indent -> Parser PExpr
 tupleParser indent = try $ do
@@ -212,7 +212,7 @@ chainableParser indent previous = do
     fancyLookAhead :: Parser (Maybe Char)
     fancyLookAhead =
       lookAhead $ eolMany *> ws *>
-      ((Just <$> anySingle) <|> (eof *> pure Nothing))
+      ((Just <$> anySingle) <|> (Nothing <$ eof))
 
     choosy :: Char -> Parser PExpr
     choosy c = case c of
@@ -362,13 +362,13 @@ rootBodyParser = do
     _ <- many $ try singleEol
     first <- rootPeep <* lookAhead (try singleEol <|> eof)
     rest  <- many stmt <* commentableEof
-    pure $ imports <> (first:(catMaybes rest))
+    pure $ imports <> (first:catMaybes rest)
   where
     stmt :: Parser (Maybe PExpr)
     stmt = try blankLine <|> rootExpr
 
     blankLine :: Parser (Maybe PExpr)
-    blankLine = eolSome *> pure Nothing
+    blankLine = Nothing <$ eolSome
 
     rootExpr :: Parser (Maybe PExpr)
     rootExpr = Just <$> rootPeep

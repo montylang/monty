@@ -20,7 +20,7 @@ tupleStrImpl [VTuple []] = do
 tupleStrImpl [VTuple xs] = do
     inner <- sequence $ strElement <$> xs
     pure $ VList $ [VChar '('] <>
-      (intercalate [VChar ',', VChar ' '] $ lElements <$> inner)
+      intercalate [VChar ',', VChar ' '] (lElements <$> inner)
       <> [VChar ')']
   where
     strElement :: Value -> Scoper Value

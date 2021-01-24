@@ -11,7 +11,7 @@ rword :: String -> Parser ()
 rword w = try (string w *> notFollowedBy alphaNumChar) <* ws
 
 sc :: Parser ()
-sc = ws *> pure ()
+sc = () <$ ws
 
 isHsWs :: Char -> Bool
 isHsWs ' ' = True
@@ -32,7 +32,7 @@ singleEol :: Parser ()
 singleEol = ws *> optional commentEater *> char '\n' *> pure ()
 
 commentableEof :: Parser ()
-commentableEof = pure () <* many (try singleEol) <*
+commentableEof = () <$ many (try singleEol) <*
   (ws *> optional commentEater *> eof)
 
 eolMany :: Parser ()

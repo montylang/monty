@@ -18,7 +18,7 @@ data RDef = RDef
     _rDefBody :: [ET]
   }
 
-(makeLenses ''RDef)
+makeLenses ''RDef
 
 instance Evaluatable RDef where
   getPos def = def ^. rDefPos
@@ -29,7 +29,7 @@ instance Evaluatable RDef where
 
 instance PrettyPrint RDef where
   prettyPrint (RDef _ name args body) =
-    "def " <> show name <> "(" <> (intercalate ", " $ prettyPrint <$> args) <> ")"
+    "def " <> show name <> "(" <> intercalate ", " (prettyPrint <$> args) <> ")"
 
 runBody :: [ET] -> Scoper Value
 runBody [b]    = eval b

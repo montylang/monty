@@ -27,7 +27,7 @@ evaluateTf (DefSignature tname fname args retSelf) impls params = do
           (HM.lookup cname impls)
         funRet <- evaluateImpl impl inferredParams
         case (funRet, retSelf) of
-          (v@(VInferred _ _ _), True) -> applyInferredType cname v
+          (v@VInferred {}, True) -> applyInferredType cname v
           (v, _)                      -> pure v
       Nothing    -> pure $ VInferred fname tname params
   where
@@ -44,8 +44,8 @@ evaluateTf (DefSignature tname fname args retSelf) impls params = do
     
     inferredType :: Maybe Id
     inferredType = listToMaybe $
-      (maybeToList . classForValue . (view _2)) =<<
-        (filter ((== SelfArg) . (view _1)) argVals)
+      (maybeToList . classForValue . view _2) =<<
+        filter ((== SelfArg) . view _1) argVals
     
     inferSelfArg :: Id -> (Arg, Value) -> Scoper Value
     inferSelfArg cname (SelfArg, value) = applyInferredType cname value
@@ -80,7 +80,7 @@ fitValueToType name t v =
 
 evaluateImpl :: FunctionImpl -> [Value] -> Scoper Value
 evaluateImpl (FunctionImpl name cases typeSig) values = do
-  inferred <- sequence $ (uncurry $ fitValueToType name) <$> zip typeSig values
+  inferred <- sequence $ uncurry (fitValueToType name) <$> zip typeSig values
   evaluateCases cases inferred
 
 evaluateCases :: [FunctionCase] -> [Value] -> Scoper Value
@@ -93,7 +93,7 @@ evaluateCases cases params = runWithTempScope $ do
   where
     prepare :: FunctionCase -> Either String (FunctionCase, [(Id, Value)])
     prepare fcase =
-      if (length (fcaseArgs fcase) == length params) then do
+      if length (fcaseArgs fcase) == length params then do
         inside <- zipArgsToValues (fcaseArgs fcase) params
         pure (fcase, inside)
       else Left $
@@ -120,7 +120,7 @@ handleCurrying expectedLen params thingToCurry =
       ] newTypes
   where
     actualLen   = length params
-    newArgs     = (IdArg . (<> "#") . show) <$> [1..diff]
+    newArgs     = IdArg . (<> "#") . show <$> [1..diff]
     diff        = expectedLen - actualLen
     newParams   = take (diff + 1) params
     newTypes    = drop actualLen $ extractTypeSig thingToCurry

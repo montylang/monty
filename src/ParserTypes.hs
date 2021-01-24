@@ -18,7 +18,7 @@ data CondBlock a = CondBlock a [a]
 instance PrettyPrint a => PrettyPrint (CondBlock a) where
   prettyPrint (CondBlock cond body) =
     "(" <> prettyPrint cond <> "):\n" <>
-    (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> body) <> "\n"
+    intercalate "\n" ((\x -> "  " <> prettyPrint x) <$> body) <> "\n"
 
 data CaseBlock a
   = CaseBlock
@@ -34,7 +34,7 @@ instance Eq a => Eq (CaseBlock a) where
 instance PrettyPrint a => PrettyPrint (CaseBlock a) where
   prettyPrint (CaseBlock _ arg body) =
     prettyPrint arg <> ":\n" <>
-    (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> body) <> "\n"
+    intercalate "\n" ((\x -> "  " <> prettyPrint x) <$> body) <> "\n"
 
 data InfixOp
   = InfixAdd

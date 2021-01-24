@@ -22,7 +22,7 @@ instance Evaluatable RType where
 evalType :: Id -> [Pos DefSignature] -> Scoper Value
 evalType typeName headers = do
     addToTypeScope typeName typeDef
-    unionTopScope $ defSigToKeyValue <$> getPosValue <$> headers
+    unionTopScope $ defSigToKeyValue . getPosValue <$> headers
     pure unitValue
   where
     typeDef = VTypeDef typeName $ getPosValue <$> headers

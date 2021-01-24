@@ -58,7 +58,7 @@ groupByPrecedence (o:os) xs = joinHeadOp subCases
   where
     subCases :: [ET]
     subCases = groupByPrecedence os <$>
-      (multiSpan ((== (Just o)) . (view _1)) xs)
+      multiSpan ((== Just o) . view _1) xs
 
     joinHeadOp :: [ET] -> ET
     joinHeadOp [y] = y
@@ -94,9 +94,9 @@ infixFlatten op rhs = do
 
 semanticUnwrap :: [PExpr] -> ParseExcept ET
 semanticUnwrap [] = throwError $ ErrString "Empty unwrap body"
-semanticUnwrap [(Pos p (ExprBind _ _))] =
+semanticUnwrap [Pos p (ExprBind _ _)] =
   throwError $ ErrPos p "Cannot have bind on last line of unwrap"
-semanticUnwrap [(Pos p (ExprAssignment _ _))] =
+semanticUnwrap [Pos p (ExprAssignment _ _)] =
   throwError $ ErrPos p "Cannot have assignment on last line of unwrap"
 semanticUnwrap [last] = semantic last
 semanticUnwrap ((Pos p (ExprBind arg expr)):xs) = do
@@ -112,7 +112,7 @@ semanticUnwrap (expr@(Pos p (ExprAssignment _ _)):xs) = do
 
   pure $ ET $ RBlock p [semanticExpr, recursive]
 semanticUnwrap ((Pos p expr):xs) = do
-  semanticUnwrap $ (Pos p $ ExprBind (IdArg "_") (Pos p expr)):xs
+  semanticUnwrap $ Pos p (ExprBind (IdArg "_") (Pos p expr)):xs
 
 semanticCondBlock :: CondBlock PExpr -> ParseExcept (CondBlock ET)
 semanticCondBlock (CondBlock cond body) = do
@@ -136,13 +136,13 @@ semanticAss :: Evaluatable a
 semanticAss rhsSemantic (Pos p (ExprAssignment arg value)) = do
   rhs <- rhsSemantic value
   pure $ RAssignment p arg rhs
-semanticAss _ (Pos p _) = throwError $ ErrPos p $ "Not an assignment"
+semanticAss _ (Pos p _) = throwError $ ErrPos p "Not an assignment"
 
 semanticDef :: Maybe Id -> PExpr -> ParseExcept RDef
 semanticDef name (Pos p (ExprDef args body)) = do
   newBody <- sequence $ semantic <$> body
   pure $ RDef p name args newBody
-semanticDef _ (Pos p _) = throwError $ ErrPos p $ "Not a def"
+semanticDef _ (Pos p _) = throwError $ ErrPos p "Not a def"
 
 semantic :: PExpr -> ParseExcept ET
 -- Actual semantic alterations

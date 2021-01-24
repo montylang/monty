@@ -18,7 +18,7 @@ instance Evaluatable RClass where
   getPos RClass {rClassPos} = rClassPos
   evaluate RClass {rClassName, rClassTypeCons} = do
       addToTypeScope rClassName (VClass consNames)
-      unionTopScope $ convert <$> getPosValue <$> rClassTypeCons
+      unionTopScope $ convert . getPosValue <$> rClassTypeCons
       pure unitValue
     where
       convert :: TypeCons -> (Id, Value)

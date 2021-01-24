@@ -37,10 +37,10 @@ typesEqual (VDouble _) (VDouble _)             = True
 typesEqual (VChar _) (VChar _)                 = True
 typesEqual (VList (x:_)) (VList (y:_))         = typesEqual x y
 typesEqual (VList _) (VList _)                 = True
-typesEqual (VInferred _ _ _) (VInferred _ _ _) = True
+typesEqual VInferred {} VInferred {} = True
 typesEqual (VTuple xs) (VTuple ys) =
-  (length xs) == (length ys) &&
-  (all (uncurry typesEqual) $ zip xs ys)
+  length xs == length ys &&
+  all (uncurry typesEqual) (zip xs ys)
 typesEqual _ _                                 = False
 
 replaceInScope :: String -> Value -> Scoper ()
@@ -51,7 +51,7 @@ addToScope "_" _     = pure ()
 addToScope key value = do
   inScopeValue <- findInTopScope key
   assert (isNothing inScopeValue) $ "Cannot reassign " <> key
-  use scope >>= (addToScope' key value)
+  use scope >>= addToScope' key value
 
 addToScope' :: String -> Value -> Scope -> Scoper ()
 addToScope' key value (topRef:_) =
@@ -107,7 +107,7 @@ addToTypeScope :: String -> Value -> Scoper ()
 addToTypeScope key value = do
   tscope <- use typeScope
   assert (isNothing $ HM.lookup key tscope) $ "Cannot reassign " <> key
-  typeScope %= (HM.insert key value)
+  typeScope %= HM.insert key value
 
 classForValue :: Value -> Maybe Id
 classForValue (VList _)   = Just "List"
@@ -138,7 +138,7 @@ runScopeWithSetup scopeSetup body = do
   pure retVal
 
 runWithScope :: Scope -> Scoper Value -> Scoper Value
-runWithScope s body = runScopeWithSetup (scope %= const s) body
+runWithScope s = runScopeWithSetup (scope %= const s)
 
 runWithTempScope :: Scoper Value -> Scoper Value
 runWithTempScope = runScopeWithSetup pushEmptyScopeBlock
@@ -169,7 +169,7 @@ addToStub fname cname newCase (VTypeFunction defSig impls) = do
   where
     caseToImpl :: FunctionCase -> Scoper FunctionImpl
     caseToImpl fcase = do
-      types <- sequence $ argToType <$> (fcaseArgs fcase)
+      types <- sequence $ argToType <$> fcaseArgs fcase
       pure $ FunctionImpl (Just fname) [fcase] types
 
     updateClassImpl :: FunctionCase -> FunctionImpl -> Scoper FunctionImpl
@@ -185,7 +185,7 @@ combineImpls (FunctionImpl xName xCases xTypes) (FunctionImpl _ yCases yTypes) =
   pure $ FunctionImpl xName (xCases <> yCases) typeSig
 
 combineTypes :: [Type] -> [Type] -> Scoper [Type]
-combineTypes xs ys = sequence $ (uncurry combineType) <$> (zip xs ys)
+combineTypes xs ys = sequence $ uncurry combineType <$> zip xs ys
 
 combineType :: Type -> Type -> Scoper Type
 combineType TAnything new = pure new
@@ -215,9 +215,9 @@ argToType (CharArg _) = pure TChar
 
 valueToType :: Value -> Maybe Type
 valueToType (VTypeCons t _ _) = Just $ TUser t
-valueToType (VInt _)          = Just $ TInt
-valueToType (VDouble _)       = Just $ TDouble
-valueToType (VChar _)         = Just $ TChar
+valueToType (VInt _)          = Just TInt
+valueToType (VDouble _)       = Just TDouble
+valueToType (VChar _)         = Just TChar
 valueToType (VList _)         = Just $ TUser "List"
 valueToType (VTuple _)        = Just $ TUser "Tuple"
 valueToType _                 = Nothing

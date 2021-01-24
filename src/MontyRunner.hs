@@ -21,7 +21,7 @@ import Interop.Prelude
 
 showCallStack :: [SourcePos] -> String
 showCallStack positions = intercalate "\n" $
-  ("    " <>) <$> sourcePosPretty <$> positions
+  ("    " <>) . sourcePosPretty <$> positions
 
 run :: [ET] -> IO ()
 run prog = do
@@ -49,10 +49,10 @@ run prog = do
 
 runIOVal :: Value -> Scoper ()
 runIOVal (VTypeInstance "IO" "IO" [mainFun]) = do
-    runFun mainFun [baseWorld] *> pure ()
+    () <$ runFun mainFun [baseWorld]
   where
     baseWorld = VTypeInstance "#IOWorldToken" "#IOWorldToken" []
-runIOVal v@(VInferred _ _ _) = do
+runIOVal v@VInferred {} = do
   inferredIO <- applyInferredType "IO" v
   runIOVal inferredIO
 runIOVal _ =
@@ -62,7 +62,7 @@ loadMyLib :: Scoper ()
 loadMyLib = do
     loadModule ["mylib", "prelude"]
     loadModule ["mylib", "postlude"]
-    sequence_ $ (uncurry3 addOrUpdateInterops) <$> preludeDefinitions
+    sequence_ $ uncurry3 addOrUpdateInterops <$> preludeDefinitions
   where
     addOrUpdateInterops :: Id -> Id -> [FunctionCase] -> Scoper ()
     addOrUpdateInterops cname fname cases = do
@@ -81,7 +81,7 @@ loadMyLib = do
       foldM combineTypes t ts
 
     caseToTypes :: FunctionCase -> Scoper [Type]
-    caseToTypes c = sequence $ argToType <$> (fcaseArgs c)
+    caseToTypes c = sequence $ argToType <$> fcaseArgs c
 
 emptyContext :: IO Runtime
 emptyContext = do

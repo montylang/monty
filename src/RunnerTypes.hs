@@ -115,12 +115,12 @@ instance Show Value where
   show (VFunction cases) = "fun:" <> show cases
   show (VTypeCons _ name args) =
     name <>
-    if length args == 0
+    if null args
       then ""
       else "(" <> intercalate "," args <> ")"
   show (VTypeInstance _ name vals) =
     name <>
-    if length vals == 0
+    if null vals
       then ""
       else "(" <> intercalate "," (show <$> vals) <> ")"
   show (VTypeDef name _) = "<type " <> name <> ">"
@@ -142,12 +142,12 @@ instance PrettyPrint Value where
   prettyPrint (VFunction impl) = prettyPrint impl
   prettyPrint (VTypeCons _ name args) =
     name <>
-    if length args == 0
+    if null args
       then ""
       else "(" <> intercalate "," args <> ")"
   prettyPrint (VTypeInstance _ name vals) =
     name <>
-    if length vals == 0
+    if null vals
       then ""
       else "(" <> intercalate "," (prettyPrint <$> vals) <> ")"
   -- show (VTypeDef name _) = "<type " <> name <> ">"

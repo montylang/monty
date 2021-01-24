@@ -12,18 +12,18 @@ import CallableUtils
 import Interop.Helpers
 
 charCompareImpl :: [Value] -> Scoper Value
-charCompareImpl [(VChar first), (VChar second)] =
+charCompareImpl [VChar first, VChar second] =
   pure $ ordToVal $ compare first second
 
 charStrImpl :: [Value] -> Scoper Value
-charStrImpl v@[(VChar _)] = pure $ VList v
+charStrImpl v@[VChar _] = pure $ VList v
 
 charEqualsImpl :: [Value] -> Scoper Value
-charEqualsImpl [(VChar first), (VChar second)] =
+charEqualsImpl [VChar first, VChar second] =
   pure $ toBoolValue (first == second)
 
 charOrdImpl :: [Value] -> Scoper Value
-charOrdImpl [(VChar val)] = pure $ VInt $ ord val
+charOrdImpl [VChar val] = pure $ VInt $ ord val
 
 charDefinitions :: [(Id, Id, [FunctionCase])]
 charDefinitions = [

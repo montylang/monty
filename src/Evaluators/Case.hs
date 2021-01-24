@@ -45,18 +45,17 @@ runCaseBody exprs = do
     sequence_ $ eval <$> beginning
     eval lastExpr
   where
-    (beginning, [lastExpr]) = splitAt ((length exprs) - 1) exprs
+    (beginning, [lastExpr]) = splitAt (length exprs - 1) exprs
 
 prepare :: Value -> CaseBlock ET -> Either String ([ET], [(Id, Value)])
 prepare input (CaseBlock _ arg body) = do
   zipped <- zipArgToValue arg input
-  pure $ (body, zipped)
+  pure (body, zipped)
 
 assertCbsType :: [CaseBlock ET] -> Scoper ()
 assertCbsType blocks = do
-  (x:xs) <- sequence $ cbType <$> blocks
-  _      <- foldM combineType x xs
-  pure ()
+  x:xs <- sequence $ cbType <$> blocks
+  foldM_ combineType x xs
 
 cbType :: CaseBlock ET -> Scoper Type
 cbType (CaseBlock _ arg _) = argToType arg

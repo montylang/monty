@@ -38,8 +38,8 @@ cmd input = lift runLine
   where
     runLine :: Scoper ()
     runLine = case runExcept parseInput of
-      Right prog -> evaluatePrint prog *> pure ()
-      Left  err  -> liftIO $ putStrLn $ show err
+      Right prog -> () <$ evaluatePrint prog
+      Left  err  -> liftIO $ print err
 
     parseInput :: ParseExcept ET
     parseInput = do

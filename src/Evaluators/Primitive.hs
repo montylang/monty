@@ -49,7 +49,7 @@ instance Evaluatable RChar where
 
 instance Evaluatable RTuple where
   getPos RTuple {rTuplePos} = rTuplePos
-  evaluate RTuple {rTupleElements} = VTuple <$> (sequence $ eval <$> rTupleElements)
+  evaluate RTuple {rTupleElements} = VTuple <$> sequence (eval <$> rTupleElements)
 
 instance Evaluatable RList where
   getPos RList {rListPos} = rListPos

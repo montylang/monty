@@ -30,7 +30,7 @@ loadModuleFunction components = do
     if isFile then
       loadFiles [path <> ".my"]
     else if isDir then do
-      content <- (liftIO $ listDirectory path)
+      content <- liftIO (listDirectory path)
       loadFiles $ constructPath <$> filter isMontyFile content
     else
       stackTrace $ "Could not find module " <> intercalate "." components
@@ -40,16 +40,14 @@ loadModuleFunction components = do
     isMontyFile = (== ".my") . takeExtension
 
 loadFiles :: [FilePath] -> Scoper ()
-loadFiles paths = do
-    sequence_ (loadFile <$> paths)
-    pure ()
+loadFiles paths = sequence_ (loadFile <$> paths)
   where
     loadFile :: String -> Scoper ()
     loadFile path = do
       parsed <- liftIO $ montyRunSemantic . filterMains =<< montyParseFromFile path
 
       case runExcept parsed of
-        Right exprs -> (sequence $ eval <$> exprs) *> pure ()
+        Right exprs -> () <$ sequence (eval <$> exprs)
         Left err    -> liftIO $ die $ show err
 
     filterMains :: ParseExcept [PExpr] -> ParseExcept [PExpr]

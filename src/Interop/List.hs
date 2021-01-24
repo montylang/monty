@@ -13,7 +13,7 @@ import Data.Char (ord, chr)
 import Data.List
 
 consMapImpl :: [Value] -> Scoper Value
-consMapImpl [x, (VList xs), func] = do
+consMapImpl [x, VList xs, func] = do
     ranHead <- runFun func [x]
     ranTail <- sequence $ ree ranHead <$> xs
     pure $ VList (ranHead:ranTail)
@@ -31,7 +31,7 @@ nilMapImpl :: [Value] -> Scoper Value
 nilMapImpl _ = pure $ VList []
 
 consFoldlImpl :: [Value] -> Scoper Value
-consFoldlImpl [x, (VList xs), initial, folder] =
+consFoldlImpl [x, VList xs, initial, folder] =
     foldM nativeFolder initial (x:xs)
   where
     nativeFolder :: Value -> Value -> Scoper Value
@@ -41,7 +41,7 @@ nilFoldlImpl :: [Value] -> Scoper Value
 nilFoldlImpl [initial, _] = pure initial
 
 consFoldrImpl :: [Value] -> Scoper Value
-consFoldrImpl [x, (VList xs), initial, folder] =
+consFoldrImpl [x, VList xs, initial, folder] =
     foldrM nativeFolder initial (x:xs)
   where
     nativeFolder :: Value -> Value -> Scoper Value
@@ -74,7 +74,7 @@ listWrapImpl :: [Value] -> Scoper Value
 listWrapImpl [value] = pure $ VList [value]
 
 consImpl :: [Value] -> Scoper Value
-consImpl [cHead, (VList cTail)] = pure $ VList (cHead:cTail)
+consImpl [cHead, VList cTail] = pure $ VList (cHead:cTail)
 
 listAppendImpl :: [Value] -> Scoper Value
 listAppendImpl [first@(VList xs), second@(VList ys)] = do
@@ -90,9 +90,9 @@ consStrImpl [VChar x, VList xs] =
   pure $ VList $ [VChar '"', VChar x] <> xs <> [VChar '"']
 consStrImpl [x, VList xs] = do
   impl  <- findImplsInScope "str" x
-  inner <- sequence $ (evaluateImpl impl) . pure <$> x:xs
+  inner <- sequence $ evaluateImpl impl . pure <$> x:xs
   pure $ VList $ [VChar '['] <>
-    (intercalate [VChar ',', VChar ' '] $ lElements <$> inner) <>
+    intercalate [VChar ',', VChar ' '] (lElements <$> inner) <>
     [VChar ']']
 
 nilStrImpl :: [Value] -> Scoper Value

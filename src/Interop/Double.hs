@@ -14,11 +14,11 @@ import CallableUtils
 import Interop.Helpers
 
 doubleCompareImpl :: [Value] -> Scoper Value
-doubleCompareImpl [(VDouble first), (VDouble second)] =
+doubleCompareImpl [VDouble first, VDouble second] =
   pure $ ordToVal $ compare first second
 
 doubleStrImpl :: [Value] -> Scoper Value
-doubleStrImpl [(VDouble value)] = pure $ VList $ VChar <$> show value
+doubleStrImpl [VDouble value] = pure $ VList $ VChar <$> show value
 
 doubleDefinitions :: [(Id, Id, [FunctionCase])]
 doubleDefinitions = [

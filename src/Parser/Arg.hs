@@ -31,7 +31,7 @@ argParser indent = choice $ try <$> [
     charArgParser = CharArg <$> charParser
 
     stringArgParser :: Parser Arg
-    stringArgParser = consFolder <$> (CharArg <$>) <$> stringParser
+    stringArgParser = consFolder . (CharArg <$>) <$> stringParser
 
     patternArgParser :: Parser Arg
     patternArgParser = do

@@ -29,7 +29,7 @@ instance Evaluatable RCondition where
   evaluate RCondition {rConditionIf, rConditionElifs, rConditionElseBody} =
     evalCondition rConditionIf rConditionElifs rConditionElseBody
 
-evalCondition :: (CondBlock ET)
+evalCondition :: CondBlock ET
   -> [CondBlock ET]
   -> [ET]
   -> Scoper Value

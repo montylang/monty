@@ -9,7 +9,7 @@ import ParserTypes
 
 zipArgsToValues :: [Arg] -> [Value] -> Either String [(Id, Value)]
 zipArgsToValues args values =
-  join <$> (sequence $ uncurry zipArgToValue <$> zip args values)
+  join <$> sequence (uncurry zipArgToValue <$> zip args values)
 
 zipArgToValue :: Arg -> Value -> Either String [(Id, Value)]
 zipArgToValue (IdArg name) val = Right [(name, val)]

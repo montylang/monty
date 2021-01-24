@@ -48,8 +48,8 @@ evalInfix first op second = do
 
   where
     inferTypes :: Value -> Value -> Scoper (Value, Value)
-    inferTypes v@(VInferred _ _ _) other = inferFromOther v other
-    inferTypes other v@(VInferred _ _ _) = swap <$> inferFromOther v other
+    inferTypes v@VInferred {} other = inferFromOther v other
+    inferTypes other v@VInferred {} = swap <$> inferFromOther v other
     inferTypes (VInt v1) (VDouble v2) =
       pure (VDouble $ fromIntegral v1, VDouble v2)
     inferTypes (VDouble v1) (VInt v2) =
@@ -88,7 +88,7 @@ genericInfixEval _ op _ = stackTrace ("Unimplemented generic infix " <> show op)
 
 compareOrderable :: Value -> InfixOp -> Value -> Scoper Value
 compareOrderable f op s =
-  (toBoolValue . opToComp op) <$> applyBinaryFun "compare" f s
+  toBoolValue . opToComp op <$> applyBinaryFun "compare" f s
 
 applyBinaryFun :: Id -> Value -> Value -> Scoper Value
 applyBinaryFun fname f s = do
@@ -101,7 +101,7 @@ intInfixEval (VInt x) InfixSub (VInt y) = pure $ VInt $ x - y
 intInfixEval (VInt x) InfixMul (VInt y) = pure $ VInt $ x * y
 intInfixEval (VInt x) InfixMod (VInt y) = pure $ VInt $ mod x y
 intInfixEval (VInt x) InfixDiv (VInt y) =
-  pure $ VDouble $ (fromIntegral x) / (fromIntegral y)
+  pure $ VDouble $ fromIntegral x / fromIntegral y
 intInfixEval (VInt x) InfixEq (VInt y) = pure $ toBoolValue $ x == y
 intInfixEval (VInt x) InfixGt (VInt y) = pure $ toBoolValue $ x > y
 intInfixEval (VInt x) InfixLt (VInt y) = pure $ toBoolValue $ x < y

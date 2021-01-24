@@ -20,15 +20,15 @@ data RAssignment a where
     } -> RAssignment a
 
 rAssPos :: Lens' (RAssignment a) SourcePos
-rAssPos f ass@(RAssignment {_rAssPos}) =
+rAssPos f ass@RAssignment {_rAssPos} =
   (\rAssPos' -> ass {_rAssPos = rAssPos'}) <$> f _rAssPos
 
 rAssArg :: Lens' (RAssignment a) Arg
-rAssArg f ass@(RAssignment {_rAssArg}) =
+rAssArg f ass@RAssignment {_rAssArg} =
   (\rAssArg' -> ass {_rAssArg = rAssArg'}) <$> f _rAssArg
 
 rAssValue :: Lens' (RAssignment a) a
-rAssValue f ass@(RAssignment {_rAssValue}) =
+rAssValue f ass@RAssignment {_rAssValue} =
   (\rAssValue' -> ass {_rAssValue = rAssValue'}) <$> f _rAssValue
 
 instance Evaluatable (RAssignment a) where
@@ -63,7 +63,7 @@ evalAssignment arg rhs = do
     evaled  <- eval rhs
 
     case zipArgToValue arg evaled of
-      Right res -> (sequence $ uncurry addToScope <$> res) *> pure evaled
+      Right res -> evaled <$ sequence (uncurry addToScope <$> res)
       Left err  -> stackTrace err
 
 functionCaseFits :: FunctionCase -> FunctionCase -> Bool
