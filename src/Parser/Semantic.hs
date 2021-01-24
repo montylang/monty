@@ -28,23 +28,24 @@ instance Show ParseErr where
 
 type ParseExcept = Except ParseErr
 
-infixPrecedence :: [InfixOp]
-infixPrecedence = [
+-- These are listed in inverse precedence order
+infixSplitOrder :: [InfixOp]
+infixSplitOrder = [
     InfixMappend,
-    InfixAdd,
-    InfixSub,
-    InfixMul,
-    InfixDiv,
-    InfixMod,
-    InfixNe,
-    InfixEq,
-    InfixEq,
-    InfixLe,
-    InfixGe,
-    InfixGt,
-    InfixLt,
+    InfixLogicOr,
     InfixLogicAnd,
-    InfixLogicOr
+    InfixLt,
+    InfixGt,
+    InfixGe,
+    InfixLe,
+    InfixEq,
+    InfixEq,
+    InfixNe,
+    InfixSub,
+    InfixAdd,
+    InfixMod,
+    InfixDiv,
+    InfixMul
   ]
 
 -- What a mess
@@ -68,7 +69,7 @@ groupByPrecedence (o:os) xs = joinHeadOp subCases
 
 semanticInfixChain :: ET -> [(InfixOp, ET)] -> ET
 semanticInfixChain first rest =
-    groupByPrecedence infixPrecedence ((Nothing, first):maybeRest)
+    groupByPrecedence infixSplitOrder ((Nothing, first):maybeRest)
   where
     maybeTup :: (InfixOp, ET) -> (Maybe InfixOp, ET)
     maybeTup (op, expr) = (Just op, expr) 

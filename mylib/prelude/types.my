@@ -12,6 +12,10 @@ type Applicative:
 type Monad:
   def bind(self, function) -> self
 
+type MonadPlus:
+  def mzero() -> self
+  def mplus(self, self) -> self
+
 type Equal:
   def equals(self, self)
 

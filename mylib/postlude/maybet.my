@@ -16,6 +16,18 @@ instance MaybeT of Monad:
         None:    wrap(None)
         Just(y): runMaybeT(f(y)))
 
+instance MaybeT of MonadPlus:
+  def mplus(x, y):
+    return MaybeT(unwrap:
+      v <- runMaybeT(x)
+      case v:
+        None: runMaybeT(y)
+        _:    wrap(v)
+    )
+
+  def mzero():
+    return MaybeT(wrap(None))
+
 instance MaybeT of Applicative:
   def wrap(x):
     return MaybeT(wrap(Just(x)))
@@ -33,3 +45,8 @@ instance MaybeT of Applicative:
 instance MaybeT of MonadTransformer:
   def lift(x):
     return MaybeT(liftM(Just, x))
+
+
+# Turns a Maybe into a MaybeT
+def hoistMaybe(m):
+  return MaybeT(wrap(m))

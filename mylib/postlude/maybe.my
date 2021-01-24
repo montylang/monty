@@ -40,6 +40,13 @@ instance Maybe of Monad:
   def bind(None, _):
     return None
 
+instance Maybe of MonadPlus:
+  def mplus(x, y):
+    return alt(x, y)
+
+  def mzero():
+    return None
+
 instance Maybe of Equal:
   def equals(None, None):
     return True

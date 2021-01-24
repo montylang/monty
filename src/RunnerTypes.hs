@@ -52,7 +52,7 @@ data FunctionImpl = FunctionImpl
 
 instance PrettyPrint FunctionImpl where
   prettyPrint (FunctionImpl name cases typeSig) =
-    "sig(" <> show name <> ": " <>
+    "sig[" <> show name <> "](" <>
     intercalate ", " (prettyPrint <$> typeSig) <> "):\n" <>
     (intercalate "\n" $ (\x -> "  " <> prettyPrint x) <$> cases)
 
@@ -162,5 +162,8 @@ instance PrettyPrint Value where
     "(" <> intercalate "," (show <$> values) <> ")"
   prettyPrint (VInferred fname tname vals) =
     "(inferreed)" <> fname <> " " <> tname <> " " <> (show $ prettyPrint <$> vals)
+
+  prettyPrint value =
+    "<" <> show value <> ">"
 
 $(makeLenses ''Runtime)

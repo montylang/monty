@@ -1,2 +1,5 @@
 def len(someFoldable):
   return someFoldable.foldl(0, (acc, _): acc + 1)
+
+def all(foldable, predicate):
+  return foldable.foldl(True, (acc, it): acc and predicate(it))

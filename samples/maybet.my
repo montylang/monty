@@ -1,0 +1,14 @@
+# Sample of using MaybeT and MonadPlus
+
+def readInt():
+  def isNumber(s):
+    return len(s) > 0 and s.all(isDigit)
+
+  return lift(input())
+    .bind(hoistMaybe)
+    .mfilter(isNumber)
+
+__main__ = unwrap:
+  print("Enter a digit:")
+  value <- runMaybeT(mplus(readInt(), mzero()))
+  print(value.str())

@@ -1,0 +1,8 @@
+def mfilter(mp, predicate):
+  return unwrap:
+    a <- mp
+
+    if predicate(a):
+      wrap(a)
+    else:
+      mzero()
