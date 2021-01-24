@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1c0bdb94bd9f38cf1313e2f9dd01b3631d9598ee0bca81ad8aa306eef7e2e3f1
+-- hash: fbe9aabb931e40c202adbfa4138a7edf0826df0af13cdac77ac343f2be7f61b5
 
 name:           monty
 version:        0.1.0.0
@@ -55,6 +55,7 @@ library
       ModuleLoader
       MontyRunner
       MorphUtils
+      MyDoc.Generator
       Parser.Arg
       Parser.Literal
       Parser.Root
@@ -81,6 +82,7 @@ library
     , mtl
     , parser-combinators
     , repline >=0.4.0.0
+    , text
     , unordered-containers
   default-language: Haskell2010
 
@@ -102,6 +104,7 @@ executable monty-exe
     , mtl
     , parser-combinators
     , repline >=0.4.0.0
+    , text
     , unordered-containers
   default-language: Haskell2010
 
@@ -133,5 +136,6 @@ test-suite monty-test
     , parser-combinators
     , repline >=0.4.0.0
     , silently
+    , text
     , unordered-containers
   default-language: Haskell2010

@@ -138,9 +138,12 @@ semanticAss rhsSemantic (Pos p (ExprAssignment arg value)) = do
 semanticAss _ (Pos p _) = throwError $ ErrPos p $ "Not an assignment"
 
 semanticDef :: Maybe Id -> PExpr -> ParseExcept RDef
-semanticDef name (Pos p (ExprDef args body)) = do
-  newBody <- sequence $ semantic <$> body
-  pure $ RDef p name args newBody
+semanticDef name (Pos p (ExprDef docString args body)) =
+  if docString /= ""
+    then throwError $ ErrPos p $ (show docString)
+    else do
+      newBody <- sequence $ semantic <$> body
+      pure $ RDef p name args newBody
 semanticDef _ (Pos p _) = throwError $ ErrPos p $ "Not a def"
 
 semantic :: PExpr -> ParseExcept ET
@@ -163,7 +166,7 @@ semantic (Pos p (ExprIfElse ifCond elifConds elseBody)) = do
   newElifConds <- sequence $ semanticCondBlock <$> elifConds 
   newElseBody  <- sequence $ semantic          <$> elseBody
   pure $ ET $ RCondition p newIfCond newElifConds newElseBody
-semantic ass@(Pos _ (ExprAssignment arg@(IdArg name) value@(Pos _ (ExprDef _ _)))) = do
+semantic ass@(Pos _ (ExprAssignment arg@(IdArg name) value@(Pos _ (ExprDef _ _ _)))) = do
   ET <$> semanticAss (semanticDef $ Just name) ass
 semantic ass@(Pos _ (ExprAssignment _ _)) = do
   ET <$> semanticAss semantic ass
@@ -191,9 +194,9 @@ semantic (Pos p (ExprCase input blocks)) = do
 -- One to one maps
 semantic (Pos p (ExprImport path)) = do
   pure $ ET $ RImport p path
-semantic (Pos p (ExprClass cname typeCons)) = do
+semantic (Pos p (ExprClass _ cname typeCons)) = do
   pure $ ET $ RClass p cname typeCons
-semantic (Pos p (ExprType tname defSigs)) = do
+semantic (Pos p (ExprType _ tname defSigs)) = do
   pure $ ET $ RType p tname defSigs
 semantic (Pos p (ExprId name)) = do
   pure $ ET $ RId p name

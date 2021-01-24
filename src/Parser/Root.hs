@@ -3,10 +3,13 @@ module Parser.Root where
 import Debug.Trace
 import Data.Char
 import Data.Maybe
+import Data.List
+import Data.Void
 import Text.Megaparsec hiding (Pos)
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer
 import Control.Lens
+import Control.Monad.State.Strict
 
 import ParserTypes
 import MorphUtils
@@ -38,21 +41,22 @@ namedDefParser indent = do
   name <- try $ string "def" *> ws1 *> varIdParser
   args <- defArgParser indent <* char ':' <* eolSome
   body <- bodyParser indent
-  def  <- addPos $ ExprDef args body
+  def  <- addPos $ ExprDef "" args body
   addPos $ ExprAssignment (IdArg name) def
 
 defParser :: Indent -> Parser PExpr
 defParser indent = do
-  args <- try $ rword "def" *> defArgParser indent <* char ':' <* eolSome
-  body <- bodyParser indent
-  addPos $ ExprDef args body
+  docString <- use currentDocString
+  args      <- try $ rword "def" *> defArgParser indent <* char ':' <* eolSome
+  body      <- bodyParser indent
+  addPos $ ExprDef (intercalate "\n" docString) args body
 
 lambdaParser :: Indent -> Parser PExpr
 lambdaParser indent = do
   args <- try $ defArgParser indent <* char ':' <* ws
   body <- exprParser indent
   ret  <- addPos $ ExprReturn body
-  addPos $ ExprDef args [ret]
+  addPos $ ExprDef "" args [ret]
 
 returnParser :: Indent -> Parser PExpr
 returnParser indent = rword "return" *>
@@ -136,7 +140,7 @@ classParser = do
     name <- typeIdParser
     _ <- ws <* char ':' <* eolSome
     defs <- blockParser "" typeConsParser
-    pure $ Pos pos $ ExprClass name defs
+    pure $ Pos pos $ ExprClass "" name defs
   where
     typeConsParser :: Indent -> Parser (Pos TypeCons)
     typeConsParser ind = do
@@ -159,7 +163,7 @@ typeParser = do
     _    <- try $ string "type" <* ws1
     name <- typeIdParser <* ws <* char ':' <* eolSome
     body <- blockParser "" $ typeBodyParser name
-    pure $ Pos pos $ ExprType name body
+    pure $ Pos pos $ ExprType "" name body
   where
     typeBodyParser :: Id -> Indent -> Parser (Pos DefSignature)
     typeBodyParser typeName ind = do
@@ -357,18 +361,21 @@ rootPeep = statementParser <|> exprParser ""
 
 rootBodyParser :: Parser [PExpr]
 rootBodyParser = do
-    _ <- many $ try singleEol
-    imports <- many (importParser <* eolSome)
-    _ <- many $ try singleEol
-    first <- rootPeep <* lookAhead (try singleEol <|> eof)
-    rest  <- many stmt <* commentableEof
-    pure $ imports <> (first:(catMaybes rest))
+    imports <- eolMany *> many (importParser <* eolSome) <* eolMany
+    bodies  <- catMaybes <$> many stmt <* commentableEof
+    pure $ imports <> bodies
   where
     stmt :: Parser (Maybe PExpr)
     stmt = try blankLine <|> rootExpr
 
     blankLine :: Parser (Maybe PExpr)
-    blankLine = eolSome *> pure Nothing
+    blankLine = Nothing <$ eolSome
 
     rootExpr :: Parser (Maybe PExpr)
     rootExpr = Just <$> rootPeep
+
+runMyParser :: Parser a
+            -> FilePath
+            -> String
+            -> Either (ParseErrorBundle String Void) a
+runMyParser parser = runParser (evalStateT parser emptyParserState)

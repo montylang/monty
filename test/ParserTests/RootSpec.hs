@@ -16,11 +16,11 @@ spec :: Spec
 spec = do
   describe "Import parser" $ do
     it "Parses imports" $ do
-      (parse (importParser <* eof) "" "import foo") `shouldBe`
+      (myParse (importParser <* eof) "" "import foo") `shouldBe`
         (Right $ pure $ ExprImport ["foo"])
-      (parse (importParser <* eof) "" "import foo.bar.it") `shouldBe`
+      (myParse (importParser <* eof) "" "import foo.bar.it") `shouldBe`
         (Right $ pure $ ExprImport ["foo", "bar", "it"])
-      (parse (importParser <* eof) "" "import foo.") `shouldSatisfy` isLeft
+      (myParse (importParser <* eof) "" "import foo.") `shouldSatisfy` isLeft
 
   describe "Double parser" $ do
     it "Parses doubles" $ do
@@ -169,22 +169,22 @@ spec = do
           "  a = 5"
         ]) `shouldBe`
         (Right [
-            pure $ (ExprDef [(IdArg "x")] [pure $ ExprInt 7]),
+            pure $ (ExprDef "" [(IdArg "x")] [pure $ ExprInt 7]),
             pure $ (ExprAssignment (IdArg "a") (pure $ ExprInt 5))
           ])
 
   -- OK Marvin, I like that
   describe "Root body parser" $ do
     it "Basic" $ do
-      (parse rootBodyParser "" $ unlines ["a = 3"]) `shouldBe`
+      (myParse rootBodyParser "" $ unlines ["a = 3"]) `shouldBe`
         (Right $ [pure $ ExprAssignment (IdArg "a") (pure $ ExprInt 3)])
 
-      (parse rootBodyParser "" $ unlines ["a = 3", "b = 4"]) `shouldBe`
+      (myParse rootBodyParser "" $ unlines ["a = 3", "b = 4"]) `shouldBe`
         (Right $ [pure $ ExprAssignment (IdArg "a") (pure $ ExprInt 3),
                   pure $ ExprAssignment (IdArg "b") (pure $ ExprInt 4)])
 
     it "Exprs & defs" $ do
-      (parse rootBodyParser "" $ unlines [
+      (myParse rootBodyParser "" $ unlines [
             "1",
             "def f(x):",
             "  x",
@@ -194,10 +194,10 @@ spec = do
            pure $ ExprInt 1,
            pure $ ExprAssignment
                     (IdArg "f")
-                    (pure $ ExprDef [IdArg "x"] [pure $ ExprId "x"]),
+                    (pure $ ExprDef "" [IdArg "x"] [pure $ ExprId "x"]),
            pure $ ExprInt 2
          ])
-      (parse rootBodyParser "" $ unlines ["if 3:", "  1", "else:", "  2"]) `shouldBe`
+      (myParse rootBodyParser "" $ unlines ["if 3:", "  1", "else:", "  2"]) `shouldBe`
         (Right $ [
                    pure $ ExprIfElse
                    (CondBlock (pure $ ExprInt 3) [pure $ ExprInt 1])
@@ -279,23 +279,25 @@ spec = do
     it "Anonymous def" $ do
       (testParser exprParser $ unlines ["def (a, b)  : ", "  4"]) `shouldBe`
         (Right $ pure $ ExprDef
+         ""
          [(IdArg "a"), (IdArg "b")]
          [pure $ ExprInt 4])
 
       (testParser exprParser $ unlines ["def():", "  4"]) `shouldBe`
-        (Right $ pure $ ExprDef [] [pure $ ExprInt 4])
+        (Right $ pure $ ExprDef "" [] [pure $ ExprInt 4])
 
     it "Named def" $ do
       (testParser exprParser $ unlines ["def foo():", "  4"]) `shouldBe`
         (Right $ pure $ ExprAssignment
          (IdArg "foo") $
-         pure $ ExprDef [] [pure $ ExprInt 4]
+         pure $ ExprDef "" [] [pure $ ExprInt 4]
         )
 
     it "Lambda" $ do
       (testParser exprParser $ unlines ["(x): x + 4"]) `shouldBe`
         (Right $ pure $
          ExprDef
+           ""
            [IdArg "x"]
            [pure $ ExprReturn
              (pure $ ExprInfix (pure $ ExprId "x") InfixAdd (pure $ ExprInt 4))
@@ -308,7 +310,7 @@ spec = do
 
       (testParser exprParser $ unlines ["def (x):", "  return x"]) `shouldBe`
         (Right $ pure $
-         (ExprDef [(IdArg "x")] [pure $ ExprReturn $ pure $ ExprId "x"]))
+         (ExprDef "" [(IdArg "x")] [pure $ ExprReturn $ pure $ ExprId "x"]))
 
   describe "Calling functions" $ do
     it "Named function call" $ do
@@ -345,7 +347,7 @@ spec = do
             "  None()",
             "  Just(you)"
           ]) `shouldBe`
-        (Right $ pure $ ExprClass "Maybe" [
+        (Right $ pure $ ExprClass "" "Maybe" [
               pure $ TypeCons "None" [],
               pure $ TypeCons "Just" ["you"]
             ])
@@ -366,7 +368,7 @@ spec = do
         (Right $ pure $ ExprInstanceOf "Maybe" "Functor" [
               pure $ ExprAssignment
                 (IdArg "bar")
-                (pure $ ExprDef [] [pure $ ExprReturn (pure $ ExprInt 0)])
+                (pure $ ExprDef "" [] [pure $ ExprReturn (pure $ ExprInt 0)])
             ])
 
       (testParser exprParser $ unlines [

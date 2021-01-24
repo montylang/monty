@@ -14,6 +14,7 @@ import ParserTypes
 import RunnerTypes
 import RunnerUtils
 import Evaluators.Evaluatable
+import ParserTests.Helpers
 
 runWithContext :: Runtime -> String -> IO String
 runWithContext context input = do
@@ -32,7 +33,7 @@ runWithContext context input = do
     semanticed = semantic <$> parsed
 
     parsed :: [PExpr]
-    parsed = case parse rootBodyParser "" input of
+    parsed = case myParse rootBodyParser "" input of
       Left  err -> trace (errorBundlePretty err) undefined
       Right res -> res
 

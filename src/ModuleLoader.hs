@@ -63,9 +63,11 @@ toParseExcept :: Either (ParseErrorBundle String Void) a -> ParseExcept a
 toParseExcept (Right a) = pure a
 toParseExcept (Left err) = throwError $ ErrParse err
 
+
+
 montyParseFromFile :: String -> IO (ParseExcept [PExpr])
 montyParseFromFile file = do
-  parsed <- toParseExcept <$> (runParser rootBodyParser file <$> readFile file)
+  parsed <- toParseExcept <$> (runMyParser rootBodyParser file <$> readFile file)
   pure parsed
 
 montyRunSemantic :: ParseExcept [PExpr] -> IO (ParseExcept [ET])

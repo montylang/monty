@@ -1,5 +1,10 @@
+#| Represents an optional value
+#|
+#| @class Maybe(a)
+#| @type a Description taoesnthuo
 class Maybe:
   None
+  #| @param value a
   Just(value)
 
 instance Maybe of Show:

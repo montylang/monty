@@ -17,7 +17,7 @@ import ParserTypes
 import RunnerTypes
 import RunnerUtils
 import MontyRunner (loadMyLib, showCallStack, runIOVal, emptyContext)
-import Parser.Root (exprParser, importParser)
+import Parser.Root (exprParser, importParser, runMyParser)
 import Parser.Utils (ws)
 import Parser.Semantic (semantic, ParseExcept)
 import ModuleLoader (toParseExcept)
@@ -43,7 +43,7 @@ cmd input = lift runLine
 
     parseInput :: ParseExcept ET
     parseInput = do
-      parsed <- toParseExcept $ runParser replParser "repl" input
+      parsed <- toParseExcept $ runMyParser replParser "repl" input
       semantic parsed
 
     replParser :: Parser PExpr

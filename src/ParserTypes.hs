@@ -1,16 +1,28 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 module ParserTypes where
 
 import Data.Void
+import Data.Text.Lazy.Builder
 import Text.Megaparsec hiding (Pos)
 import PrettyPrint
 import Data.List
 import Control.Lens
+import Control.Monad.State.Strict
 
-type Parser = Parsec Void String
+type Parser = StateT ParserState (Parsec Void String)
+
+data ParserState = ParserState
+  {
+    _currentDocString :: [DocString]
+  } deriving (Show)
+
+emptyParserState :: ParserState
+emptyParserState = ParserState []
 
 type Indent = String
 
 type Id = String
+type DocString = String
 
 data CondBlock a = CondBlock a [a]
   deriving (Show, Eq)
@@ -113,14 +125,26 @@ data Expr
   | ExprIfElse (CondBlock PExpr) [CondBlock PExpr] [PExpr]
   | ExprInfix PExpr InfixOp PExpr
   | ExprPrefixOp PrefixOp PExpr
-  | ExprAssignment Arg (PExpr)
-  | ExprDef [Arg] [PExpr]
+  | ExprAssignment Arg PExpr
+  | ExprDef
+    { doc :: DocString
+    , args :: [Arg]
+    , body :: [PExpr]
+    }
   | ExprCall PExpr [PExpr]
   | ExprReturn PExpr
-  | ExprClass Id [Pos TypeCons]
+  | ExprClass
+    { doc :: DocString
+    , name :: Id
+    , constructors :: [Pos TypeCons]
+    }
   | ExprList [PExpr]
   | ExprTuple [PExpr]
-  | ExprType Id [Pos DefSignature]
+  | ExprType
+    { doc :: DocString
+    , name :: Id
+    , defSignatures :: [Pos DefSignature]
+    }
   | ExprInstanceOf Id Id [PExpr]
   | ExprBind Arg PExpr
   | ExprUnwrap [PExpr]
@@ -205,3 +229,5 @@ instance Monad Pos where
   (Pos pos val) >>= f =
     let (Pos pos2 result) = f val in
       Pos (min pos pos2) result
+
+(makeLenses ''ParserState)

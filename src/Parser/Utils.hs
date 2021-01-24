@@ -1,17 +1,20 @@
 module Parser.Utils where
 
+import Data.Char
+import Control.Lens
 import Text.Megaparsec hiding (Pos)
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer
 
 import ParserTypes
 import Control.Monad (liftM)
+import Debug.Trace
 
 rword :: String -> Parser ()
 rword w = try (string w *> notFollowedBy alphaNumChar) <* ws
 
 sc :: Parser ()
-sc = ws *> pure ()
+sc = () <$ ws
 
 isHsWs :: Char -> Bool
 isHsWs ' ' = True
@@ -24,22 +27,49 @@ ws = takeWhileP Nothing isHsWs
 ws1 :: Parser String
 ws1 = takeWhile1P Nothing isHsWs
 
+trim :: String -> String
+trim = f . f
+  where f = reverse . dropWhile isSpace 
+
 commentEater :: Parser ()
-commentEater = char '#' *> takeWhileP Nothing (/= '\n') *> pure ()
+commentEater = do
+    comment <- char '#' *> takeWhileP Nothing (/= '\n')
+    currentDocString %= thing comment
+  where
+    thing :: DocString -> [DocString] -> [DocString]
+    thing new current = trace "o no" $ current <> filter (\s -> take 1 s == "|") [new]
+
+-- Cannot be at the end of a non-empty line
+docstringEater :: Parser ()
+docstringEater = trace "Try parsing a docstring you ass hate" $ do
+  content <- some (try thing)
+  trace (show content) currentDocString .= content
+  where
+    thing = ws *> string "#|" *> takeWhileP Nothing (/= '\n') <* optional (char '\n')
 
 -- TODO: Support CRLF and ;
 singleEol :: Parser ()
-singleEol = ws *> optional commentEater *> char '\n' *> pure ()
+singleEol = trace "singleton object eol" $ () <$ (ws *> optional commentEater *> char '\n')
 
 commentableEof :: Parser ()
-commentableEof = pure () <* many (try singleEol) <*
+commentableEof = () <$ many (try singleEol) <*
   (ws *> optional commentEater *> eof)
 
 eolMany :: Parser ()
-eolMany = pure () <* (many $ try singleEol)
+eolMany = do
+  () <$ many (try singleEol)
+
+  -- if null parsed
+  --   then pure ()
+  --   else currentDocString .= []
 
 eolSome :: Parser ()
-eolSome = pure () <* (some $ try singleEol)
+eolSome = do
+  () <$ some (try singleEol)
+
+  -- if null parsed
+  --   then pure ()
+  --   else currentDocString .= []
 
 sourcePos :: Parser SourcePos
 sourcePos = getSourcePos

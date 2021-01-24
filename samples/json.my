@@ -7,6 +7,7 @@ class JsonValue:
   JsonObject(value)
 
 instance JsonValue of Show:
+  #| Hi
   def str(JsonNull):
     return "null"
 
