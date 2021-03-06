@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1c0bdb94bd9f38cf1313e2f9dd01b3631d9598ee0bca81ad8aa306eef7e2e3f1
+-- hash: ef7676055e98cc48d96084402bff5abc0ee3269ab59ceead306bde7a519a160d
 
 name:           monty
 version:        0.1.0.0
@@ -70,7 +70,10 @@ library
       Paths_monty
   hs-source-dirs:
       src
-  default-extensions: NamedFieldPuns GADTs TemplateHaskell
+  default-extensions:
+      NamedFieldPuns
+      GADTs
+      TemplateHaskell
   build-depends:
       base >=4.7 && <5
     , directory
