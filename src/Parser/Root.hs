@@ -89,10 +89,10 @@ condBlockParser initialKeyword indent = do
 
 ifParser :: Indent -> Parser PExpr
 ifParser indent = do
-    fi   <- condBlockParser "if" indent 
-    file <- elifsParser
-    esle <- elseParser
-    addPos $ ExprIfElse fi file esle
+    ifExpr   <- condBlockParser "if" indent 
+    elifExpr <- elifsParser
+    elseExpr <- optional elseParser
+    addPos $ ExprIfElse ifExpr elifExpr elseExpr
   where
     elifsParser :: Parser [CondBlock PExpr]
     elifsParser = many (try $ condBlockParser "elif" indent)

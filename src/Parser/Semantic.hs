@@ -15,6 +15,7 @@ import MorphUtils
 
 import Evaluators.All
 import Evaluators.Import
+import TypeUtils (pexprToTree)
 
 data ParseErr
   = ErrPos SourcePos String
@@ -138,9 +139,47 @@ semanticAss rhsSemantic (Pos p (ExprAssignment arg value)) = do
   pure $ RAssignment p arg rhs
 semanticAss _ (Pos p _) = throwError $ ErrPos p "Not an assignment"
 
+rearrangeCond :: SourcePos
+              -> CondBlock PExpr
+              -> [CondBlock PExpr]
+              -> [PExpr]
+              -> ParseExcept ET
+rearrangeCond p ifCond elifConds elseBody = do
+  newIfCond    <- rearrangeCondBlock ifCond
+  newElifConds <- sequence $ rearrangeCondBlock <$> elifConds
+  newElseBody  <- rearrangeReturn elseBody
+  pure $ ET $ RCondition p newIfCond newElifConds newElseBody
+
+  where
+    rearrangeCondBlock :: CondBlock PExpr -> ParseExcept (CondBlock ET)
+    rearrangeCondBlock (CondBlock cond body) =
+      liftM2 CondBlock (semantic cond) (rearrangeReturn body)
+
+-- Rearranges a function such that the last statement will be a return
+rearrangeReturn :: [PExpr] -> ParseExcept [ET]
+rearrangeReturn [] = throwError $ ErrString "Did not find expected return statement"
+rearrangeReturn [Pos p (ExprReturn retExpr)] = pure <$> semantic retExpr 
+rearrangeReturn ((Pos p (ExprIfElse fi file esle)):xs) | containsReturn fi =
+  pure <$> case esle of
+    Just elseBody -> rearrangeCond p fi file elseBody
+    _             -> rearrangeCond p fi file xs
+  where
+    containsReturn :: CondBlock PExpr -> Bool
+    containsReturn (CondBlock _ body) =
+      or (treeHasReturn . pexprToTree <$> body)
+
+    treeHasReturn :: Tree PExpr -> Bool
+    treeHasReturn (Tree (Pos _ (ExprDef _ _)) _)  = False
+    treeHasReturn (Tree (Pos _ (ExprReturn _)) _) = True
+    treeHasReturn (Tree _ subtrees)               = or (treeHasReturn <$> subtrees)
+
+rearrangeReturn (x:xs) =
+  liftM2 (:) (semantic x) (rearrangeReturn xs)
+
 semanticDef :: Maybe Id -> PExpr -> ParseExcept RDef
 semanticDef name (Pos p (ExprDef args body)) = do
-  newBody <- sequence $ semantic <$> body
+  --newBody <- sequence $ semantic <$> body
+  newBody <- rearrangeReturn body
   pure $ RDef p name args newBody
 semanticDef _ (Pos p _) = throwError $ ErrPos p "Not a def"
 
@@ -160,22 +199,26 @@ semantic (Pos p (ExprPrefixOp op ex)) = do
 semantic (Pos _ (ExprPrecedence inner)) =
   semantic inner
 semantic (Pos p (ExprIfElse ifCond elifConds elseBody)) = do
-  newIfCond    <- semanticCondBlock ifCond 
-  newElifConds <- sequence $ semanticCondBlock <$> elifConds 
-  newElseBody  <- sequence $ semantic          <$> elseBody
+  elseBody'    <- getOrDie elseBody
+  newIfCond    <- semanticCondBlock ifCond
+  newElifConds <- sequence $ semanticCondBlock <$> elifConds
+  newElseBody  <- sequence $ semantic          <$> elseBody'
   pure $ ET $ RCondition p newIfCond newElifConds newElseBody
+  where
+    getOrDie :: Maybe [PExpr] -> ParseExcept [PExpr]
+    getOrDie (Just xs) = pure xs
+    getOrDie _ =
+      throwError $ ErrPos p "Non-returning conditional must have an else clause"
 semantic ass@(Pos _ (ExprAssignment arg@(IdArg name) value@(Pos _ (ExprDef _ _)))) = do
   ET <$> semanticAss (semanticDef $ Just name) ass
 semantic ass@(Pos _ (ExprAssignment _ _)) = do
   ET <$> semanticAss semantic ass
-semantic def@(Pos _ (ExprDef {})) = do
+semantic def@(Pos _ ExprDef {}) = do
   ET <$> semanticDef Nothing def
 semantic (Pos p (ExprCall func params)) = do
   newFunc <- semantic func 
   newParams <- sequence $ semantic <$> params 
   pure $ ET $ RCall p newFunc newParams
-semantic (Pos p (ExprReturn retVal)) = do
-  semantic retVal 
 semantic (Pos p (ExprList elements)) = do
   newElements <- sequence $ semantic <$> elements 
   pure $ ET $ RList p newElements
@@ -186,7 +229,7 @@ semantic (Pos p (ExprInstanceOf tname cname elements)) = do
   newElements <- sequence $ semanticInstanceDef <$> elements
   pure $ ET $ RInstanceOf p tname cname newElements
 semantic (Pos p (ExprCase input blocks)) = do
-  newInput <- semantic input
+  newInput  <- semantic input
   newBlocks <- sequence $ semanticCaseBlock <$> blocks
   pure $ ET $ RCase p newInput newBlocks
 -- One to one maps

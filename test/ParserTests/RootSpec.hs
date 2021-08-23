@@ -202,7 +202,7 @@ spec = do
                    pure $ ExprIfElse
                    (CondBlock (pure $ ExprInt 3) [pure $ ExprInt 1])
                    []
-                   [pure $ ExprInt 2]
+                   (Just [pure $ ExprInt 2])
                   ])
 
   describe "Cond block parser" $ do
@@ -225,7 +225,7 @@ spec = do
         (Right $ pure $ ExprIfElse
          (CondBlock (pure $ ExprInt 3) [pure $ ExprInt 4])
          []
-         [pure $ ExprInt 5])
+         (Just [pure $ ExprInt 5]))
 
     it "If elif else" $ do
       (testParser exprParser $ unlines [
@@ -241,7 +241,7 @@ spec = do
         (Right $ pure $ ExprIfElse
          (CondBlock (pure $ ExprInt 3) [pure $ ExprInt 4, pure $ ExprInt 5])
          [CondBlock (pure $ ExprInt 5) [pure $ ExprInt 6]]
-         [pure $ ExprInt 7, pure $ ExprInt 8])
+         (Just [pure $ ExprInt 7, pure $ ExprInt 8]))
 
     it "If elif elif else" $ do
       (testParser exprParser $ unlines
@@ -250,7 +250,7 @@ spec = do
          (CondBlock (pure $ ExprInt 3) [pure $ ExprInt 4])
          [CondBlock (pure $ ExprInt 5) [pure $ ExprInt 6],
           CondBlock (pure $ ExprInt 7) [pure $ ExprInt 8]]
-         [pure $ ExprInt 9])
+         (Just [pure $ ExprInt 9]))
 
     it "Nested if/else" $ do
       (testParser exprParser $ unlines [
@@ -268,11 +268,11 @@ spec = do
              [pure $ ExprIfElse
                (CondBlock (pure $ ExprInt 2) [pure $ ExprInt 3])
                []
-               [pure $ ExprInt 4]
+               (Just [pure $ ExprInt 4])
              ]
            )
            []
-           [pure $ ExprInt 5])
+           (Just [pure $ ExprInt 5]))
          )
 
   describe "Def" $ do
