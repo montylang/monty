@@ -252,6 +252,22 @@ spec = do
           CondBlock (pure $ ExprInt 7) [pure $ ExprInt 8]]
          (Just [pure $ ExprInt 9]))
 
+    it "If no else" $ do
+      (testParser exprParser $ unlines
+       ["if 3:", "  4"]) `shouldBe`
+        (Right $ pure $ ExprIfElse
+         (CondBlock (pure $ ExprInt 3) [pure $ ExprInt 4])
+         []
+         Nothing)
+
+    it "If elif no else" $ do
+      (testParser exprParser $ unlines
+       ["if 3:", "  4", "elif 4:", "  5"]) `shouldBe`
+        (Right $ pure $ ExprIfElse
+         (CondBlock (pure $ ExprInt 3) [pure $ ExprInt 4])
+         [CondBlock (pure $ ExprInt 4) [pure $ ExprInt 5]]
+         Nothing)
+
     it "Nested if/else" $ do
       (testParser exprParser $ unlines [
           "if 1:",

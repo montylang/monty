@@ -1,6 +1,7 @@
 module RunnerSpec where
 
-import Test.Hspec
+import Test.Hspec (Spec, it, describe, runIO)
+import qualified Test.Hspec as HS
 import Text.Megaparsec
 import Control.Monad.Except
 import Control.Monad.State.Strict
@@ -15,6 +16,9 @@ import RunnerTypes
 import RunnerUtils
 import Evaluators.Evaluatable
 
+-- Fix the weird HSpec arg order
+shouldBe = flip HS.shouldBe
+
 runWithContext :: Runtime -> String -> IO String
 runWithContext context input = do
     val <- evalStateT (runExceptT run') context
@@ -24,9 +28,11 @@ runWithContext context input = do
       Right res -> pure $ show res
   where
     run' :: Scoper Value
-    run' = case runExcept $ head semanticed of
-      Left _    -> undefined
-      Right res -> eval res
+    run' = do
+      case sequence $ runExcept <$> semanticed of
+        Left msg           -> trace (show msg) undefined
+        Right evaluatables ->
+          last <$> sequence (eval <$> evaluatables)
 
     semanticed :: [ParseExcept ET]
     semanticed = semantic <$> parsed
@@ -210,8 +216,30 @@ spec = do
       exprRepr "int(3.9999995)" >>= shouldBe "3"
 
     it "Misc double stuff" $ do
-      exprRepr "str(3.001)"     >>= shouldBe "\"3.001\""
-      exprRepr "3.001 > 2.6"     >>= shouldBe "True"
+      exprRepr "str(3.001)"  >>= shouldBe "\"3.001\""
+      exprRepr "3.001 > 2.6" >>= shouldBe "True"
 
     it "Uncurry" $ do
       exprRepr "uncurry(add)((3, 4))" >>= shouldBe "7"
+
+  describe "Control flow tests" $ do
+    it "If else statement" $ do
+      exprRepr (unlines
+                ["if True:", "  4", "else:", "  5"])
+        >>= shouldBe "4"
+      exprRepr (unlines
+                ["if False:", "  4", "else:", "  5"])
+        >>= shouldBe "5"
+
+    it "If as a guard clause" $ let
+      fibDef = ["def fib(n):",
+                "  if n == 0 or n == 1:",
+                "    return n",
+                "  return fib(n - 1) + fib(n - 2)"]
+      in do
+      exprRepr (unlines (fibDef <> ["fib(0)"])) >>= shouldBe "0"
+      exprRepr (unlines (fibDef <> ["fib(1)"])) >>= shouldBe "1"
+      exprRepr (unlines (fibDef <> ["fib(2)"])) >>= shouldBe "1"
+      exprRepr (unlines (fibDef <> ["fib(3)"])) >>= shouldBe "2"
+      exprRepr (unlines (fibDef <> ["fib(4)"])) >>= shouldBe "3"
+      exprRepr (unlines (fibDef <> ["fib(10)"])) >>= shouldBe "55"

@@ -84,7 +84,7 @@ condBlockParser :: String -> Indent -> Parser (CondBlock PExpr)
 condBlockParser initialKeyword indent = do
   cond <- try $ rword initialKeyword *> exprParser indent
           <* ws <* char ':' <* eolSome
-  body <- bodyParser indent <* eolSome
+  body <- bodyParser indent
   pure $ CondBlock cond body
 
 ifParser :: Indent -> Parser PExpr
@@ -95,11 +95,11 @@ ifParser indent = do
     addPos $ ExprIfElse ifExpr elifExpr elseExpr
   where
     elifsParser :: Parser [CondBlock PExpr]
-    elifsParser = many (try $ condBlockParser "elif" indent)
+    elifsParser = many (try $ eolSome *> condBlockParser "elif" indent)
 
     elseParser :: Parser [PExpr]
     elseParser =
-      string indent *> rword "else" *> char ':' *> eolSome *>
+      try (eolSome *> string indent *> rword "else") *> char ':' *> eolSome *>
       bodyParser indent
 
 exprVarIdParser :: Indent -> Parser PExpr
