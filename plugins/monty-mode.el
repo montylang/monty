@@ -24,9 +24,10 @@
 (define-generic-mode 'monty-mode
   '("#")
   '("def" "type" "class" "if" "elif" "else" "return" "instance" "of"
-    "unwrap" "wrap" "pass" "case")
+    "unwrap" "wrap" "pass" "case" "self" "and" "or" "not")
   '(("\\bdebug\\b" . 'font-lock-builtin-face)
     ("\\b[A-Z][a-zA-Z0-9_]*\\b" . 'font-lock-type-face)
+    ("\\(\\(\\b\\|_\\)[a-z_][a-zA-Z0-9_]*\\) \\(<-\\|=\\)[^=<>]" . '(1 font-lock-variable-name-face))
     ("\\b[0-9]+\\b" . font-lock-constant-face)
     ("\\bdef \\([a-z][a-zA-Z0-9_]*\\)\\b" . '(1 font-lock-function-name-face))
     )
@@ -34,5 +35,8 @@
   '((lambda () (modify-syntax-entry ?' "\""))) ;; other functions to call
   "A mode for Monty files"
   )
+
+(add-hook 'monty-mode-hook
+          (lambda () (run-hooks 'prog-mode-hook)))
 
 (provide 'monty-mode)
