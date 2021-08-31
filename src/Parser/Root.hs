@@ -80,22 +80,25 @@ caseBlockParser indent = do
     multiLineP = blockParser indent exprParser
 
 -- TODO: Support this `if foo: print('reeee')`
-condBlockParser :: String -> Indent -> Parser (CondBlock PExpr)
-condBlockParser initialKeyword indent = do
-  cond <- try $ rword initialKeyword *> exprParser indent
+condBlockParser :: Parser () -> Indent -> Parser (CondBlock PExpr)
+condBlockParser initialParser indent = do
+  cond <- try $ initialParser *> exprParser indent
           <* ws <* char ':' <* eolSome
   body <- bodyParser indent
   pure $ CondBlock cond body
 
 ifParser :: Indent -> Parser PExpr
 ifParser indent = do
-    ifExpr   <- condBlockParser "if" indent 
+    ifExpr   <- condBlockParser (rword "if") indent 
     elifExpr <- elifsParser
     elseExpr <- optional elseParser
     addPos $ ExprIfElse ifExpr elifExpr elseExpr
   where
     elifsParser :: Parser [CondBlock PExpr]
-    elifsParser = many (try $ eolSome *> condBlockParser "elif" indent)
+    elifsParser = many $ condBlockParser elifInitialP indent
+
+    elifInitialP :: Parser ()
+    elifInitialP = eolSome *> string indent *> rword "elif"
 
     elseParser :: Parser [PExpr]
     elseParser =

@@ -25,6 +25,18 @@ def tail(Nil):
 def tail(head|tail):
   return Just(tail)
 
+def at(Nil, _):
+  return None
+
+def at(head|tail, n):
+  if n < 0:
+    return None
+
+  if n == 0:
+    return Just(head)
+
+  return at(tail, n - 1)
+
 def reverse(l):
   return l.foldl([], (acc, it): [it] <> acc)
 

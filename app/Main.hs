@@ -32,5 +32,5 @@ main = do
 
   case args of
     ["--repl"] -> runRepl
-    [path]     -> runFile path
+    (path:_)   -> runFile path
     _          -> showUsage

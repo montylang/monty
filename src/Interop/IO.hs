@@ -13,11 +13,19 @@ import RunnerUtils
 import CallableUtils
 
 import Interop.Helpers
+import System.Environment (getArgs)
+
+ioGetArgs :: [Value] -> Scoper Value
+ioGetArgs [token] = do
+  args <- liftIO getArgs
+  pure $ VTuple [VList (stringToVal <$> args), token]
+ioGetArgs _ = undefined
 
 ioPrintStrT :: [Value] -> Scoper Value
 ioPrintStrT [VList str@((VChar _):_), token] = do
   liftIO $ putStrLn $ vChr <$> str
   pure $ VTuple [unitValue, token]
+ioPrintStrT _ = undefined
 
 ioReadStrT :: [Value] -> Scoper Value
 ioReadStrT [token] = do
@@ -48,5 +56,10 @@ ioDefinitions = [
         generateInteropCase
           [TypedIdArg "world" "#IOWorldToken"]
           ioReadStrT
+    ]),
+    ("Any", "getArgsT", [
+        generateInteropCase
+          [TypedIdArg "world" "#IOWorldToken"]
+          ioGetArgs
     ])
   ]

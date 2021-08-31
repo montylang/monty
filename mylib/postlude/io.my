@@ -35,6 +35,9 @@ def print(input):
 def input():
   return IO(readStrT)
 
+def getArgs():
+  return IO(getArgsT)
+
 # Read lines from STDIN, until an EOF is hit
 # Returns the list of lines
 def inputLines():

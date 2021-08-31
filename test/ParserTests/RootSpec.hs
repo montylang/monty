@@ -6,6 +6,7 @@ import Data.Either
 
 import ParserTypes
 import Parser.Root
+import Parser.Utils (rword)
 
 import ParserTests.Helpers
 
@@ -207,7 +208,7 @@ spec = do
 
   describe "Cond block parser" $ do
     it "fake cond" $ do
-      (testParser (condBlockParser "fake") $ unlines [
+      (testParser (condBlockParser (rword "fake")) $ unlines [
             "fake 3 :  # ain't real! ",
             "  4",
             "  5"
@@ -242,6 +243,26 @@ spec = do
          (CondBlock (pure $ ExprInt 3) [pure $ ExprInt 4, pure $ ExprInt 5])
          [CondBlock (pure $ ExprInt 5) [pure $ ExprInt 6]]
          (Just [pure $ ExprInt 7, pure $ ExprInt 8]))
+
+    it "If elif else indented" $ do
+      (testParser exprParser $ unlines [
+            "if 0:",
+            "  if 1:",
+            "    2",
+            "  elif 3:",
+            "    4",
+            "  elif 5:",
+            "    6",
+            "  else:",
+            "    7"
+          ]) `shouldBe`
+        (Right $ pure $ ExprIfElse (
+            CondBlock (pure $ ExprInt 0) [pure $ ExprIfElse
+              (CondBlock (pure $ ExprInt 1) [pure $ ExprInt 2])
+              [CondBlock (pure $ ExprInt 3) [pure $ ExprInt 4],
+               CondBlock (pure $ ExprInt 5) [pure $ ExprInt 6]]
+              (Just [pure $ ExprInt 7])])
+         [] Nothing)
 
     it "If elif elif else" $ do
       (testParser exprParser $ unlines

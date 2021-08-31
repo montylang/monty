@@ -6,6 +6,7 @@ import Text.Megaparsec.Char.Lexer
 
 import ParserTypes
 import Control.Monad (liftM)
+import Data.Functor
 
 rword :: String -> Parser ()
 rword w = try (string w *> notFollowedBy alphaNumChar) <* ws
@@ -25,21 +26,21 @@ ws1 :: Parser String
 ws1 = takeWhile1P Nothing isHsWs
 
 commentEater :: Parser ()
-commentEater = char '#' *> takeWhileP Nothing (/= '\n') *> pure ()
+commentEater = char '#' *> takeWhileP Nothing (/= '\n') $> ()
 
 -- TODO: Support CRLF and ;
 singleEol :: Parser ()
-singleEol = ws *> optional commentEater *> char '\n' *> pure ()
+singleEol = ws *> optional commentEater *> char '\n' $> ()
 
 commentableEof :: Parser ()
 commentableEof = () <$ many (try singleEol) <*
   (ws *> optional commentEater *> eof)
 
 eolMany :: Parser ()
-eolMany = pure () <* (many $ try singleEol)
+eolMany = () <$ many (try singleEol)
 
 eolSome :: Parser ()
-eolSome = pure () <* (some $ try singleEol)
+eolSome = () <$ some (try singleEol)
 
 sourcePos :: Parser SourcePos
 sourcePos = getSourcePos
@@ -76,4 +77,4 @@ blockParser base parser = do
     rest       <- many $ stmt nextIndent
     pure $ first:rest
   where
-    stmt nextIndent = (try $ eolSome *> string nextIndent) *> parser nextIndent
+    stmt nextIndent = try (eolSome *> string nextIndent) *> parser nextIndent
