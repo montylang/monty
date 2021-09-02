@@ -1,6 +1,5 @@
 module ModuleLoader
-  ( loadModuleFunction,
-    montyParseFromFile,
+  ( montyParseFromFile,
     toParseExcept,
     montyRunSemantic,
   )
@@ -21,41 +20,6 @@ import RunnerTypes
 import RunnerUtils
 import Parser.Root
 import Parser.Semantic
-
-loadModuleFunction :: [String] -> Scoper ()
-loadModuleFunction components = do
-    isFile <- liftIO $ doesFileExist (path <> ".my")
-    isDir  <- liftIO $ doesDirectoryExist path
-
-    if isFile then
-      loadFiles [path <> ".my"]
-    else if isDir then do
-      content <- liftIO (listDirectory path)
-      loadFiles $ constructPath <$> filter isMontyFile content
-    else
-      stackTrace $ "Could not find module " <> intercalate "." components
-  where
-    path = intercalate [pathSeparator] components
-    constructPath = (<>) $ path <> [pathSeparator]
-    isMontyFile = (== ".my") . takeExtension
-
-loadFiles :: [FilePath] -> Scoper ()
-loadFiles paths = sequence_ (loadFile <$> paths)
-  where
-    loadFile :: String -> Scoper ()
-    loadFile path = do
-      parsed <- liftIO $ montyRunSemantic . filterMains =<< montyParseFromFile path
-
-      case runExcept parsed of
-        Right exprs -> () <$ sequence (eval <$> exprs)
-        Left err    -> liftIO $ die $ show err
-
-    filterMains :: ParseExcept [PExpr] -> ParseExcept [PExpr]
-    filterMains = fmap $ filter (not . isMain)
-
-    isMain :: PExpr -> Bool
-    isMain (Pos _ (ExprAssignment (IdArg "__main__") _)) = True
-    isMain _ = False
 
 toParseExcept :: Either (ParseErrorBundle String Void) a -> ParseExcept a
 toParseExcept (Right a) = pure a

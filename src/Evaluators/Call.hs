@@ -18,18 +18,5 @@ data RCall = RCall
   }
 
 instance Evaluatable RCall where
-  getPos RCall {rCallPos} = rCallPos
-  evaluate rcall@RCall {rCallFun, rCallParams} = do
-      pushToCallStack
-      fun        <- eval rCallFun
-      evaledArgs <- sequence $ eval <$> rCallParams
-      runFun fun evaledArgs <* popFromCallStack
-    where
-      pushToCallStack :: Scoper ()
-      pushToCallStack = callStack %= (rCallPos rcall:)
-  
-      popFromCallStack :: Scoper ()
-      popFromCallStack = callStack %= drop 1
-
-instance PrettyPrint RCall where
-  prettyPrint _ = "<function call>"
+  render RCall {rCallFun, rCallParams} =
+    render rCallFun <> "(" <> intercalate "," (render <$> rCallParams) <> ")"

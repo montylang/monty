@@ -49,12 +49,16 @@ infixSplitOrder = [
     InfixMul
   ]
 
+-- FIXME: better solution pls
+wasteSourcePos :: SourcePos
+wasteSourcePos = SourcePos "" (mkPos maxBound) (mkPos maxBound)
+
 -- What a mess
 groupByPrecedence :: [InfixOp] -> [(Maybe InfixOp, ET)] -> ET
 groupByPrecedence [] [] = trace "How did I get here?" undefined
 groupByPrecedence [] [(_, x)] = x
 groupByPrecedence [] ((Just op, x):xs) =
-  ET $ RInfix (getPos x) x op $ groupByPrecedence [] xs
+  ET $ RInfix wasteSourcePos x op $ groupByPrecedence [] xs
 groupByPrecedence (o:os) xs = joinHeadOp subCases
   where
     subCases :: [ET]
@@ -66,7 +70,7 @@ groupByPrecedence (o:os) xs = joinHeadOp subCases
     joinHeadOp (y:ys) = foldl folderHeadOp y ys
 
     folderHeadOp :: ET -> ET -> ET
-    folderHeadOp acc it = ET $ RInfix (getPos it) acc o it
+    folderHeadOp acc it = ET $ RInfix wasteSourcePos acc o it
 
 semanticInfixChain :: ET -> [(InfixOp, ET)] -> ET
 semanticInfixChain first rest =

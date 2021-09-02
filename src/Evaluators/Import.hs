@@ -7,7 +7,6 @@ import Control.Lens
 import ParserTypes
 import RunnerTypes
 import Evaluators.Evaluatable
-import PrettyPrint
 import RunnerUtils
 
 data RImport = RImport
@@ -16,8 +15,4 @@ data RImport = RImport
   }
 
 instance Evaluatable RImport where
-  getPos _ = undefined
-  evaluate RImport {riPath} = unitValue <$ loadModule riPath
-
-instance PrettyPrint RImport where
-  prettyPrint _ = "<import>"
+  render _ = "<import>"

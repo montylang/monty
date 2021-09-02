@@ -5,8 +5,8 @@ import Text.Megaparsec hiding (Pos)
 
 import PrettyPrint
 import RunnerTypes
-import ParserTypes
 import RunnerUtils
+import ParserTypes
 
 data RClass = RClass
   { rClassPos :: SourcePos,
@@ -15,16 +15,4 @@ data RClass = RClass
   }
 
 instance Evaluatable RClass where
-  getPos RClass {rClassPos} = rClassPos
-  evaluate RClass {rClassName, rClassTypeCons} = do
-      addToTypeScope rClassName (VClass consNames)
-      unionTopScope $ convert . getPosValue <$> rClassTypeCons
-      pure unitValue
-    where
-      convert :: TypeCons -> (Id, Value)
-      convert (TypeCons name args) = (name, VTypeCons rClassName name args)
-
-      consNames = getTypeConsName . getPosValue <$> rClassTypeCons
-
-instance PrettyPrint RClass where
-  prettyPrint RClass {rClassName} = "<class " <> rClassName <> ">"
+  render RClass {rClassName} = "<class " <> rClassName <> ">"

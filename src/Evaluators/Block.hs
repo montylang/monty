@@ -18,8 +18,4 @@ data RBlock = RBlock
   }
 
 instance Evaluatable RBlock where
-  getPos RBlock {rBlockPos} = rBlockPos
-  evaluate rcall@RBlock {rBlockBody} = runWithTempScope $ runBody rBlockBody
-
-instance PrettyPrint RBlock where
-  prettyPrint _ = "<Shhhh this isn't a real thing>"
+  render _ = "<Shhhh this isn't a real thing>"

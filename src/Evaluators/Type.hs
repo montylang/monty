@@ -16,8 +16,7 @@ data RType = RType
   }
 
 instance Evaluatable RType where
-  getPos RType {rTypePos} = rTypePos
-  evaluate RType {rTypeName, rTypeSigs} = evalType rTypeName rTypeSigs
+  render _ = "<type>"
 
 evalType :: Id -> [Pos DefSignature] -> Scoper Value
 evalType typeName headers = do
