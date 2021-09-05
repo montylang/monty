@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 module Parser.Semantic (ParseErr(..), ParseExcept, semantic) where
 
 import Data.Maybe
@@ -16,6 +17,7 @@ import MorphUtils
 import Evaluators.All
 import Evaluators.Import
 import TypeUtils (pexprToTree)
+import MiddleEndTypes
 
 data ParseErr
   = ErrPos SourcePos String
@@ -54,41 +56,62 @@ wasteSourcePos :: SourcePos
 wasteSourcePos = SourcePos "" (mkPos maxBound) (mkPos maxBound)
 
 -- What a mess
-groupByPrecedence :: [InfixOp] -> [(Maybe InfixOp, ET)] -> ET
-groupByPrecedence [] [] = trace "How did I get here?" undefined
-groupByPrecedence [] [(_, x)] = x
-groupByPrecedence [] ((Just op, x):xs) =
-  ET $ RInfix wasteSourcePos x op $ groupByPrecedence [] xs
-groupByPrecedence (o:os) xs = joinHeadOp subCases
+groupByPrecedence :: SourcePos -> [InfixOp] -> [(Maybe InfixOp, MExpr)] -> MExpr
+groupByPrecedence p [] [] = trace "How did I get here?" undefined
+groupByPrecedence p [] [(_, x)] = x
+groupByPrecedence p [] ((Just op, x):xs) =
+  let fun = MExprId p (infixInteropName op) in
+  MExprCall p MUnknown fun [x, groupByPrecedence p [] xs]
+groupByPrecedence p (o:os) xs = joinHeadOp subCases
   where
-    subCases :: [ET]
-    subCases = groupByPrecedence os <$>
+    subCases :: [MExpr]
+    subCases = groupByPrecedence p os <$>
       multiSpan ((== Just o) . view _1) xs
 
-    joinHeadOp :: [ET] -> ET
+    joinHeadOp :: [MExpr] -> MExpr
+    joinHeadOp []  = undefined
     joinHeadOp [y] = y
     joinHeadOp (y:ys) = foldl folderHeadOp y ys
 
-    folderHeadOp :: ET -> ET -> ET
-    folderHeadOp acc it = ET $ RInfix wasteSourcePos acc o it
+    folderHeadOp :: MExpr -> MExpr -> MExpr
+    folderHeadOp acc it = let p = (acc ^. mpos) in
+      MExprCall p MUnknown (MExprId p $ infixInteropName o) [acc, it]
 
-semanticInfixChain :: ET -> [(InfixOp, ET)] -> ET
+infixInteropName :: InfixOp -> Id
+infixInteropName InfixAdd      = "#add"
+infixInteropName InfixSub      = "#subtract"
+infixInteropName InfixMul      = "#multiply"
+infixInteropName InfixDiv      = "#divide"
+infixInteropName InfixMod      = "#modulus"
+infixInteropName InfixEq       = "#equals"
+infixInteropName InfixNe       = "#notequals"
+infixInteropName InfixGt       = "#greater"
+infixInteropName InfixLt       = "#less"
+infixInteropName InfixLe       = "#lessequal"
+infixInteropName InfixGe       = "#greaterequal"
+infixInteropName InfixLogicAnd = "#and"
+infixInteropName InfixLogicOr  = "#or"
+-- TODO: just cal the functions for these
+infixInteropName InfixCons     = "#cons"
+infixInteropName InfixMappend  = "#mappend"
+
+semanticInfixChain :: MExpr -> [(InfixOp, MExpr)] -> MExpr
 semanticInfixChain first rest =
-    groupByPrecedence infixSplitOrder ((Nothing, first):maybeRest)
+    groupByPrecedence (first ^. mpos) infixSplitOrder ((Nothing, first):maybeRest)
   where
-    maybeTup :: (InfixOp, ET) -> (Maybe InfixOp, ET)
+    maybeTup :: (InfixOp, MExpr) -> (Maybe InfixOp, MExpr)
     maybeTup (op, expr) = (Just op, expr) 
 
-    maybeRest :: [(Maybe InfixOp, ET)]
+    maybeRest :: [(Maybe InfixOp, MExpr)]
     maybeRest = maybeTup <$> rest
 
-semanticInfix :: PExpr -> InfixOp -> PExpr -> ParseExcept ET
+semanticInfix :: PExpr -> InfixOp -> PExpr -> ParseExcept MExpr
 semanticInfix lhs op rhs = do
   semanticLhs <- semantic lhs
   semanticRhs <- infixFlatten op rhs
   pure $ semanticInfixChain semanticLhs semanticRhs
 
-infixFlatten :: InfixOp -> PExpr -> ParseExcept [(InfixOp, ET)]
+infixFlatten :: InfixOp -> PExpr -> ParseExcept [(InfixOp, MExpr)]
 infixFlatten op (Pos p (ExprInfix lhs nextOp rhs)) = do
   semanticLhs  <- semantic lhs
   semanticRest <- infixFlatten nextOp rhs
@@ -97,7 +120,7 @@ infixFlatten op rhs = do
   semanticRhs  <- semantic rhs
   pure [(op, semanticRhs)]
 
-semanticUnwrap :: [PExpr] -> ParseExcept ET
+semanticUnwrap :: [PExpr] -> ParseExcept MExpr
 semanticUnwrap [] = throwError $ ErrString "Empty unwrap body"
 semanticUnwrap [Pos p (ExprBind _ _)] =
   throwError $ ErrPos p "Cannot have bind on last line of unwrap"
@@ -108,59 +131,49 @@ semanticUnwrap ((Pos p (ExprBind arg expr)):xs) = do
   semanticExpr <- semantic expr
   recursive    <- semanticUnwrap xs
 
-  pure $ ET $ RCall p
-    (ET $ RId p "bind")
-    [ET semanticExpr, ET $ RDef p Nothing [arg] [recursive]]
+  pure $ MExprCall p
+    MUnknown
+    (MExprId p "bind")
+    [semanticExpr,
+      MExprDef p [MFunction [MUnknown, MUnknown] MUnknown] [arg] [recursive]]
+
 semanticUnwrap (expr@(Pos p (ExprAssignment _ _)):xs) = do
   semanticExpr <- semantic expr
   recursive    <- semanticUnwrap xs
 
-  pure $ ET $ RBlock p [semanticExpr, recursive]
+  pure $ MExprBlock p MUnknown [semanticExpr, recursive]
 semanticUnwrap ((Pos p expr):xs) = do
   semanticUnwrap $ Pos p (ExprBind (IdArg "_") (Pos p expr)):xs
 
-semanticCondBlock :: CondBlock PExpr -> ParseExcept (CondBlock ET)
+semanticCondBlock :: CondBlock PExpr -> ParseExcept (CondBlock MExpr)
 semanticCondBlock (CondBlock cond body) = do
   newCond <- semantic cond
   newBody <- sequence $ semantic <$> body
   pure $ CondBlock newCond newBody
 
-semanticCaseBlock :: CaseBlock PExpr -> ParseExcept (CaseBlock ET)
-semanticCaseBlock (CaseBlock p arg body) = do
-  newBody <- sequence $ semantic <$> body
-  pure $ CaseBlock p arg newBody
-
-semanticInstanceDef :: PExpr -> ParseExcept (RAssignment RDef)
-semanticInstanceDef expr@(Pos _ (ExprAssignment (IdArg name) _)) =
-  semanticAss (semanticDef $ Just name) expr
-
-semanticAss :: Evaluatable a
-  => (PExpr -> ParseExcept a)
-  -> PExpr
-  -> ParseExcept (RAssignment a)
+semanticAss :: (PExpr -> ParseExcept MExpr) -> PExpr -> ParseExcept MExpr
 semanticAss rhsSemantic (Pos p (ExprAssignment arg value)) = do
   rhs <- rhsSemantic value
-  pure $ RAssignment p arg rhs
+  pure $ MExprAssignment p MUnknown arg rhs
 semanticAss _ (Pos p _) = throwError $ ErrPos p "Not an assignment"
 
 rearrangeCond :: SourcePos
               -> CondBlock PExpr
               -> [CondBlock PExpr]
               -> [PExpr]
-              -> ParseExcept ET
+              -> ParseExcept MExpr
 rearrangeCond p ifCond elifConds elseBody = do
   newIfCond    <- rearrangeCondBlock ifCond
   newElifConds <- sequence $ rearrangeCondBlock <$> elifConds
   newElseBody  <- rearrangeReturn elseBody
-  pure $ ET $ RCondition p newIfCond newElifConds newElseBody
-
+  pure $ MExprIfElse p MUnknown newIfCond newElifConds newElseBody
   where
-    rearrangeCondBlock :: CondBlock PExpr -> ParseExcept (CondBlock ET)
+    rearrangeCondBlock :: CondBlock PExpr -> ParseExcept (CondBlock MExpr)
     rearrangeCondBlock (CondBlock cond body) =
       liftM2 CondBlock (semantic cond) (rearrangeReturn body)
 
 -- Rearranges a function such that the last statement will be a return
-rearrangeReturn :: [PExpr] -> ParseExcept [ET]
+rearrangeReturn :: [PExpr] -> ParseExcept [MExpr]
 rearrangeReturn [] = throwError $ ErrString "Did not find expected return statement"
 rearrangeReturn [Pos p (ExprReturn retExpr)] = pure <$> semantic retExpr 
 rearrangeReturn ((Pos p (ExprIfElse fi file esle)):xs) | containsReturn fi =
@@ -180,14 +193,15 @@ rearrangeReturn ((Pos p (ExprIfElse fi file esle)):xs) | containsReturn fi =
 rearrangeReturn (x:xs) =
   liftM2 (:) (semantic x) (rearrangeReturn xs)
 
-semanticDef :: Maybe Id -> PExpr -> ParseExcept RDef
+semanticDef :: Maybe Id -> PExpr -> ParseExcept MExpr
 semanticDef name (Pos p (ExprDef args body)) = do
-  --newBody <- sequence $ semantic <$> body
   newBody <- rearrangeReturn body
-  pure $ RDef p name args newBody
+  pure $ MExprDef p [t] args newBody
+  where
+    t = MFunction (MUnknown <$ args) MUnknown
 semanticDef _ (Pos p _) = throwError $ ErrPos p "Not a def"
 
-semantic :: PExpr -> ParseExcept ET
+semantic :: PExpr -> ParseExcept MExpr
 -- Actual semantic alterations
 semantic (Pos p (ExprUnwrap body)) = do
   --semanticBodies <- sequence $ semantic <$> body
@@ -199,7 +213,11 @@ semantic (Pos p (ExprInfix lhs op rhs)) =
 -- Traversals
 semantic (Pos p (ExprPrefixOp op ex)) = do
   semanticEx <- semantic ex
-  pure $ ET $ RPrefix p op semanticEx
+  pure $ MExprCall p MUnknown (MExprId p $ interopName op) [semanticEx]
+  where
+    interopName :: PrefixOp -> Id
+    interopName PrefixNot = "#not"
+    interopName PrefixNegate = "#negate"
 semantic (Pos _ (ExprPrecedence inner)) =
   semantic inner
 semantic (Pos p (ExprIfElse ifCond elifConds elseBody)) = do
@@ -207,50 +225,30 @@ semantic (Pos p (ExprIfElse ifCond elifConds elseBody)) = do
   newIfCond    <- semanticCondBlock ifCond
   newElifConds <- sequence $ semanticCondBlock <$> elifConds
   newElseBody  <- sequence $ semantic          <$> elseBody'
-  pure $ ET $ RCondition p newIfCond newElifConds newElseBody
+  pure $ MExprIfElse p MUnknown newIfCond newElifConds newElseBody
   where
     getOrDie :: Maybe [PExpr] -> ParseExcept [PExpr]
     getOrDie (Just xs) = pure xs
     getOrDie _ =
       throwError $ ErrPos p "Non-returning conditional must have an else clause"
 semantic ass@(Pos _ (ExprAssignment arg@(IdArg name) value@(Pos _ (ExprDef _ _)))) = do
-  ET <$> semanticAss (semanticDef $ Just name) ass
+  semanticAss (semanticDef $ Just name) ass
 semantic ass@(Pos _ (ExprAssignment _ _)) = do
-  ET <$> semanticAss semantic ass
+  semanticAss semantic ass
 semantic def@(Pos _ ExprDef {}) = do
-  ET <$> semanticDef Nothing def
+  semanticDef Nothing def
 semantic (Pos p (ExprCall func params)) = do
   newFunc <- semantic func 
   newParams <- sequence $ semantic <$> params 
-  pure $ ET $ RCall p newFunc newParams
-semantic (Pos p (ExprList elements)) = do
-  newElements <- sequence $ semantic <$> elements 
-  pure $ ET $ RList p newElements
-semantic (Pos p (ExprTuple elements)) = do
-  newElements <- sequence $ semantic <$> elements 
-  pure $ ET $ RTuple p newElements
-semantic (Pos p (ExprInstanceOf tname cname elements)) = do
-  newElements <- sequence $ semanticInstanceDef <$> elements
-  pure $ ET $ RInstanceOf p tname cname newElements
-semantic (Pos p (ExprCase input blocks)) = do
-  newInput  <- semantic input
-  newBlocks <- sequence $ semanticCaseBlock <$> blocks
-  pure $ ET $ RCase p newInput newBlocks
--- One to one maps
-semantic (Pos p (ExprImport path)) = do
-  pure $ ET $ RImport p path
-semantic (Pos p (ExprClass cname typeCons)) = do
-  pure $ ET $ RClass p cname typeCons
-semantic (Pos p (ExprType tname defSigs)) = do
-  pure $ ET $ RType p tname defSigs
+  pure $ MExprCall p MUnknown newFunc newParams
 semantic (Pos p (ExprId name)) = do
-  pure $ ET $ RId p name
+  pure $ MExprId p name
 semantic (Pos p (ExprChar value)) = do
-  pure $ ET $ RChar p value
+  pure $ MExprChar p value
 semantic (Pos p (ExprInt value)) = do
-  pure $ ET $ RInt p value
+  pure $ MExprInt p value
 semantic (Pos p (ExprDouble value)) = do
-  pure $ ET $ RDouble p value
+  pure $ MExprDouble p value
 
 semantic (Pos p other) = throwError $ ErrPos p $
   "Unexpected expr in semnatic: " <> show other

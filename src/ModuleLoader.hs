@@ -20,16 +20,16 @@ import RunnerTypes
 import RunnerUtils
 import Parser.Root
 import Parser.Semantic
+import MiddleEndTypes
 
 toParseExcept :: Either (ParseErrorBundle String Void) a -> ParseExcept a
 toParseExcept (Right a) = pure a
 toParseExcept (Left err) = throwError $ ErrParse err
 
 montyParseFromFile :: String -> IO (ParseExcept [PExpr])
-montyParseFromFile file = do
-  parsed <- toParseExcept <$> (runParser rootBodyParser file <$> readFile file)
-  pure parsed
+montyParseFromFile file =
+  toParseExcept <$> (runParser rootBodyParser file <$> readFile file)
 
-montyRunSemantic :: ParseExcept [PExpr] -> IO (ParseExcept [ET])
+montyRunSemantic :: ParseExcept [PExpr] -> IO (ParseExcept [MExpr])
 montyRunSemantic parsed = do
   pure $ sequence =<< (semantic <$>) <$> parsed

@@ -2,7 +2,8 @@ module MontyPrinter where
 
 import Evaluators.Evaluatable
 import Data.List (intercalate)
+import MiddleEndTypes
 
-run :: [ET] -> IO ()
+run :: [MExpr] -> IO ()
 run prog = do
-  putStrLn $ intercalate "\n" (render <$> prog)
+  putStrLn $ intercalate "\n" (show <$> prog)

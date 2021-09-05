@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ef7676055e98cc48d96084402bff5abc0ee3269ab59ceead306bde7a519a160d
+-- hash: a075ca28973ff63444f39543cfa867f9171b8949d49b797d30713e5c77cc72a3
 
 name:           monty
 version:        0.1.0.0
@@ -52,8 +52,9 @@ library
       Interop.Prelude
       Interop.Tuple
       MatchUtils
+      MiddleEndTypes
       ModuleLoader
-      MontyRunner
+      MontyPrinter
       MorphUtils
       Parser.Arg
       Parser.Literal
@@ -62,7 +63,6 @@ library
       Parser.Utils
       ParserTypes
       PrettyPrint
-      Repl
       RunnerTypes
       RunnerUtils
       TypeUtils

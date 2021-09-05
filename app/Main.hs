@@ -4,8 +4,7 @@ import System.Environment
 import Text.Megaparsec
 import Control.Monad.Except
 
-import MontyRunner (run)
-import Repl (runRepl)
+import MontyPrinter (run)
 import Parser.Root (rootBodyParser)
 import ModuleLoader (montyParseFromFile, montyRunSemantic)
 
@@ -31,6 +30,5 @@ main = do
   args <- getArgs
 
   case args of
-    ["--repl"] -> runRepl
     (path:_)   -> runFile path
     _          -> showUsage
