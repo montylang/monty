@@ -18,3 +18,14 @@ multiSpan f (x:xs) =
 
 uncurry3 :: (a -> b -> c -> d) -> ((a, b, c) -> d)
 uncurry3 f ~(a, b, c) = f a b c
+
+-- Replaces a sublist with another sublist
+replace :: Eq a => [a] -> [a] -> [a] -> [a]
+replace [] _ l                                       = l
+replace source target []                             = []
+replace source target xs | length xs < length source = xs
+replace source target l@(x:xs) =
+  if take (length source) l == source then
+    target <> replace source target (drop (length source) l)
+  else
+    x : replace source target xs

@@ -19,7 +19,7 @@ data CondBlock a = CondBlock a [a]
 
 instance PrettyPrint a => PrettyPrint (CondBlock a) where
   prettyPrint (CondBlock cond body) =
-    "(" <> prettyPrint cond <> "):\n" <>
+    prettyPrint cond <> ":\n" <>
     intercalate "\n" ((\x -> "  " <> prettyPrint x) <$> body) <> "\n"
 
 data CaseBlock a
