@@ -1,11 +1,8 @@
 module ParserTypes where
 
-import Data.Void
+import MyPrelude
+
 import Text.Megaparsec hiding (Pos)
-import Data.List
-import Control.Lens
-import Data.Maybe
-import Control.Monad
 
 type Parser = Parsec Void String
 

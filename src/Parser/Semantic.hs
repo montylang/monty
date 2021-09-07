@@ -132,8 +132,7 @@ semanticUnwrap ((Pos p (ExprBind arg expr)):xs) = do
   pure $ MExprCall p
     MUnknown
     (MExprId p "bind")
-    [semanticExpr,
-      MExprDef p [MFunction [MUnknown, MUnknown] MUnknown] [arg] [recursive]]
+    [semanticExpr, MExprDef p Nothing [arg] [recursive]]
 
 semanticUnwrap (expr@(Pos p (ExprAssignment _ _)):xs) = do
   semanticExpr <- semantic expr
@@ -194,9 +193,7 @@ rearrangeReturn (x:xs) =
 semanticDef :: Maybe Id -> PExpr -> ParseExcept MExpr
 semanticDef name (Pos p (ExprDef args body)) = do
   newBody <- rearrangeReturn body
-  pure $ MExprDef p [t] args newBody
-  where
-    t = MFunction (MUnknown <$ args) MUnknown
+  pure $ MExprDef p Nothing args newBody
 semanticDef _ (Pos p _) = throwError $ ErrPos p "Not a def"
 
 semantic :: PExpr -> ParseExcept MExpr

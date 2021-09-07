@@ -29,6 +29,7 @@ dependencies:
 - filepath
 - parser-combinators
 - repline >= 0.4.0.0
+- string-interpolate
 
 library:
   source-dirs: src
@@ -36,6 +37,7 @@ library:
     - NamedFieldPuns
     - GADTs
     - TemplateHaskell
+    - QuasiQuotes
 
 executables:
   monty-exe:

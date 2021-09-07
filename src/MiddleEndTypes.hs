@@ -2,6 +2,7 @@
 module MiddleEndTypes where
 
 import qualified Data.HashMap.Strict as HM
+import Data.String.Interpolate
 import Control.Lens
 import ParserTypes (Id, Arg, CondBlock (CondBlock))
 import Text.Megaparsec (SourcePos)
@@ -22,17 +23,19 @@ data FuncDef = FuncDef
   { _name :: Maybe String
   , _sourcePos :: Maybe SourcePos
   , _argCount :: Int
-  , _sigs :: [FuncSig] }
+  , _sigs :: [FuncSig]
+  , _mexpr :: Maybe MExpr
+  }
 
 instance Show FuncDef where
   show _ = "funcdef"
 
-type FuncTable = HM.HashMap Integer FuncDef
+type FuncTable = HM.HashMap Int FuncDef
 
-showTable :: FuncTable -> String
-showTable table = intercalate "\n" $ uncurry showEntry <$> HM.toList table
+showFuncTable :: FuncTable -> String
+showFuncTable table = intercalate "\n" $ uncurry showEntry <$> HM.toList table
   where
-    showEntry :: Integer -> FuncDef -> String
+    showEntry :: Int -> FuncDef -> String
     showEntry id def =
       show id <>
       showName def <>
@@ -44,24 +47,28 @@ showTable table = intercalate "\n" $ uncurry showEntry <$> HM.toList table
       Just name -> "(" <> name <> ")"
       _         -> "<anon>"
 
+showIdTable :: HM.HashMap String MExpr -> String
+showIdTable table = intercalate "\n" $ uncurry showEntry <$> HM.toList table
+  where
+    showEntry :: String -> MExpr -> String
+    showEntry id expr = [i|#{id} = #{expr}|]
+
 data Env = Env
   { _funcTable :: FuncTable
+  , _latestFuncId :: Int
+  , _idTable :: HM.HashMap String MExpr
   }
 
 instance Show Env where
-  show (Env funcTable) = "Environment:\n" <> showTable funcTable
+  show Env { _funcTable, _idTable } =
+    "Environment:\n" <>
+    "Function table:\n" <> showFuncTable _funcTable <>
+    "Constant table:\n" <> showIdTable _idTable
 
 emptyFuncTable :: FuncTable
-emptyFuncTable = HM.fromList
-  [
-    (0, FuncDef (Just "#add") Nothing 2
-      [
-        FuncSig [MInt, MInt] MInt,
-        FuncSig [MDouble, MDouble] MDouble
-      ])
-  ]
+emptyFuncTable = HM.empty
 
-emptyEnv = Env emptyFuncTable
+emptyEnv = Env emptyFuncTable 0 HM.empty
 
 data MType
   = MInt
@@ -83,6 +90,7 @@ instance Show MType where
       retSig = show ret
       sig = argSig <> " -> " <> retSig
 
+-- TODO: Switch to GADT
 data MExpr
   = MExprId
     { _mpos :: SourcePos
@@ -118,9 +126,9 @@ data MExpr
     , _cvalue :: Char }
   | MExprDef -- TODO: Maybe store available type sigs elsewhere
     { _mpos :: SourcePos
-    , _signatures :: [MType]
+    , _funcId :: Maybe Int
     , _args :: [Arg]
-    , _body :: [MExpr] 
+    , _body :: [MExpr]
     }
   -- TODO: Class, type, instance, tuple
 
@@ -129,15 +137,16 @@ indent = ("  " <>) . replace "\n" "\n  "
 
 instance Show MExpr where
   show (MExprAssignment _ _ lhs rhs) =
-    show lhs <> " = " <> show rhs
+    [i|#{lhs} = #{rhs}|]
   show (MExprBlock _ _ body) =
     indent $ intercalate "\n" $ show <$> body
   show (MExprCall _ _ callee params) =
-    show callee <> "(" <> intercalate ", " (show <$> params) <> ")"
+    let args = intercalate ", " (show <$> params) in
+      [i|#{callee}(#{args})|]
   show (MExprIfElse _ _ ifCond elifConds elseBody) =
     ifPrinted <> elifsPrinted <> elsePrinted
     where
-      ifPrinted    = "if " <> show ifCond
+      ifPrinted    = [i|if #{ifCond}|]
       elifsPrinted = intercalate "\n" (("elif " <>) . show <$> elifConds)
       elsePrinted  = "else:\n" <> indent (intercalate "\n" (show <$> elseBody))
   show (MExprInt _ value)    = show value
@@ -145,7 +154,7 @@ instance Show MExpr where
   show (MExprChar _ value)   = show value
   show (MExprId _ value)     = value
   show (MExprDef _ _ args body) =
-    "def (" <> argsPrinted <> "):\n" <> indent bodyPrinted
+    [i|def (#{argsPrinted}):\n|] <> indent bodyPrinted
     where
       argsPrinted = intercalate ", " $ show <$> args
       bodyPrinted = intercalate "\n" $ show <$> body
