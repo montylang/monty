@@ -14,7 +14,6 @@ import Control.Monad.State.Strict
 import Control.Monad.Except
 import Text.Megaparsec
 
-import Evaluators.Evaluatable
 import ParserTypes
 import RunnerTypes
 import RunnerUtils

@@ -15,7 +15,6 @@ import RunnerTypes
 import ParserTypes
 import PrettyPrint
 import Data.Either (isRight)
-import Evaluators.Evaluatable
 
 evaluateTf :: DefSignature -> HM.HashMap Id FunctionImpl -> [Value] -> Scoper Value
 evaluateTf (DefSignature tname fname args retSelf) impls params = do
@@ -99,7 +98,7 @@ evaluateCases cases params = runWithTempScope $ do
       else Left $
         "Mismatched argument length. Got: " <>
         show (prettyPrint <$> params) <> ", but expected: " <>
-        show (prettyPrint <$> fcaseArgs fcase)
+        show (show <$> fcaseArgs fcase)
 
 runFun :: Value -> [Value] -> Scoper Value
 runFun (VScoped func fscope) params = do

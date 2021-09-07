@@ -2,7 +2,6 @@ module ParserTypes where
 
 import Data.Void
 import Text.Megaparsec hiding (Pos)
-import PrettyPrint
 import Data.List
 import Control.Lens
 import Data.Maybe
@@ -15,28 +14,27 @@ type Indent = String
 type Id = String
 
 data CondBlock a = CondBlock a [a]
-  deriving (Show, Eq)
+  deriving (Eq)
 
-instance PrettyPrint a => PrettyPrint (CondBlock a) where
-  prettyPrint (CondBlock cond body) =
-    prettyPrint cond <> ":\n" <>
-    intercalate "\n" ((\x -> "  " <> prettyPrint x) <$> body) <> "\n"
+instance Show a => Show (CondBlock a) where
+  show (CondBlock cond body) =
+    show cond <> ":\n" <>
+    intercalate "\n" ((\x -> "  " <> show x) <$> body) <> "\n"
 
 data CaseBlock a
   = CaseBlock
     { cbpos :: SourcePos,
       cbarg :: Arg,
       cbbody :: [a] }
-  deriving (Show)
 
 instance Eq a => Eq (CaseBlock a) where
   (CaseBlock _ xarg xbody) == (CaseBlock _ yarg ybody) =
     xarg == yarg && xbody == ybody
 
-instance PrettyPrint a => PrettyPrint (CaseBlock a) where
-  prettyPrint (CaseBlock _ arg body) =
-    prettyPrint arg <> ":\n" <>
-    intercalate "\n" ((\x -> "  " <> prettyPrint x) <$> body) <> "\n"
+instance Show a => Show (CaseBlock a) where
+  show (CaseBlock _ arg body) =
+    show arg <> ":\n" <>
+    intercalate "\n" ((\x -> "  " <> show x) <$> body) <> "\n"
 
 data InfixOp
   = InfixAdd
@@ -54,33 +52,33 @@ data InfixOp
   | InfixLogicOr
   | InfixCons
   | InfixMappend
-  deriving (Show, Eq)
+  deriving (Eq)
 
-instance PrettyPrint InfixOp where
-  prettyPrint InfixAdd      = "+"
-  prettyPrint InfixSub      = "-"
-  prettyPrint InfixMul      = "*"
-  prettyPrint InfixDiv      = "/"
-  prettyPrint InfixMod      = "%"
-  prettyPrint InfixEq       = " ="
-  prettyPrint InfixNe       = "!="
-  prettyPrint InfixGt       = ">="
-  prettyPrint InfixLt       = "<"
-  prettyPrint InfixLe       = "<="
-  prettyPrint InfixGe       = ">="
-  prettyPrint InfixLogicAnd = "and"
-  prettyPrint InfixLogicOr  = "or"
-  prettyPrint InfixCons     = "|"
-  prettyPrint InfixMappend  = "<>"
+instance Show InfixOp where
+  show InfixAdd      = "+"
+  show InfixSub      = "-"
+  show InfixMul      = "*"
+  show InfixDiv      = "/"
+  show InfixMod      = "%"
+  show InfixEq       = " ="
+  show InfixNe       = "!="
+  show InfixGt       = ">="
+  show InfixLt       = "<"
+  show InfixLe       = "<="
+  show InfixGe       = ">="
+  show InfixLogicAnd = "and"
+  show InfixLogicOr  = "or"
+  show InfixCons     = "|"
+  show InfixMappend  = "<>"
 
 data PrefixOp
   = PrefixNot
   | PrefixNegate
-  deriving (Show, Eq)
+  deriving (Eq)
 
-instance PrettyPrint PrefixOp where
-  prettyPrint PrefixNot = "not"
-  prettyPrint PrefixNegate = "-"
+instance Show PrefixOp where
+  show PrefixNot = "not"
+  show PrefixNegate = "-"
 
 data Arg
   = IdArg { _idArgVal :: Id }
@@ -93,17 +91,17 @@ data Arg
   | SelfArg
   | IntArg { _intArgVal :: Int }
   | CharArg { _charArgVal :: Char }
-  deriving (Show, Eq)
+  deriving (Eq)
 
 makeLenses ''Arg
 makePrisms ''Arg
 
-instance PrettyPrint Arg where
-  prettyPrint (IdArg id)             = id
-  prettyPrint (TypedIdArg name t)    = name <> ": " <> t
-  prettyPrint SelfArg                = "self"
-  prettyPrint (PatternArg name args) =
-    name <> "(" <> intercalate "," (prettyPrint <$> args) <> ")"
+instance Show Arg where
+  show (IdArg id)             = id
+  show (TypedIdArg name t)    = name <> ": " <> t
+  show SelfArg                = "self"
+  show (PatternArg name args) =
+    name <> "(" <> intercalate "," (show <$> args) <> ")"
 
 type PExpr = Pos Expr
 
@@ -151,9 +149,6 @@ data Pos a = Pos {
     getPosPos :: SourcePos,
     getPosValue :: a
   }
-
-instance PrettyPrint a => PrettyPrint (Pos a) where
-  prettyPrint (Pos _ val) = prettyPrint val
 
 instance Show a => Show (Pos a) where
   show (Pos _ val) = show val

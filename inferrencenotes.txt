@@ -1,0 +1,92 @@
+add = def (a, b):
+  #add(a, b)
+
+x = add(3, 7) :: int
+
+
+#add :: int,int     -> int   -- predefined
+
+add = func 2
+
+2 ::
+   env := []
+   name := "add"
+   sourcepos := misc.my:3
+   template := ?, ? -> ?
+   sigs := [
+     int, int -> int
+     float, float -> float
+   ]
+
+a :: int
+b :: int
+#add(int, int)
+
+
+
+id = def (x):
+  x
+
+id(3)
+
+id :: ? -> ?
+
+id :: int -> ?
+x :: int
+id :: int -> int
+
+id("aoeuaoeu")
+
+id :: str -> str
+
+foo = 1 -> def (x):
+  2 -> def (y):
+    #add(x, y)
+
+
+
+2 :: ? -> ?
+2 env :: [x from 1, #add from root]
+
+2 ::
+   env := [x from 1]
+   name := "add"
+   sourcepos := misc.my:3
+   template := ?, ? -> ?
+   sigs := [
+     int, int -> int
+     float, float -> float
+   ]
+
+struct Env2_int {
+  "x": int
+}
+
+func 2_int(env: Env2_int, y: int) -> int {
+  env.x + y
+}
+
+
+
+
+
+foo = def (x):
+  def (y):
+    x + y
+
+
+
+anon =  def (env, y: int):
+    env.x + y
+
+struct AnonStruct {
+  x': int
+  f: int -> int
+}
+
+foo = def(x: int):
+  return AnonStruct {
+    x' = x
+    f = anon
+  }
+

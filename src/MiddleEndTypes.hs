@@ -1,13 +1,67 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 module MiddleEndTypes where
 
+import qualified Data.HashMap.Strict as HM
 import Control.Lens
 import ParserTypes (Id, Arg, CondBlock (CondBlock))
 import Text.Megaparsec (SourcePos)
-import PrettyPrint
 import Data.List (intercalate)
 import MorphUtils (replace)
+import Control.Monad.State (State)
+
+data FuncSig = FuncSig
+  { _fargs :: [MType]
+  , _ret :: MType }
+
+instance Show FuncSig where
+  show (FuncSig args ret) =
+    "(" <> intercalate ", " (show <$> args) <> ") -> " <>
+    show ret
+
+data FuncDef = FuncDef
+  { _name :: Maybe String
+  , _sourcePos :: Maybe SourcePos
+  , _argCount :: Int
+  , _sigs :: [FuncSig] }
+
+instance Show FuncDef where
+  show _ = "funcdef"
+
+type FuncTable = HM.HashMap Integer FuncDef
+
+showTable :: FuncTable -> String
+showTable table = intercalate "\n" $ uncurry showEntry <$> HM.toList table
+  where
+    showEntry :: Integer -> FuncDef -> String
+    showEntry id def =
+      show id <>
+      showName def <>
+      "[" <> show (_argCount def) <> "]\n" <>
+      intercalate "\n" (("  - " <>) . show <$> _sigs def)
+
+    showName :: FuncDef -> String
+    showName def = case _name def of
+      Just name -> "(" <> name <> ")"
+      _         -> "<anon>"
+
+data Env = Env
+  { _funcTable :: FuncTable
+  }
+
+instance Show Env where
+  show (Env funcTable) = "Environment:\n" <> showTable funcTable
+
+emptyFuncTable :: FuncTable
+emptyFuncTable = HM.fromList
+  [
+    (0, FuncDef (Just "#add") Nothing 2
+      [
+        FuncSig [MInt, MInt] MInt,
+        FuncSig [MDouble, MDouble] MDouble
+      ])
+  ]
+
+emptyEnv = Env emptyFuncTable
 
 data MType
   = MInt
@@ -17,17 +71,16 @@ data MType
   --  | MClass Id
   | MFunction [MType] MType
   | MUnknown
-  deriving (Show)
 
-instance PrettyPrint MType where
-  prettyPrint MInt = "int"
-  prettyPrint MDouble = "double"
-  prettyPrint MChar = "char"
-  prettyPrint MUnknown = "???"
-  prettyPrint (MFunction args ret) = "(" <> sig <> ")"
+instance Show MType where
+  show MInt = "int"
+  show MDouble = "double"
+  show MChar = "char"
+  show MUnknown = "???"
+  show (MFunction args ret) = "(" <> sig <> ")"
     where
-      argSig = intercalate "," $ prettyPrint <$> args
-      retSig = prettyPrint ret
+      argSig = intercalate "," $ show <$> args
+      retSig = show ret
       sig = argSig <> " -> " <> retSig
 
 data MExpr
@@ -69,33 +122,36 @@ data MExpr
     , _args :: [Arg]
     , _body :: [MExpr] 
     }
-  deriving (Show)
   -- TODO: Class, type, instance, tuple
 
 indent :: String -> String
 indent = ("  " <>) . replace "\n" "\n  "
 
-instance PrettyPrint MExpr where
-  prettyPrint (MExprAssignment _ _ lhs rhs) =
-    prettyPrint lhs <> " = " <> prettyPrint rhs
-  prettyPrint (MExprBlock _ _ body) =
-    indent $ intercalate "\n" $ prettyPrint <$> body
-  prettyPrint (MExprCall _ _ callee params) =
-    prettyPrint callee <> "(" <> intercalate ", " (prettyPrint <$> params) <> ")"
-  prettyPrint (MExprIfElse _ _ ifCond elifConds elseBody) =
+instance Show MExpr where
+  show (MExprAssignment _ _ lhs rhs) =
+    show lhs <> " = " <> show rhs
+  show (MExprBlock _ _ body) =
+    indent $ intercalate "\n" $ show <$> body
+  show (MExprCall _ _ callee params) =
+    show callee <> "(" <> intercalate ", " (show <$> params) <> ")"
+  show (MExprIfElse _ _ ifCond elifConds elseBody) =
     ifPrinted <> elifsPrinted <> elsePrinted
     where
-      ifPrinted    = "if " <> prettyPrint ifCond
-      elifsPrinted = intercalate "\n" (("elif " <>) . prettyPrint <$> elifConds)
-      elsePrinted  = "else:\n" <> indent (intercalate "\n" (prettyPrint <$> elseBody))
-  prettyPrint (MExprInt _ value)    = show value
-  prettyPrint (MExprDouble _ value) = show value
-  prettyPrint (MExprChar _ value)   = show value
-  prettyPrint (MExprId _ value)     = value
-  prettyPrint (MExprDef _ _ args body) =
+      ifPrinted    = "if " <> show ifCond
+      elifsPrinted = intercalate "\n" (("elif " <>) . show <$> elifConds)
+      elsePrinted  = "else:\n" <> indent (intercalate "\n" (show <$> elseBody))
+  show (MExprInt _ value)    = show value
+  show (MExprDouble _ value) = show value
+  show (MExprChar _ value)   = show value
+  show (MExprId _ value)     = value
+  show (MExprDef _ _ args body) =
     "def (" <> argsPrinted <> "):\n" <> indent bodyPrinted
     where
-      argsPrinted = intercalate ", " $ prettyPrint <$> args
-      bodyPrinted = intercalate "\n" $ prettyPrint <$> body
+      argsPrinted = intercalate ", " $ show <$> args
+      bodyPrinted = intercalate "\n" $ show <$> body
 
 $(makeLenses ''MExpr)
+
+$(makeLenses ''FuncSig)
+$(makeLenses ''FuncDef)
+$(makeLenses ''Env)

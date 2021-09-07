@@ -14,8 +14,6 @@ import RunnerUtils
 import CallableUtils
 import MorphUtils
 
-import Evaluators.All
-import Evaluators.Import
 import TypeUtils (pexprToTree)
 import MiddleEndTypes
 

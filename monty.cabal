@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a075ca28973ff63444f39543cfa867f9171b8949d49b797d30713e5c77cc72a3
+-- hash: f4df736be749c641a88fb03f1735cbd3c31ac1b31102d418ce376f327c10f2b1
 
 name:           monty
 version:        0.1.0.0
@@ -27,22 +27,6 @@ source-repository head
 library
   exposed-modules:
       CallableUtils
-      Evaluators.All
-      Evaluators.Assignment
-      Evaluators.Block
-      Evaluators.Call
-      Evaluators.Case
-      Evaluators.Class
-      Evaluators.Condition
-      Evaluators.Def
-      Evaluators.Evaluatable
-      Evaluators.Id
-      Evaluators.Import
-      Evaluators.Infix
-      Evaluators.InstanceOf
-      Evaluators.Prefix
-      Evaluators.Primitive
-      Evaluators.Type
       Interop.Char
       Interop.Double
       Interop.Helpers

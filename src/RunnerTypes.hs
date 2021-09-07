@@ -64,7 +64,7 @@ data FunctionCase =
 
 instance PrettyPrint FunctionCase where
   prettyPrint (FunctionCase args body) =
-    "def(" <> (intercalate ", " $ prettyPrint <$> args) <> "):"
+    "def(" <> (intercalate ", " $ show <$> args) <> "):"
 
 instance Show FunctionCase where
   show fcase = "def (" <> intercalate "," (show <$> args) <> ")"
