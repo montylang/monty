@@ -90,3 +90,26 @@ foo = def(x: int):
     f = anon
   }
 
+
+
+
+
+
+
+iterate mexpr
+
+if mexpr is assignment
+- add to root scope
+- if the assignment is to a function
+  - add to funcTable, and name the function
+
+if mexpr is id
+- resolve that id
+
+if mexpr is a function
+- add to func table
+- add func table id to the function
+
+if mexpr is function call
+- resolve the function, with root level rules
+- try to infer the function type
