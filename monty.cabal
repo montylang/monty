@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 60ff09ef1ce9f4053b39b155cf6d33ff56cd619b923f4dc89db2f347880ed875
+-- hash: 8952e5a81c97aad001c283df58e532614e2b3d83efcf9fa70e87027891bddbfc
 
 name:           monty
 version:        0.1.0.0
@@ -41,6 +41,7 @@ library
       MontyPrinter
       MorphUtils
       MyPrelude
+      NewGadt
       Parser.Arg
       Parser.Literal
       Parser.Root
@@ -61,7 +62,7 @@ library
       TemplateHaskell
       QuasiQuotes
   build-depends:
-      base >=4.7 && <5
+      base >=4.7
     , directory
     , filepath
     , hashable
@@ -82,7 +83,7 @@ executable monty-exe
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      base >=4.7
     , directory
     , filepath
     , hashable
@@ -112,7 +113,7 @@ test-suite monty-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       QuickCheck
-    , base >=4.7 && <5
+    , base >=4.7
     , directory
     , filepath
     , hashable
