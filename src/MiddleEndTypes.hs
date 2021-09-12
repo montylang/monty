@@ -1,4 +1,6 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications, DataKinds, KindSignatures, RankNTypes,
+             StandaloneKindSignatures, PolyKinds, TypeSynonymInstances,
+             FlexibleInstances #-}
 module MiddleEndTypes where
 
 import qualified Data.HashMap.Strict as HM
@@ -7,7 +9,7 @@ import Control.Lens
 import ParserTypes (Id, Arg, CondBlock (CondBlock))
 import Text.Megaparsec (SourcePos)
 import Data.List (intercalate)
-import MorphUtils (replace)
+import MorphUtils
 import Control.Monad.State (State)
 
 data FuncSig = FuncSig
@@ -24,7 +26,7 @@ data FuncDef = FuncDef
   , _sourcePos :: Maybe SourcePos
   , _argCount :: Int
   , _sigs :: [FuncSig]
-  , _mexpr :: Maybe MExpr
+  , _mexpr :: Maybe ExistsMExpr
   }
 
 instance Show FuncDef where
@@ -47,16 +49,16 @@ showFuncTable table = intercalate "\n" $ uncurry showEntry <$> HM.toList table
       Just name -> "(" <> name <> ")"
       _         -> "<anon>"
 
-showIdTable :: HM.HashMap String MExpr -> String
+showIdTable :: HM.HashMap String ExistsMExpr -> String
 showIdTable table = intercalate "\n" $ uncurry showEntry <$> HM.toList table
   where
-    showEntry :: String -> MExpr -> String
+    showEntry :: String -> ExistsMExpr -> String
     showEntry id expr = [i|#{id} = #{expr}|]
 
 data Env = Env
   { _funcTable :: FuncTable
   , _latestFuncId :: Int
-  , _idTable :: HM.HashMap String MExpr
+  , _idTable :: HM.HashMap String (Exists @MExprType MExpr)
   }
 
 instance Show Env where
@@ -69,6 +71,11 @@ emptyFuncTable :: FuncTable
 emptyFuncTable = HM.empty
 
 emptyEnv = Env emptyFuncTable 0 HM.empty
+
+type ExistsMExpr = Exists @MExprType MExpr
+
+instance Show ExistsMExpr where
+  show (Exists mexpr) = show mexpr
 
 data MType
   = MInt
@@ -90,54 +97,87 @@ instance Show MType where
       retSig = show ret
       sig = argSig <> " -> " <> retSig
 
--- TODO: Switch to GADT
-data MExpr
-  = MExprId
-    { _mpos :: SourcePos
-    , _id :: Id }
-  | MExprAssignment
-    { _mpos :: SourcePos
-    , _mtype :: MType
+data MExprType
+  = MExprIdType
+  | MExprAssignmentType
+  | MExprBlockType
+  | MExprCallType
+  | MExprIfElseType
+  | MExprIntType
+  | MExprDoubleType
+  | MExprCharType
+  | MExprDefType
+
+data MExpr (a :: MExprType) where
+  MExprId ::
+    { _idMpos :: SourcePos
+    , _id :: Id } -> MExpr MExprIdType
+  MExprAssignment ::
+    { _assignmentMpos :: SourcePos
+    , _assignmentMtype :: MType
     , _lhs :: Arg
-    , _rhs :: MExpr }
-  | MExprBlock
-    { _mpos :: SourcePos
-    , _mtype :: MType
-    , _body :: [MExpr] }
-  | MExprCall
-    { _mpos :: SourcePos
-    , _mtype :: MType
-    , _callee :: MExpr
-    , _params :: [MExpr] }
-  | MExprIfElse
-    { _mpos :: SourcePos
-    , _mtype :: MType
-    , _ifCond :: CondBlock MExpr
-    , _elifConds :: [CondBlock MExpr]
-    , _elseBody :: [MExpr] }
-  | MExprInt
-    { _mpos :: SourcePos
-    , _ivalue :: Int }
-  | MExprDouble
-    { _mpos :: SourcePos
-    , _dvalue :: Double }
-  | MExprChar
-    { _mpos :: SourcePos
-    , _cvalue :: Char }
-  | MExprDef -- TODO: Maybe store available type sigs elsewhere
-    { _mpos :: SourcePos
+    , _rhs :: ExistsMExpr } -> MExpr MExprAssignmentType
+  MExprBlock ::
+    { _blockMpos :: SourcePos
+    , _blockMtype :: MType
+    , _blockBody :: [ExistsMExpr] } -> MExpr MExprBlockType
+  MExprCall ::
+    { _callMpos :: SourcePos
+    , _callMtype :: MType
+    , _callee :: ExistsMExpr
+    , _params :: [ExistsMExpr] } -> MExpr MExprCallType
+  MExprIfElse ::
+    { _ifelseMpos :: SourcePos
+    , _ifelseMtype :: MType
+    , _ifCond :: CondBlock ExistsMExpr
+    , _elifConds :: [CondBlock ExistsMExpr]
+    , _elseBody :: [ExistsMExpr] } -> MExpr MExprIfElseType
+  MExprInt ::
+    { _intMpos :: SourcePos
+    , _intValue :: Int } -> MExpr MExprIntType
+  MExprDouble ::
+    { _doubleMpos :: SourcePos
+    , _doubleValue :: Double } -> MExpr MExprDoubleType
+  MExprChar ::
+    { _charMpos :: SourcePos
+    , _charValue :: Char } -> MExpr MExprCharType
+  MExprDef :: -- TODO: Maybe store available type sigs elsewhere
+    { _defMpos :: SourcePos
     , _funcId :: Maybe Int
     , _args :: [Arg]
-    , _body :: [MExpr]
-    }
+    , _defBody :: [ExistsMExpr]
+    } -> MExpr MExprDefType -- TODO: Maybe store available type sigs elsewhere
   -- TODO: Class, type, instance, tuple
+
+funcId :: Lens' (MExpr MExprDefType) (Maybe Int)
+funcId f expr@MExprDef {_funcId} =
+  (\funcId' -> expr {_funcId = funcId'}) <$> f _funcId
+
+mpos :: Lens' (MExpr a) SourcePos
+mpos f expr@MExprId { _idMpos } =
+  (\mpos' -> expr {_idMpos = mpos'}) <$> f _idMpos
+mpos f expr@MExprAssignment { _assignmentMpos } =
+  (\mpos' -> expr {_assignmentMpos = mpos'}) <$> f _assignmentMpos
+mpos f expr@MExprBlock { _blockMpos } =
+  (\mpos' -> expr {_blockMpos = mpos'}) <$> f _blockMpos
+mpos f expr@MExprCall{ _callMpos } =
+  (\mpos' -> expr {_callMpos = mpos'}) <$> f _callMpos
+mpos f expr@MExprIfElse{ _ifelseMpos } =
+  (\mpos' -> expr {_ifelseMpos = mpos'}) <$> f _ifelseMpos
+mpos f expr@MExprInt{ _intMpos } =
+  (\mpos' -> expr {_intMpos = mpos'}) <$> f _intMpos
+mpos f expr@MExprDouble{ _doubleMpos } =
+  (\mpos' -> expr {_doubleMpos = mpos'}) <$> f _doubleMpos
+mpos f expr@MExprChar{ _charMpos } =
+  (\mpos' -> expr {_charMpos = mpos'}) <$> f _charMpos
+mpos f expr@MExprDef{ _defMpos } =
+  (\mpos' -> expr {_defMpos = mpos'}) <$> f _defMpos
 
 indent :: String -> String
 indent = ("  " <>) . replace "\n" "\n  "
 
-instance Show MExpr where
-  show (MExprAssignment _ _ lhs rhs) =
-    [i|#{lhs} = #{rhs}|]
+instance Show (MExpr a) where
+  show (MExprAssignment _ _ lhs rhs) = [i|#{lhs} = #{rhs}|]
   show (MExprBlock _ _ body) =
     indent $ intercalate "\n" $ show <$> body
   show (MExprCall _ _ callee params) =
@@ -159,7 +199,7 @@ instance Show MExpr where
       argsPrinted = intercalate ", " $ show <$> args
       bodyPrinted = intercalate "\n" $ show <$> body
 
-$(makeLenses ''MExpr)
+-- $(makeLenses ''MExpr)
 
 $(makeLenses ''FuncSig)
 $(makeLenses ''FuncDef)

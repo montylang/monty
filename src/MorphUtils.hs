@@ -1,7 +1,14 @@
+{-# LANGUAGE RankNTypes, StandaloneKindSignatures, PolyKinds #-}
 module MorphUtils where
 
 import Control.Lens
 import Debug.Trace
+import Data.Kind (Type)
+
+-- Generic existential wrapper for GADTs
+type Exists :: forall k. (k -> Type) -> Type
+data Exists f where
+  Exists :: f x -> Exists f
 
 multiSpan :: (a -> Bool) -> [a] -> [[a]]
 multiSpan _ []  = []

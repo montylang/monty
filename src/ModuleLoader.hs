@@ -29,6 +29,6 @@ montyParseFromFile :: String -> IO (ParseExcept [PExpr])
 montyParseFromFile file =
   toParseExcept <$> (runParser rootBodyParser file <$> readFile file)
 
-montyRunSemantic :: ParseExcept [PExpr] -> IO (ParseExcept [MExpr])
+montyRunSemantic :: ParseExcept [PExpr] -> IO (ParseExcept [ExistsMExpr])
 montyRunSemantic parsed = do
   pure $ sequence =<< (semantic <$>) <$> parsed

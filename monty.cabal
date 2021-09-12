@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8952e5a81c97aad001c283df58e532614e2b3d83efcf9fa70e87027891bddbfc
+-- hash: b8b35666114c0a21414091874f71391b1842ea88e642fbe5a360b67ed1a791b2
 
 name:           monty
 version:        0.1.0.0
@@ -41,7 +41,6 @@ library
       MontyPrinter
       MorphUtils
       MyPrelude
-      NewGadt
       Parser.Arg
       Parser.Literal
       Parser.Root
