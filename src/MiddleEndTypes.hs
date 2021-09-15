@@ -12,86 +12,21 @@ import Data.List (intercalate)
 import MorphUtils
 import Control.Monad.State (State)
 
-data FuncSig = FuncSig
-  { _fargs :: [MType]
-  , _ret :: MType }
-
-instance Show FuncSig where
-  show (FuncSig args ret) =
-    "(" <> intercalate ", " (show <$> args) <> ") -> " <>
-    show ret
-
-data FuncDef = FuncDef
-  { _name :: Maybe String
-  , _sourcePos :: Maybe SourcePos
-  , _argCount :: Int
-  , _sigs :: [FuncSig]
-  , _mexpr :: Maybe ExistsMExpr
-  }
-
-instance Show FuncDef where
-  show _ = "funcdef"
-
-type FuncTable = HM.HashMap Int FuncDef
-
-showFuncTable :: FuncTable -> String
-showFuncTable table = intercalate "\n" $ uncurry showEntry <$> HM.toList table
-  where
-    showEntry :: Int -> FuncDef -> String
-    showEntry id def =
-      show id <>
-      showName def <>
-      "[" <> show (_argCount def) <> "]\n" <>
-      intercalate "\n" (("  - " <>) . show <$> _sigs def)
-
-    showName :: FuncDef -> String
-    showName def = case _name def of
-      Just name -> "(" <> name <> ")"
-      _         -> "<anon>"
-
-showIdTable :: HM.HashMap String ExistsMExpr -> String
-showIdTable table = intercalate "\n" $ uncurry showEntry <$> HM.toList table
-  where
-    showEntry :: String -> ExistsMExpr -> String
-    showEntry id expr = [i|#{id} = #{expr}|]
-
-data Env = Env
-  { _funcTable :: FuncTable
-  , _latestFuncId :: Int
-  , _idTable :: HM.HashMap String (Exists @MExprType MExpr)
-  }
-
-instance Show Env where
-  show Env { _funcTable, _idTable } =
-    "Environment:\n" <>
-    "Function table:\n" <> showFuncTable _funcTable <>
-    "Constant table:\n" <> showIdTable _idTable
-
-emptyFuncTable :: FuncTable
-emptyFuncTable = HM.empty
-
-emptyEnv = Env emptyFuncTable 0 HM.empty
-
 type ExistsMExpr = Exists @MExprType MExpr
 
 instance Show ExistsMExpr where
   show (Exists mexpr) = show mexpr
 
 data MType
-  = MInt
-  | MDouble
-  | MChar
-  --  | MTuple [MType]
-  --  | MClass Id
-  | MFunction [MType] MType
-  | MUnknown
+  = MVar { _typeVar :: String }
+  | MInt
+  | MFun { _inputTypes :: [MType], _outputType :: MType }
+  deriving (Eq, Ord)
 
 instance Show MType where
+  show (MVar name) = name
   show MInt = "int"
-  show MDouble = "double"
-  show MChar = "char"
-  show MUnknown = "???"
-  show (MFunction args ret) = "(" <> sig <> ")"
+  show (MFun args ret) = "(" <> sig <> ")"
     where
       argSig = intercalate "," $ show <$> args
       retSig = show ret
@@ -114,21 +49,17 @@ data MExpr (a :: MExprType) where
     , _id :: Id } -> MExpr MExprIdType
   MExprAssignment ::
     { _assignmentMpos :: SourcePos
-    , _assignmentMtype :: MType
     , _lhs :: Arg
     , _rhs :: ExistsMExpr } -> MExpr MExprAssignmentType
   MExprBlock ::
     { _blockMpos :: SourcePos
-    , _blockMtype :: MType
     , _blockBody :: [ExistsMExpr] } -> MExpr MExprBlockType
   MExprCall ::
     { _callMpos :: SourcePos
-    , _callMtype :: MType
     , _callee :: ExistsMExpr
     , _params :: [ExistsMExpr] } -> MExpr MExprCallType
   MExprIfElse ::
     { _ifelseMpos :: SourcePos
-    , _ifelseMtype :: MType
     , _ifCond :: CondBlock ExistsMExpr
     , _elifConds :: [CondBlock ExistsMExpr]
     , _elseBody :: [ExistsMExpr] } -> MExpr MExprIfElseType
@@ -143,15 +74,10 @@ data MExpr (a :: MExprType) where
     , _charValue :: Char } -> MExpr MExprCharType
   MExprDef :: -- TODO: Maybe store available type sigs elsewhere
     { _defMpos :: SourcePos
-    , _funcId :: Maybe Int
     , _args :: [Arg]
     , _defBody :: [ExistsMExpr]
     } -> MExpr MExprDefType -- TODO: Maybe store available type sigs elsewhere
   -- TODO: Class, type, instance, tuple
-
-funcId :: Lens' (MExpr MExprDefType) (Maybe Int)
-funcId f expr@MExprDef {_funcId} =
-  (\funcId' -> expr {_funcId = funcId'}) <$> f _funcId
 
 mpos :: Lens' (MExpr a) SourcePos
 mpos f expr@MExprId { _idMpos } =
@@ -177,13 +103,13 @@ indent :: String -> String
 indent = ("  " <>) . replace "\n" "\n  "
 
 instance Show (MExpr a) where
-  show (MExprAssignment _ _ lhs rhs) = [i|#{lhs} = #{rhs}|]
-  show (MExprBlock _ _ body) =
+  show (MExprAssignment _ lhs rhs) = [i|#{lhs} = #{rhs}|]
+  show (MExprBlock _ body) =
     indent $ intercalate "\n" $ show <$> body
-  show (MExprCall _ _ callee params) =
+  show (MExprCall _ callee params) =
     let args = intercalate ", " (show <$> params) in
       [i|#{callee}(#{args})|]
-  show (MExprIfElse _ _ ifCond elifConds elseBody) =
+  show (MExprIfElse _ ifCond elifConds elseBody) =
     ifPrinted <> elifsPrinted <> elsePrinted
     where
       ifPrinted    = [i|if #{ifCond}|]
@@ -193,14 +119,8 @@ instance Show (MExpr a) where
   show (MExprDouble _ value) = show value
   show (MExprChar _ value)   = show value
   show (MExprId _ value)     = value
-  show (MExprDef _ _ args body) =
+  show (MExprDef _ args body) =
     [i|def (#{argsPrinted}):\n|] <> indent bodyPrinted
     where
       argsPrinted = intercalate ", " $ show <$> args
       bodyPrinted = intercalate "\n" $ show <$> body
-
--- $(makeLenses ''MExpr)
-
-$(makeLenses ''FuncSig)
-$(makeLenses ''FuncDef)
-$(makeLenses ''Env)
