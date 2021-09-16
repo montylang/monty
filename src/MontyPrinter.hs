@@ -80,7 +80,7 @@ instantiate (Scheme vars t) = do
   -- Map source code names -> type var names
   let s = HM.fromList $ zip vars nvars
   -- Apply substitution to the vars, if appropriate
-  return $ substitute s t
+  pure $ substitute s t
 
 removeProgramVar :: TypeEnv -> Arg -> TypeEnv
 removeProgramVar (TypeEnv env) arg = TypeEnv (HM.delete (unpackIdArg arg) env)
@@ -104,17 +104,17 @@ composeSubst :: Subst -> Subst -> Subst
 composeSubst s1 s2 = HM.union (HM.map (substitute s1) s2) s1
 
 -- We treat assignments in functions like "let" expressions
-tiLet :: TypeEnv -> Arg -> ExistsMExpr -> [ExistsMExpr] -> TI (Subst, MType)
+tiLet :: TypeEnv -> Arg -> ExistsMExpr -> [ExistsMExpr] -> TI (Subst, MType, TypeEnv)
 tiLet env lhs rhs body = do
   let IdArg lhsName = lhs
-  (rhsSubst, rhsType) <- ti env rhs
-  let TypeEnv env' = removeProgramVar env lhs
+  (rhsSubst, rhsType, newEnv) <- ti env rhs
+  let TypeEnv env' = removeProgramVar newEnv lhs
       t'           = generalize (substitute rhsSubst env) rhsType
       env''        = TypeEnv (HM.insert lhsName t' env')
-  (s2, t2) <- tiDefBody (substitute rhsSubst env'') body
-  return (composeSubst rhsSubst s2, t2)
+  (s2, t2, _) <- tiDefBody (substitute rhsSubst env'') body
+  pure (composeSubst rhsSubst s2, t2, newEnv)
 
-tiDefBody :: TypeEnv -> [ExistsMExpr] -> TI (Subst, MType)
+tiDefBody :: TypeEnv -> [ExistsMExpr] -> TI (Subst, MType, TypeEnv)
 tiDefBody env []  = throwError "Empty body"
 tiDefBody env [x] = ti env x
 tiDefBody env ((Exists (MExprAssignment _ lhs rhs):xs)) =
@@ -122,13 +122,27 @@ tiDefBody env ((Exists (MExprAssignment _ lhs rhs):xs)) =
 tiDefBody env (_:xs) = tiDefBody env xs
 
 -- Type inferrence
-ti :: TypeEnv -> ExistsMExpr -> TI (Subst, MType)
-ti (TypeEnv env) (Exists (MExprId _ name)) =
-  case HM.lookup name env of
+ti :: TypeEnv -> ExistsMExpr -> TI (Subst, MType, TypeEnv)
+ti env (Exists MExprInt {}) = pure (nullSubst, MInt, env)
+ti env (Exists (MExprAssignment _ lhs rhs)) = do
+  let TypeEnv envMap = env
+  let lhsName = unpackIdArg lhs
+
+  when (HM.member lhsName envMap)
+    (throwError $ lhsName <> " is already defined")
+
+  (rhsSubst, rhsType, _) <- ti env rhs
+  let scheme = generalize (substitute rhsSubst env) rhsType
+  let newEnv = TypeEnv (HM.insert lhsName scheme envMap)
+
+  pure (rhsSubst, rhsType, newEnv)
+ti env (Exists (MExprId _ name)) =
+  let TypeEnv envMap = env in
+  case HM.lookup name envMap of
     Nothing    -> throwError $ "unbound variable: " ++ name
     Just sigma -> do
       t <- instantiate sigma
-      return (nullSubst, t)
+      pure (nullSubst, t, env)
 ti env (Exists (MExprDef _ args body)) = do
   tvs <- sequence $ newTyVar <$ args
   let idArgs = unpackIdArg <$> args
@@ -138,16 +152,13 @@ ti env (Exists (MExprDef _ args body)) = do
   -- New env, with the newly created var in env''
   let env'' = TypeEnv $ HM.union env' $ HM.fromList $ zip idArgs (Scheme [] <$> tvs)
 
-  -- FIXME: Fix convert assignments to lets (basically)
-  (s1, t1) <- ti env'' $ head body
-
-  pure (s1, MFun (substitute s1 <$> tvs) t1)
-
-ti _ _ = pure (HM.empty, MInt)
+  (s1, t1, _) <- tiDefBody env'' body
+  pure (s1, MFun (substitute s1 <$> tvs) t1, env)
+ti _ expr = trace (show expr) undefined
 
 bootstrap :: HM.HashMap String Scheme -> ExistsMExpr -> TI MType
 bootstrap env expr = do
-  (s, t) <- ti (TypeEnv env) expr
+  (s, t, _) <- ti (TypeEnv env) expr
   pure $ substitute s t
 
 inferMeDaddy :: ExistsMExpr -> IO ()
