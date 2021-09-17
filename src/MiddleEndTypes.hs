@@ -20,13 +20,15 @@ instance Show ExistsMExpr where
 data MType
   = MVar { _typeVar :: String }
   | MInt
+  | MBool
   | MFun { _inputType :: MType, _outputType :: MType }
   | MFunZero { _outputType :: MType }
   deriving (Eq, Ord)
 
 instance Show MType where
   show (MVar name) = name
-  show MInt = "int"
+  show MInt        = "Int"
+  show MBool       = "Bool"
   show (MFun arg@MFun {} ret) = "(" <> show arg <> ") -> " <> show ret
   show (MFun arg ret) = show arg <> " -> " <> show ret
   show (MFunZero ret) = "() -> " <> show ret

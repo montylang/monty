@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 636ef2dd9859f18ccca39d408be9ebc8b75dab26328e9638b337e5cd8b51689d
+-- hash: 3f3583ec9a5bd04e042ac7b4db8b1f0d6d91a7114851e238cdb350d1cc2ce484
 
 name:           monty
 version:        0.1.0.0
@@ -46,6 +46,7 @@ library
       Parser.Literal
       Parser.Root
       Parser.Semantic
+      Parser.TypeParser
       Parser.Utils
       ParserTypes
       PrettyPrint
@@ -106,6 +107,7 @@ test-suite monty-test
       ParserTests.ArgSpec
       ParserTests.Helpers
       ParserTests.RootSpec
+      ParserTests.TypeParserSpec
       ParserTests.UtilsSpec
       Paths_monty
   hs-source-dirs:

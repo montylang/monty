@@ -1,5 +1,5 @@
 {-# LANGUAGE DataKinds #-}
-module Inference (runTI, inferMExprs, TI) where
+module Inference where
 
 import MyPrelude
 
@@ -7,7 +7,7 @@ import qualified Data.HashSet as HS
 import qualified Data.HashMap.Strict as HM
 import PrettyPrint
 import Control.Monad.State
-import ParserTypes (Id, Arg (IdArg, _idArgVal))
+import ParserTypes (Id, Arg (IdArg, _idArgVal), CondBlock (CondBlock))
 import Control.Monad.Except
 import MorphUtils
 import MiddleEndTypes
@@ -27,6 +27,7 @@ instance Types a => Types [a] where
     ftv l        = foldr (HS.union . ftv) HS.empty l
 
 newtype TypeEnv = TypeEnv (HM.HashMap String Scheme)
+emptyTypeEnv = TypeEnv HM.empty
 
 instance Types TypeEnv where
     ftv (TypeEnv env)          = ftv (HM.elems env)
@@ -49,8 +50,9 @@ instance Types Scheme where
     substitute s (Scheme vars t) = Scheme vars (substitute (foldr HM.delete s vars) t)
 
 instance Types MType where
-    ftv MInt         = HS.empty
-    ftv (MVar name)     = HS.singleton name
+    ftv MInt        = HS.empty
+    ftv MBool       = HS.empty
+    ftv (MVar name) = HS.singleton name
     ftv (MFun inputType outputType) =
       HS.unions $ ftv <$> [outputType, inputType]
 
@@ -109,6 +111,7 @@ unify (MFun l r) (MFun l' r') = do
 unify (MVar u) t  = varBind u t
 unify t (MVar u)  = varBind u t
 unify MInt MInt   = return nullSubst
+unify MBool MBool = return nullSubst
 unify t1 t2       = throwError $ "types do not unify: " ++ show t1 ++
                   " vs. " ++ show t2
 
@@ -135,18 +138,27 @@ tiLet env lhs rhs body = do
   let TypeEnv env' = removeProgramVar newEnv lhs
       t'           = generalize (substitute rhsSubst env) rhsType
       env''        = TypeEnv (HM.insert lhsName t' env')
-  (s2, t2, _) <- tiDefBody (substitute rhsSubst env'') body
+  (s2, t2, _) <- tiBody (substitute rhsSubst env'') body
   pure (composeSubst rhsSubst s2, t2, newEnv)
 
-tiDefBody :: TypeEnv -> [ExistsMExpr] -> TI (Subst, MType, TypeEnv)
-tiDefBody env []  = throwError "Empty body"
-tiDefBody env [x] = ti env x
-tiDefBody env ((Exists (MExprAssignment _ lhs rhs):xs)) =
+tiBody :: TypeEnv -> [ExistsMExpr] -> TI (Subst, MType, TypeEnv)
+tiBody env []  = throwError "Empty body"
+tiBody env [x] = ti env x
+tiBody env ((Exists (MExprAssignment _ lhs rhs):xs)) =
   tiLet env lhs rhs xs
-tiDefBody env (_:xs) = tiDefBody env xs
+tiBody env (_:xs) = tiBody env xs
+
+tiCondBlock :: TypeEnv -> CondBlock ExistsMExpr -> TI (Subst, MType, TypeEnv)
+tiCondBlock env (CondBlock cond body) = do
+  (_, condType, _) <- ti env cond
+  unless (condType == MBool) $ throwError "Condition must be a boolean"
+  tiBody env body
 
 -- Type inferrence
 ti :: TypeEnv -> ExistsMExpr -> TI (Subst, MType, TypeEnv)
+-- Hack until we support data
+ti env (Exists (MExprId _ "True")) = pure (nullSubst, MBool, env)
+ti env (Exists (MExprId _ "False")) = pure (nullSubst, MBool, env)
 ti env (Exists MExprInt {}) = pure (nullSubst, MInt, env)
 ti env (Exists (MExprAssignment _ lhs rhs)) = do
   let TypeEnv envMap = env
@@ -176,7 +188,7 @@ ti env (Exists (MExprDef _ args body)) = do
   -- New env, with the newly created var in env''
   let env'' = TypeEnv $ HM.union env' $ HM.fromList $ zip idArgs (Scheme [] <$> tvs)
 
-  (subBody, tbody, _) <- tiDefBody env'' body
+  (subBody, tbody, _) <- tiBody env'' body
 
   let tres = case tvs of
         []  -> MFunZero tbody
@@ -196,11 +208,18 @@ ti env (Exists (MExprCall _ fexpr params)) = do
       tv     <- newTyVar
       retSub <- unify (substitute paramSub prevType) (MFun paramType tv)
       pure (retSub `composeSubst` paramSub `composeSubst` prevSub, substitute retSub tv)
+ti env (Exists (MExprIfElse _ ifCond [] elseBody)) = do
+  (ifSub, ifType, _)     <- tiCondBlock env ifCond
+  (elseSub, elseType, _) <- tiBody env elseBody
+
+  retSub <- unify (substitute ifSub elseType) ifType
+  
+  pure (retSub `composeSubst` ifSub `composeSubst` elseSub, ifType, env)
 ti _ expr = trace (show expr) undefined
 
-inferMExprs :: HM.HashMap String Scheme -> [ExistsMExpr] -> TI [MType]
+inferMExprs :: TypeEnv -> [ExistsMExpr] -> TI [MType]
 inferMExprs env exprs =
-  reverse . view _2 <$> foldM feed (TypeEnv env, []) exprs
+  reverse . view _2 <$> foldM feed (env, []) exprs
   where
     feed :: (TypeEnv, [MType]) -> ExistsMExpr -> TI (TypeEnv, [MType])
     feed (env, prev) expr = do

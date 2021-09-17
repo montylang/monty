@@ -9,7 +9,7 @@ import Inference
 
 run :: [ExistsMExpr] -> IO ()
 run exprs = do
-  let (res, _) = runTI (inferMExprs HM.empty exprs)
+  let (res, _) = runTI (inferMExprs (TypeEnv HM.empty) exprs)
   case res of
     Left err -> putStrLn $ show exprs ++ "\nerror: " ++ err
     Right t  -> putStrLn $ show exprs ++ "\n:: " ++ show t
