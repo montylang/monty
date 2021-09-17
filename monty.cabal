@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b8b35666114c0a21414091874f71391b1842ea88e642fbe5a360b67ed1a791b2
+-- hash: 636ef2dd9859f18ccca39d408be9ebc8b75dab26328e9638b337e5cd8b51689d
 
 name:           monty
 version:        0.1.0.0
@@ -27,6 +27,7 @@ source-repository head
 library
   exposed-modules:
       CallableUtils
+      Inference
       Interop.Char
       Interop.Double
       Interop.Helpers
@@ -101,11 +102,11 @@ test-suite monty-test
   main-is: Spec.hs
   other-modules:
       HelperSpec
+      InferenceSpec
       ParserTests.ArgSpec
       ParserTests.Helpers
       ParserTests.RootSpec
       ParserTests.UtilsSpec
-      RunnerSpec
       Paths_monty
   hs-source-dirs:
       test
