@@ -55,6 +55,7 @@ stdEnv = TypeEnv $ HM.fromList [
     ("#subtract", parseSchemeOrDie "Int -> Int -> Int"),
     ("#multiply", parseSchemeOrDie "Int -> Int -> Int"),
     ("#or",       parseSchemeOrDie "Bool -> Bool -> Bool"),
+    ("#not",      parseSchemeOrDie "Bool -> Bool"),
     ("#equals",   parseSchemeOrDie "a -> a -> Bool"),
     ("const",     parseSchemeOrDie "a -> b -> a"),
     -- fix cannot inherently be implicitly typed unfortunately
@@ -132,6 +133,28 @@ spec = do
           "    (y): const(x, True or y)"
         ]) `shouldBe` ["Int -> Bool -> Int"]
 
+    it "Infer type of return type of a function parameter:" $ do
+      inferType stdEnv (unlines [
+          "def (x):",
+          "  return True or x(1)"
+        ]) `shouldBe` ["(Int -> Bool) -> Bool"]
+
+      inferType stdEnv (unlines [
+          "def (x):",
+          "  return if x:",
+          "    True",
+          "  else:",
+          "    False"
+        ]) `shouldBe` ["Bool -> Bool"]
+
+      inferType stdEnv (unlines [
+          "def (x):",
+          "  return if x(1):",
+          "    True",
+          "  else:",
+          "    False"
+        ]) `shouldBe` ["(Int -> Bool) -> Bool"]
+
     it "Infer type of a recursive function" $ do
       inferType stdEnv (unlines [
           "def factorialP(f, n):",
@@ -143,12 +166,27 @@ spec = do
           "factorial = fix(factorialP)"
         ]) `shouldBe` ["(Int -> Int) -> Int -> Int", "Int -> Int"]
 
-      -- TODO: don't require fix
-      -- inferType stdEnv (unlines [
-      --     "def factorial(n):",
-      --     "  if n == 0:",
-      --     "    return 1",
-      --     "  else:",
-      --     "    return n * factorial(n - 1)"
-      --   ]) `shouldBe` ["Int -> Int"]
+      inferType stdEnv (unlines [
+          "def factorial(n):",
+          "  if n == 0:",
+          "    return 1",
+          "  else:",
+          "    return n * factorial(n - 1)"
+        ]) `shouldBe` ["Int -> Int"]
 
+      -- FIXME: should be Left _
+      -- inferType stdEnv (unlines [
+      --     "n = n"
+      --   ]) `shouldBe` ["a -> a"]
+
+    -- it "Infer type of mutually recursive functions" $ do
+    --   inferType stdEnv (unlines [
+    --       "def isEven(x):",
+    --       "  if x == 0:",
+    --       "    return True",
+    --       "  return not isOdd(x - 1)",
+    --       "def isOdd(x):",
+    --       "  if x == 1:",
+    --       "    return True",
+    --       "  return not isEven(x - 1)"
+    --     ]) `shouldBe` ["Int -> Bool", "Int -> Bool"]

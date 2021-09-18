@@ -28,11 +28,12 @@ instance Types a => Types [a] where
     ftv l        = foldr (HS.union . ftv) HS.empty l
 
 newtype TypeEnv = TypeEnv (HM.HashMap String Scheme)
+  deriving (Show)
 emptyTypeEnv = TypeEnv HM.empty
 
 instance Types TypeEnv where
-    ftv (TypeEnv env)          = ftv (HM.elems env)
-    substitute s (TypeEnv env) = TypeEnv (HM.map (substitute s) env)
+  ftv (TypeEnv env)          = ftv (HM.elems env)
+  substitute s (TypeEnv env) = TypeEnv (HM.map (substitute s) env)
 
 type Subst = HM.HashMap String MType
 
@@ -45,6 +46,7 @@ runTI t = runState (runExceptT t) 0
 data Scheme = Scheme
   { schemaTypeVars :: [String]
   , schemaType :: MType }
+  deriving (Show)
 
 instance Types Scheme where
     ftv (Scheme vars t) = HS.difference (ftv t) (HS.fromList vars)
@@ -160,9 +162,18 @@ tiBody env (_:xs) = tiBody env xs
 
 tiCondBlock :: TypeEnv -> CondBlock ExistsMExpr -> TI (Subst, MType, TypeEnv)
 tiCondBlock env (CondBlock cond body) = do
-  (_, condType, _) <- ti env cond
-  unless (condType == MBool) $ throwError "Condition must be a boolean"
-  tiBody env body
+  condSub <- tiCond cond
+  over _1 (composeSubst condSub) <$> tiBody env body
+  where
+    tiCond :: ExistsMExpr -> TI Subst
+    tiCond cond = do
+      (condSub, condType, _) <- ti env cond
+      condSub' <- unify (substitute condSub condType) MBool
+
+      let condType' = substitute condSub' condType
+      unless (condType' == MBool) $ throwError "Condition must be a boolean"
+
+      pure $ composeSubst condSub' condSub
 
 -- Type inferrence
 ti :: TypeEnv -> ExistsMExpr -> TI (Subst, MType, TypeEnv)
@@ -177,8 +188,13 @@ ti env (Exists (MExprAssignment _ lhs rhs)) = do
   when (HM.member lhsName envMap)
     (throwError $ lhsName <> " is already defined")
 
-  (rhsSubst, rhsType, _) <- ti env rhs
-  let scheme = generalize (substitute rhsSubst env) rhsType
+  -- Define the assignment to be a new type var, to fix recursive inference
+  recScheme <- generalize env <$> newTyVar
+  let recEnv = TypeEnv (HM.insert lhsName recScheme envMap)
+
+  (rhsSubst, rhsType, _) <- ti recEnv rhs
+
+  let scheme = generalize (substitute rhsSubst recEnv) rhsType
   let newEnv = TypeEnv (HM.insert lhsName scheme envMap)
 
   pure (rhsSubst, rhsType, newEnv)
@@ -219,13 +235,21 @@ ti env (Exists (MExprCall _ fexpr params)) = do
       retSub <- unify (substitute paramSub prevType) (MFun paramType tv)
       pure (retSub `composeSubst` paramSub `composeSubst` prevSub, substitute retSub tv)
 ti env (Exists (MExprIfElse _ ifCond [] elseBody)) = do
-  (ifSub, ifType, _)     <- tiCondBlock env ifCond
-  (elseSub, elseType, _) <- tiBody env elseBody
+  (ifSub, ifType, env')      <- tiCondBlock env ifCond
+  (elseSub, elseType, env'') <- tiBody env' elseBody
 
   retSub <- unify (substitute ifSub elseType) ifType
   
-  pure (retSub `composeSubst` ifSub `composeSubst` elseSub, ifType, env)
+  pure (retSub `composeSubst` ifSub `composeSubst` elseSub, ifType, env'')
 ti _ expr = trace (show expr) undefined
+
+findAssignments :: [ExistsMExpr] -> HM.HashMap String ExistsMExpr
+findAssignments exprs = HM.fromList $ foldl' ass [] exprs
+  where
+    ass :: [(String, ExistsMExpr)] -> ExistsMExpr -> [(String, ExistsMExpr)]
+    ass acc expr@(Exists MExprAssignment {_lhs}) =
+      (unpackIdArg _lhs, expr) : acc
+    ass acc _ = acc
 
 -- Should only be called at the root scope
 inferMExprs :: TypeEnv -> [ExistsMExpr] -> TI [MType]
