@@ -22,20 +22,22 @@ inferType env input = case runTI mexprTypes of
     (Left err, _)   -> [show err]
   where
     mexprTypes :: TI [String]
-    mexprTypes = (show <$>) <$> inferMExprs env semanticed
+    mexprTypes = do
+      semanticed' <- semanticed
+      (show <$>) <$> inferMExprs env semanticed'
 
-    semanticed :: [ExistsMExpr]
-    semanticed = forceSemantic <$> parsed
+    semanticed :: TI [ExistsMExpr]
+    semanticed = traverse forceSemantic =<< parsed
 
-    forceSemantic :: PExpr -> ExistsMExpr
+    forceSemantic :: PExpr -> TI ExistsMExpr
     forceSemantic expr = case runExcept (semantic expr) of
-      Right mexpr -> mexpr
-      Left err    -> trace (show err) undefined -- FIXME: Use an IO or something?
+      Right mexpr -> pure mexpr
+      Left err    -> throwError (show err)
 
-    parsed :: [PExpr]
+    parsed :: TI [PExpr]
     parsed = case parse rootBodyParser "" input of
-      Left  err -> trace (errorBundlePretty err) undefined
-      Right res -> res
+      Left  err -> throwError $ errorBundlePretty err
+      Right res -> pure res
 
 inferType' = inferType emptyTypeEnv
 
@@ -50,10 +52,13 @@ parseSchemeOrDie = generalize emptyTypeEnv . parseTypeOrDie
 stdEnv :: TypeEnv
 stdEnv = TypeEnv $ HM.fromList [
     ("#add",      parseSchemeOrDie "Int -> Int -> Int"),
+    ("#subtract", parseSchemeOrDie "Int -> Int -> Int"),
     ("#multiply", parseSchemeOrDie "Int -> Int -> Int"),
     ("#or",       parseSchemeOrDie "Bool -> Bool -> Bool"),
     ("#equals",   parseSchemeOrDie "a -> a -> Bool"),
-    ("const",     parseSchemeOrDie "a -> b -> a")
+    ("const",     parseSchemeOrDie "a -> b -> a"),
+    -- fix cannot inherently be implicitly typed unfortunately
+    ("fix",       parseSchemeOrDie "(a -> a) -> a")
   ]
 
 spec :: Spec
@@ -127,13 +132,23 @@ spec = do
           "    (y): const(x, True or y)"
         ]) `shouldBe` ["Int -> Bool -> Int"]
 
-    -- TODO: fix
-    -- it "Infer type of a recursive function" $ do
-    --   inferType stdEnv (unlines [
-    --       "def factorial(n):",
-    --       "  if n == 0:",
-    --       "    return 1",
-    --       "  else:",
-    --       "    return n * factorial(n - 1)"
-    --     ]) `shouldBe` ["Int -> Int"]
+    it "Infer type of a recursive function" $ do
+      inferType stdEnv (unlines [
+          "def factorialP(f, n):",
+          "  if n == 0:",
+          "    return 1",
+          "  else:",
+          "    return n * f(n - 1)",
+          "",
+          "factorial = fix(factorialP)"
+        ]) `shouldBe` ["(Int -> Int) -> Int -> Int", "Int -> Int"]
+
+      -- TODO: don't require fix
+      -- inferType stdEnv (unlines [
+      --     "def factorial(n):",
+      --     "  if n == 0:",
+      --     "    return 1",
+      --     "  else:",
+      --     "    return n * factorial(n - 1)"
+      --   ]) `shouldBe` ["Int -> Int"]
 
