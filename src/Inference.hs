@@ -12,6 +12,7 @@ import Control.Monad.Except
 import MorphUtils
 import MiddleEndTypes
 import Debug.Trace (trace)
+import Data.List
 
 type TIState = Int
 type TI a = ExceptT String (State TIState) a
@@ -68,12 +69,12 @@ newTyVar = do
   s <- get
   put $ s + 1
   pure $ MVar $ reverse $ toTyVar s
-  where 
-    -- a, b, ..., a1, b1, ...
-    toTyVar :: Int -> String
-    toTyVar c | c < 26    = [toEnum (97+c)]
-              | otherwise = let (name, r) = c `divMod` 26
-                            in toEnum (97+r) : toTyVar (name-1)
+
+-- a, b, ..., a1, b1, ...
+toTyVar :: Int -> String
+toTyVar c | c < 26    = [toEnum (97+c)]
+          | otherwise = let (name, r) = c `divMod` 26
+                        in toEnum (97+r) : toTyVar (name-1)
 
 instantiate :: Scheme -> TI MType
 instantiate (Scheme vars t) = do
@@ -100,6 +101,15 @@ generalize env@(TypeEnv envContent) t = Scheme vars t
   -- Free type vars in the type but not free in the env
   where vars = HS.toList (HS.difference (ftv t) (ftv env))
   -- difference (fromList [5, 3]) (fromList [5, 7]) == singleton 3
+
+-- Simplifies the type vars of a scheme
+-- Should only be called at the root scope!
+simplifyType :: MType -> MType
+simplifyType t = substitute sub t
+  where
+  vars    = sort $ HS.toList $ ftv t
+  newVars = toTyVar <$> [0..length vars - 1]
+  sub     = HM.fromList $ zip vars (MVar <$> newVars)
 
 -- This is the unification function for types
 -- Example: unify (a -> a) (int -> b) = Map(a = int, b = int)
@@ -217,9 +227,10 @@ ti env (Exists (MExprIfElse _ ifCond [] elseBody)) = do
   pure (retSub `composeSubst` ifSub `composeSubst` elseSub, ifType, env)
 ti _ expr = trace (show expr) undefined
 
+-- Should only be called at the root scope
 inferMExprs :: TypeEnv -> [ExistsMExpr] -> TI [MType]
 inferMExprs env exprs =
-  reverse . view _2 <$> foldM feed (env, []) exprs
+  (simplifyType <$>) . reverse . view _2 <$> foldM feed (env, []) exprs
   where
     feed :: (TypeEnv, [MType]) -> ExistsMExpr -> TI (TypeEnv, [MType])
     feed (env, prev) expr = do

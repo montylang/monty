@@ -6,3 +6,5 @@ import Data.List as MyPrelude (intercalate)
 import Data.String.Interpolate as MyPrelude
 import Data.Void as MyPrelude
 import Data.Maybe as MyPrelude
+
+import MorphUtils as MyPrelude

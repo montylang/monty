@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 module MontyPrinter where
 
 import MyPrelude
@@ -11,5 +12,8 @@ run :: [ExistsMExpr] -> IO ()
 run exprs = do
   let (res, _) = runTI (inferMExprs (TypeEnv HM.empty) exprs)
   case res of
-    Left err -> putStrLn $ show exprs ++ "\nerror: " ++ err
-    Right t  -> putStrLn $ show exprs ++ "\n:: " ++ show t
+    Left err    -> putStrLn $ show exprs ++ "\nerror: " ++ err
+    Right types -> traverse_ (uncurry p) (zip exprs types)
+  where
+    p :: ExistsMExpr -> MType -> IO ()
+    p e t = putStrLn $ show e ++ "\n:: " ++ show t

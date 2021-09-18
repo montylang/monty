@@ -36,3 +36,6 @@ replace source target l@(x:xs) =
     target <> replace source target (drop (length source) l)
   else
     x : replace source target xs
+
+traverse_ :: (Traversable t, Applicative f) => (a -> f b) -> t a -> f ()
+traverse_ f t = () <$ traverse f t
