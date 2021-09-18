@@ -18,11 +18,19 @@ parseInt = MInt <$ string "Int"
 
 parseFun :: Parser MType
 parseFun = do
-  x:xs <- sepBy1 parseSig' (ws *> string "->" <* ws)
-  pure $ foldl MFun x xs
+  -- FIXME: Can't this be a fold?
+  joinFuns <$> sepBy1 parseSig' (try $ ws *> string "->" <* ws)
+  where
+    joinFuns :: [MType] -> MType
+    joinFuns []     = undefined
+    joinFuns [x]    = x
+    joinFuns (x:xs) = MFun x (joinFuns xs)
+
+parsePar :: Parser MType
+parsePar = char '(' *> ws *> parseSig <* ws <* char ')'
 
 parseSig' :: Parser MType
-parseSig' = choice [parseVar, parseBool, parseInt]
+parseSig' = choice [parsePar, parseVar, parseBool, parseInt]
 
 parseSig :: Parser MType
 parseSig = choice [try parseFun, parseSig']

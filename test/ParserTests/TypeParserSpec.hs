@@ -26,3 +26,18 @@ spec = do
   describe "Function types" $ do
     it "Parses a -> b" $ do
       parse (parseSig <* eof) "" "a -> b" `shouldBe` Right (MFun (MVar "a") (MVar "b"))
+
+  describe "Disambiguates with parens" $ do
+    it "Parses (a -> b)" $ do
+      parse (parseSig <* eof) "" "(a -> b)" `shouldBe` Right (MFun (MVar "a") (MVar "b"))
+
+    it "Parses a -> (  b )" $ do
+      parse (parseSig <* eof) "" "(a -> b)" `shouldBe` Right (MFun (MVar "a") (MVar "b"))
+
+    it "Parses (b -> c) -> d" $ do
+      parse (parseSig <* eof) "" "(c -> b) -> d" `shouldBe` Right
+        (MFun (MFun (MVar "c") (MVar "b")) (MVar "d"))
+
+    it "Parses a -> (b -> c) -> d" $ do
+      parse (parseSig <* eof) "" "a -> (b -> c) -> d" `shouldBe` Right
+        (MFun (MVar "a") (MFun (MFun (MVar "b") (MVar "c")) (MVar "d")))

@@ -14,6 +14,7 @@ import Debug.Trace (trace)
 import Text.Megaparsec.Error (errorBundlePretty)
 import Parser.Semantic (semantic)
 import Control.Monad.Except
+import Parser.TypeParser (parseSig)
 
 inferType :: TypeEnv -> String -> [String]
 inferType env input = case runTI mexprTypes of
@@ -38,13 +39,21 @@ inferType env input = case runTI mexprTypes of
 
 inferType' = inferType emptyTypeEnv
 
+parseTypeOrDie :: String -> MType
+parseTypeOrDie s = case parse parseSig "" s of
+  Left err -> trace (errorBundlePretty err) undefined
+  Right res -> res
+
+parseSchemeOrDie :: String -> Scheme
+parseSchemeOrDie = generalize emptyTypeEnv . parseTypeOrDie
+
 stdEnv :: TypeEnv
 stdEnv = TypeEnv $ HM.fromList [
-    ("#add", Scheme [] (MFun MInt (MFun MInt MInt))),
-    ("#multiply", Scheme [] (MFun MInt (MFun MInt MInt))),
-    ("#or", Scheme [] (MFun MBool (MFun MBool MBool))),
-    ("#equals", Scheme [] (MFun MInt (MFun MInt MBool))),
-    ("const", Scheme ["a", "b"] (MFun (MVar "a") (MFun (MVar "b") (MVar "a"))))
+    ("#add",      parseSchemeOrDie "Int -> Int -> Int"),
+    ("#multiply", parseSchemeOrDie "Int -> Int -> Int"),
+    ("#or",       parseSchemeOrDie "Bool -> Bool -> Bool"),
+    ("#equals",   parseSchemeOrDie "a -> a -> Bool"),
+    ("const",     parseSchemeOrDie "a -> b -> a")
   ]
 
 spec :: Spec
