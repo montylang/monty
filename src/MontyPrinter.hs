@@ -7,13 +7,16 @@ import MyPrelude
 import qualified Data.HashMap.Strict as HM
 import MiddleEndTypes
 import Inference
+import InferenceTypes
 
 run :: [ExistsMExpr] -> IO ()
 run exprs = do
-  let (res, _) = runTI (inferMExprs (TypeEnv HM.empty) exprs)
+  let (res, tiState) = runTI (inferTopLevelDefs exprs)
   case res of
-    Left err    -> putStrLn $ show exprs ++ "\nerror: " ++ err
-    Right types -> traverse_ (uncurry p) (zip exprs types)
+    Left err -> putStrLn $ show exprs <> "\nerror: " <> err
+    Right _  -> do
+        let defs = HM.toList $ tiState ^. globalDefs 
+        traverse_ (uncurry p) defs
   where
-    p :: ExistsMExpr -> MType -> IO ()
-    p e t = putStrLn $ show e ++ "\n:: " ++ show t
+    p :: String -> MType -> IO ()
+    p name t = putStrLn $ name <> " :: " <> show t

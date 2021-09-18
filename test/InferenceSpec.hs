@@ -1,10 +1,13 @@
 {-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 module InferenceSpec where
 
+import MyPrelude
+
 import Test.Hspec
 
 import qualified Data.HashMap.Strict as HM
 import Inference
+import InferenceTypes
 import MiddleEndTypes
 import ModuleLoader (montyRunSemantic)
 import ParserTypes
@@ -15,6 +18,23 @@ import Text.Megaparsec.Error (errorBundlePretty)
 import Parser.Semantic (semantic)
 import Control.Monad.Except
 import Parser.TypeParser (parseSig)
+import System.Exit (die)
+
+hasTypes :: [String] -> [(String, String)] -> IO ()
+hasTypes lines expected = do
+  case runTI wubble of
+    (Right _, tiState) -> do
+      let defs = tiState ^. globalDefs
+      traverse_ (f defs) expected
+    (Left err, _) -> expectationFailure err
+  where
+    f :: HM.HashMap String MType -> (String, String) -> IO ()
+    f defs (expectedName, expectedType) = do
+      -- TODO: Compare MType instead of strings
+      show <$> HM.lookup expectedName defs `shouldBe` Just expectedType
+
+    wubble :: TI () 
+    wubble = parseProg (unlines lines) >>= inferTopLevelDefs
 
 inferType :: TypeEnv -> String -> [String]
 inferType env input = case runTI mexprTypes of
@@ -23,12 +43,12 @@ inferType env input = case runTI mexprTypes of
   where
     mexprTypes :: TI [String]
     mexprTypes = do
-      semanticed' <- semanticed
+      semanticed' <- parseProg input
       (show <$>) <$> inferMExprs env semanticed'
 
-    semanticed :: TI [ExistsMExpr]
-    semanticed = traverse forceSemantic =<< parsed
-
+parseProg :: String -> TI [ExistsMExpr]
+parseProg input = traverse forceSemantic =<< parsed
+  where
     forceSemantic :: PExpr -> TI ExistsMExpr
     forceSemantic expr = case runExcept (semantic expr) of
       Right mexpr -> pure mexpr
@@ -38,6 +58,7 @@ inferType env input = case runTI mexprTypes of
     parsed = case parse rootBodyParser "" input of
       Left  err -> throwError $ errorBundlePretty err
       Right res -> pure res
+    
 
 inferType' = inferType emptyTypeEnv
 
@@ -79,20 +100,22 @@ spec = do
         ]) `shouldBe` ["a -> a"]
 
     it "Find the type of const" $ do
-      inferType' (unlines [
-          "def const(x, y):",
-          "  q = x",
-          "  return q",
-          "const(1, 2)"
-        ]) `shouldBe` ["a -> b -> a", "Int"]
+      ["def const(x, y):",
+       "  q = x",
+       "  return q",
+       "z = const(1, 2)"]
+      `hasTypes`
+      [("const", "a -> b -> a"),
+       ("z",     "Int")]
 
     it "Find the type of an application" $ do
-      inferType' (unlines [
-          "def id(x):",
-          "  return x",
-          "",
-          "id(3)"
-        ]) `shouldBe` ["a -> a", "Int"]
+      ["def id(x):",
+       "  return x",
+       "",
+       "z = id(3)"]
+      `hasTypes`
+      [("id", "a -> a"),
+       ("z", "Int")]
 
     it "Infer an add expression" $ do
       inferType stdEnv (unlines [
@@ -166,13 +189,13 @@ spec = do
           "factorial = fix(factorialP)"
         ]) `shouldBe` ["(Int -> Int) -> Int -> Int", "Int -> Int"]
 
-      inferType stdEnv (unlines [
-          "def factorial(n):",
-          "  if n == 0:",
-          "    return 1",
-          "  else:",
-          "    return n * factorial(n - 1)"
-        ]) `shouldBe` ["Int -> Int"]
+      -- inferType stdEnv (unlines [
+      --     "def factorial(n):",
+      --     "  if n == 0:",
+      --     "    return 1",
+      --     "  else:",
+      --     "    return n * factorial(n - 1)"
+      --   ]) `shouldBe` ["Int -> Int"]
 
       -- FIXME: should be Left _
       -- inferType stdEnv (unlines [

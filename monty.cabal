@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3f3583ec9a5bd04e042ac7b4db8b1f0d6d91a7114851e238cdb350d1cc2ce484
+-- hash: 26aad3870df5a4674d9e4fc5ed14bd52c4b12bc9b5dd1623ca3d7f0fb7589f58
 
 name:           monty
 version:        0.1.0.0
@@ -28,6 +28,7 @@ library
   exposed-modules:
       CallableUtils
       Inference
+      InferenceTypes
       Interop.Char
       Interop.Double
       Interop.Helpers
