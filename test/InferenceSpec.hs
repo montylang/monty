@@ -34,7 +34,9 @@ hasTypes lines expected = do
       show <$> HM.lookup expectedName defs `shouldBe` Just expectedType
 
     wubble :: TI () 
-    wubble = parseProg (unlines lines) >>= inferTopLevelDefs
+    wubble = do
+      globalDefs .= globalEnv
+      parseProg (unlines lines) >>= inferTopLevelDefs
 
 inferType :: TypeEnv -> String -> [String]
 inferType env input = case runTI mexprTypes of
@@ -67,21 +69,21 @@ parseTypeOrDie s = case parse parseSig "" s of
   Left err -> trace (errorBundlePretty err) undefined
   Right res -> res
 
-parseSchemeOrDie :: String -> Scheme
-parseSchemeOrDie = generalize emptyTypeEnv . parseTypeOrDie
+globalEnv :: HM.HashMap String MType
+globalEnv = HM.fromList [
+    ("#add",      parseTypeOrDie "Int -> Int -> Int"),
+    ("#subtract", parseTypeOrDie "Int -> Int -> Int"),
+    ("#multiply", parseTypeOrDie "Int -> Int -> Int"),
+    ("#or",       parseTypeOrDie "Bool -> Bool -> Bool"),
+    ("#not",      parseTypeOrDie "Bool -> Bool"),
+    ("#equals",   parseTypeOrDie "a -> a -> Bool"),
+    ("const",     parseTypeOrDie "a -> b -> a"),
+    -- fix cannot inherently be implicitly typed unfortunately
+    ("fix",       parseTypeOrDie "(a -> a) -> a")
+  ]
 
 stdEnv :: TypeEnv
-stdEnv = TypeEnv $ HM.fromList [
-    ("#add",      parseSchemeOrDie "Int -> Int -> Int"),
-    ("#subtract", parseSchemeOrDie "Int -> Int -> Int"),
-    ("#multiply", parseSchemeOrDie "Int -> Int -> Int"),
-    ("#or",       parseSchemeOrDie "Bool -> Bool -> Bool"),
-    ("#not",      parseSchemeOrDie "Bool -> Bool"),
-    ("#equals",   parseSchemeOrDie "a -> a -> Bool"),
-    ("const",     parseSchemeOrDie "a -> b -> a"),
-    -- fix cannot inherently be implicitly typed unfortunately
-    ("fix",       parseSchemeOrDie "(a -> a) -> a")
-  ]
+stdEnv = TypeEnv $ HM.map (generalize emptyTypeEnv) globalEnv
 
 spec :: Spec
 spec = do
@@ -179,15 +181,16 @@ spec = do
         ]) `shouldBe` ["(Int -> Bool) -> Bool"]
 
     it "Infer type of a recursive function" $ do
-      inferType stdEnv (unlines [
-          "def factorialP(f, n):",
-          "  if n == 0:",
-          "    return 1",
-          "  else:",
-          "    return n * f(n - 1)",
-          "",
-          "factorial = fix(factorialP)"
-        ]) `shouldBe` ["(Int -> Int) -> Int -> Int", "Int -> Int"]
+      ["def factorialP(f, n):",
+       "  if n == 0:",
+       "    return 1",
+       "  else:",
+       "    return n * f(n - 1)",
+       "",
+       "factorial = fix(factorialP)"]
+      `hasTypes`
+      [("factorialP", "(Int -> Int) -> Int -> Int"),
+       ("factorial", "Int -> Int")]
 
       -- inferType stdEnv (unlines [
       --     "def factorial(n):",

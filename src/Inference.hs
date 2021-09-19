@@ -197,15 +197,6 @@ ti env (Exists (MExprIfElse _ ifCond [] elseBody)) = do
   pure (retSub `composeSubst` ifSub `composeSubst` elseSub, ifType)
 ti _ expr = trace (show expr) undefined
 
-findAssignments :: [ExistsMExpr] -> HM.HashMap String ExistsMExpr
-findAssignments exprs = HM.fromList $ foldl' ass [] exprs
-  -- TODO: Die for duplicate lhs
-  where
-    ass :: [(String, ExistsMExpr)] -> ExistsMExpr -> [(String, ExistsMExpr)]
-    ass acc expr@(Exists MExprAssignment {_lhs}) =
-      (unpackIdArg _lhs, expr) : acc
-    ass acc _ = acc
-
 -- Should only be called at the root scope
 inferMExprs :: TypeEnv -> [ExistsMExpr] -> TI [MType]
 inferMExprs env exprs =
