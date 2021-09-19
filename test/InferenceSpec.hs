@@ -181,29 +181,38 @@ spec = do
         ]) `shouldBe` ["(Int -> Bool) -> Bool"]
 
     it "Infer type of a recursive function" $ do
-      ["def factorialP(f, n):",
-       "  if n == 0:",
-       "    return 1",
-       "  else:",
-       "    return n * f(n - 1)",
-       "",
-       "factorial = fix(factorialP)"]
-      `hasTypes`
-      [("factorialP", "(Int -> Int) -> Int -> Int"),
-       ("factorial", "Int -> Int")]
+      hasTypes
+        ["def factorialP(f, n):",
+         "  if n == 0:",
+         "    return 1",
+         "  else:",
+         "    return n * f(n - 1)",
+         "",
+         "factorial = fix(factorialP)"]
+        [("factorialP", "(Int -> Int) -> Int -> Int"),
+         ("factorial", "Int -> Int")]
 
-      -- inferType stdEnv (unlines [
-      --     "def factorial(n):",
-      --     "  if n == 0:",
-      --     "    return 1",
-      --     "  else:",
-      --     "    return n * factorial(n - 1)"
-      --   ]) `shouldBe` ["Int -> Int"]
+      hasTypes
+        ["def factorial(n):",
+         "  if n == 0:",
+         "    return 1",
+         "  else:",
+         "    return n * factorial(n - 1)"]
+        [("factorial", "Int -> Int")]
 
-      -- FIXME: should be Left _
-      -- inferType stdEnv (unlines [
-      --     "n = n"
-      --   ]) `shouldBe` ["a -> a"]
+      hasTypes
+        ["f = f"]
+        [("f", "a")]
+
+      hasTypes
+        ["def f():",
+         "  return f()"]
+        [("f", "() -> b")]
+
+      hasTypes
+        ["def f(x):",
+         "  return f(x)"]
+        [("f", "a -> b")]
 
     -- it "Infer type of mutually recursive functions" $ do
     --   inferType stdEnv (unlines [
