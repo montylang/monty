@@ -35,7 +35,7 @@ hasTypes lines expected = do
 
     wubble :: TI () 
     wubble = do
-      globalDefs .= globalEnv
+      globalDefs .= builtinTypes
       parseProg (unlines lines) >>= inferTopLevelDefs
 
 inferType :: TypeEnv -> String -> [String]
@@ -64,26 +64,8 @@ parseProg input = traverse forceSemantic =<< parsed
 
 inferType' = inferType emptyTypeEnv
 
-parseTypeOrDie :: String -> MType
-parseTypeOrDie s = case parse parseSig "" s of
-  Left err -> trace (errorBundlePretty err) undefined
-  Right res -> res
-
-globalEnv :: HM.HashMap String MType
-globalEnv = HM.fromList [
-    ("#add",      parseTypeOrDie "Int -> Int -> Int"),
-    ("#subtract", parseTypeOrDie "Int -> Int -> Int"),
-    ("#multiply", parseTypeOrDie "Int -> Int -> Int"),
-    ("#or",       parseTypeOrDie "Bool -> Bool -> Bool"),
-    ("#not",      parseTypeOrDie "Bool -> Bool"),
-    ("#equals",   parseTypeOrDie "a -> a -> Bool"),
-    ("const",     parseTypeOrDie "a -> b -> a"),
-    -- fix cannot inherently be implicitly typed unfortunately
-    ("fix",       parseTypeOrDie "(a -> a) -> a")
-  ]
-
 stdEnv :: TypeEnv
-stdEnv = TypeEnv $ HM.map (generalize emptyTypeEnv) globalEnv
+stdEnv = TypeEnv $ HM.map (generalize emptyTypeEnv) builtinTypes
 
 spec :: Spec
 spec = do
@@ -207,21 +189,53 @@ spec = do
       hasTypes
         ["def f():",
          "  return f()"]
-        [("f", "() -> b")]
+        [("f", "() -> a")]
 
       hasTypes
         ["def f(x):",
          "  return f(x)"]
         [("f", "a -> b")]
 
-    -- it "Infer type of mutually recursive functions" $ do
-    --   inferType stdEnv (unlines [
-    --       "def isEven(x):",
-    --       "  if x == 0:",
-    --       "    return True",
-    --       "  return not isOdd(x - 1)",
-    --       "def isOdd(x):",
-    --       "  if x == 1:",
-    --       "    return True",
-    --       "  return not isEven(x - 1)"
-    --     ]) `shouldBe` ["Int -> Bool", "Int -> Bool"]
+    it "Infer type of mutually recursive functions" $ do
+      hasTypes
+        ["def isEven(x):",
+         "  if x == 0:",
+         "    return True",
+         "  return not isOdd(x - 1)",
+         "def isOdd(x):",
+         "  if x == 1:",
+         "    return True",
+         "  return not isEven(x - 1)"]
+        [("isEven", "Int -> Bool"),
+         ("isOdd", "Int -> Bool")]
+
+      hasTypes
+        ["f = g",
+         "g = f"]
+        [("f", "a"),
+         ("g", "a")]
+
+      hasTypes
+        ["def f(x):",
+         "  return g(x)",
+         "def g(x):",
+         "  return f(x)"]
+        [("f", "a -> b"),
+         ("g", "a -> b")]
+
+      hasTypes
+        ["def f():",
+         "  return g()",
+         "def g():",
+         "  return f()"]
+        [("f", "() -> a"),
+         ("g", "() -> a")]
+
+    it "Infer type of a recursive function with function param" $ do
+      hasTypes
+        ["def until(initial, predicate, func):",
+         "  return if predicate(initial):",
+         "    initial",
+         "  else:",
+         "    until(func(initial), predicate, func)"]
+        [("until", "a -> (a -> Bool) -> (a -> a) -> a")]

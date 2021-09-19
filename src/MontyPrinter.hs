@@ -8,6 +8,7 @@ import qualified Data.HashMap.Strict as HM
 import MiddleEndTypes
 import Inference
 import InferenceTypes
+import qualified Data.HashSet.Internal as HS
 
 run :: [ExistsMExpr] -> IO ()
 run exprs = do
@@ -19,4 +20,9 @@ run exprs = do
         traverse_ (uncurry p) defs
   where
     p :: String -> MType -> IO ()
-    p name t = putStrLn $ name <> " :: " <> show t
+    p name t = do
+      unless (HS.member name builtinTypeNames)
+        (putStrLn $ name <> " :: " <> show t)
+
+    builtinTypeNames :: HS.HashSet String
+    builtinTypeNames = HS.fromList $ HM.keys builtinTypes

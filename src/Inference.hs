@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 module Inference where
 
 import MyPrelude
@@ -13,6 +14,28 @@ import MiddleEndTypes
 import Debug.Trace (trace)
 import Data.List
 import InferenceTypes
+import Control.Applicative
+import Text.Megaparsec (parse)
+import Parser.TypeParser (parseSig)
+import Text.Megaparsec.Error (errorBundlePretty)
+
+parseTypeOrDie :: String -> MType
+parseTypeOrDie s = case parse parseSig "" s of
+  Left err -> trace (errorBundlePretty err) undefined
+  Right res -> res
+
+builtinTypes :: HM.HashMap String MType
+builtinTypes = HM.fromList [
+    ("#add",      parseTypeOrDie "Int -> Int -> Int"),
+    ("#subtract", parseTypeOrDie "Int -> Int -> Int"),
+    ("#multiply", parseTypeOrDie "Int -> Int -> Int"),
+    ("#or",       parseTypeOrDie "Bool -> Bool -> Bool"),
+    ("#not",      parseTypeOrDie "Bool -> Bool"),
+    ("#equals",   parseTypeOrDie "a -> a -> Bool"),
+    ("const",     parseTypeOrDie "a -> b -> a"),
+    -- fix cannot inherently be implicitly typed unfortunately
+    ("fix",       parseTypeOrDie "(a -> a) -> a")
+  ]
 
 -- Creating a new polymorphic type var, a, b, ... a1, b1, etc.
 newTyVar :: TI MType
@@ -144,20 +167,32 @@ ti env (Exists (MExprAssignment _ lhs rhs)) = do
 
   pure (rhsSubst, rhsType)
 ti env (Exists (MExprId _ name)) = do
-  let TypeEnv envMap = env
-
-  t <- case HM.lookup name envMap of
-    Nothing    -> globalLookup name
-    Just sigma -> instantiate sigma
-
+  t <- localLookup <|> globalLookup <|> globalInferLookup
   pure (nullSubst, t)
   where
-    globalLookup :: String -> TI MType
-    globalLookup name = do
+    -- TODO: Don't throw away the result
+    globalInferLookup :: TI MType
+    globalInferLookup = do
+      glob <- use topLevelMExprs
+
+      case HM.lookup name glob of
+        Nothing -> throwError $ "Unbound variable: " ++ name
+        Just ex -> view _2 <$> ti env ex
+
+    localLookup :: TI MType
+    localLookup = do
+      let TypeEnv envMap = env
+    
+      case HM.lookup name envMap of
+        Nothing    -> throwError ""
+        Just sigma -> instantiate sigma
+
+    globalLookup :: TI MType
+    globalLookup = do
       glob <- use globalDefs
 
       case HM.lookup name glob of
-        Nothing    -> throwError $ "unbound variable: " ++ name
+        Nothing    -> throwError ""
         Just sigma -> instantiate $ generalize env sigma
 ti env (Exists (MExprDef _ args body)) = do
   tvs <- sequence $ newTyVar <$ args
@@ -170,9 +205,10 @@ ti env (Exists (MExprDef _ args body)) = do
 
   (subBody, tbody) <- tiBody env'' body
 
-  let tres = case tvs of
-        []  -> MFunZero tbody
-        tvs -> foldr MFun tbody (substitute subBody <$> tvs)
+  let tres = case (length args, tbody) of
+        (0, MFunZero _) -> tbody
+        (0, _)          -> MFunZero tbody
+        _               -> foldr MFun tbody (substitute subBody <$> tvs)
 
   pure (subBody, tres)
 ti env (Exists (MExprCall _ fexpr params)) = do
@@ -197,6 +233,15 @@ ti env (Exists (MExprIfElse _ ifCond [] elseBody)) = do
   pure (retSub `composeSubst` ifSub `composeSubst` elseSub, ifType)
 ti _ expr = trace (show expr) undefined
 
+findAssignments :: [ExistsMExpr] -> HM.HashMap String ExistsMExpr
+findAssignments exprs = HM.fromList $ foldl' ass [] exprs
+  -- TODO: Die for duplicate lhs
+  where
+    ass :: [(String, ExistsMExpr)] -> ExistsMExpr -> [(String, ExistsMExpr)]
+    ass acc expr@(Exists MExprAssignment {_lhs}) =
+      (unpackIdArg _lhs, expr) : acc
+    ass acc _ = acc
+
 -- Should only be called at the root scope
 inferMExprs :: TypeEnv -> [ExistsMExpr] -> TI [MType]
 inferMExprs env exprs =
@@ -207,15 +252,11 @@ inferMExprs env exprs =
       (s, t) <- ti env expr
       pure (env, substitute s t : prev)
 
--- TODO: forward references!
--- let asses = findAssignments exprs
--- for each ass rhs, type infer.
-    -- WITH the lhs name in the LOCAL env
-    -- This can return multiple inferences, for the case of forward references
-    -- Put them all in the global scope, AND remove them from asses
-
 inferTopLevelDefs :: [ExistsMExpr] -> TI ()
-inferTopLevelDefs = traverse_ wibble
+inferTopLevelDefs exprs = do
+  globalDefs     .= builtinTypes
+  topLevelMExprs .= findAssignments exprs
+  traverse_ wibble exprs
 
 wibble :: ExistsMExpr -> TI ()
 wibble (Exists MExprAssignment {_lhs, _rhs}) = do
