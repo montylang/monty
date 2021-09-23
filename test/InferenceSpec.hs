@@ -107,6 +107,13 @@ spec = do
           "  return x + 1"
         ]) `shouldBe` ["Int -> Int"]
 
+    it "Infer curried function" $ do
+      hasTypes
+        ["def add(x, y):",
+         "  return x + y",
+         "add1 = add(1)"]
+        [("add1", "Int -> Int")]
+
     it "Infer a conditional type" $ do
       inferType stdEnv (unlines [
           "def (x):",
@@ -232,6 +239,11 @@ spec = do
          ("g", "() -> a")]
 
     it "Infer type of a recursive function with function param" $ do
+      hasTypes
+        ["def apply(func, val):",
+         "  return apply(func, func(val))"]
+        [("apply", "(a -> a) -> a -> b")]
+
       hasTypes
         ["def until(initial, predicate, func):",
          "  return if predicate(initial):",

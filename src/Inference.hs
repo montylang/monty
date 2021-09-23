@@ -15,9 +15,10 @@ import Debug.Trace (trace)
 import Data.List
 import InferenceTypes
 import Control.Applicative
-import Text.Megaparsec (parse)
+import Text.Megaparsec (parse, SourcePos (SourcePos))
 import Parser.TypeParser (parseSig)
 import Text.Megaparsec.Error (errorBundlePretty)
+import Text.Megaparsec.Pos (mkPos)
 
 parseTypeOrDie :: String -> MType
 parseTypeOrDie s = case parse parseSig "" s of
@@ -96,8 +97,7 @@ unify (MVar u) t  = varBind u t
 unify t (MVar u)  = varBind u t
 unify MInt MInt   = return nullSubst
 unify MBool MBool = return nullSubst
-unify t1 t2       = throwError $ "types do not unify: " ++ show t1 ++
-                  " vs. " ++ show t2
+unify t1 t2       = throwError [i|"types do not unify: ${t1} vs ${t2}"|]
 
 -- The function varBind attempts to bind a type variable
 -- to a type and return that binding as a subsitution,
@@ -106,9 +106,8 @@ unify t1 t2       = throwError $ "types do not unify: " ++ show t1 ++
 varBind :: String -> MType -> TI Subst
 varBind u t | t == MVar u          = return nullSubst
             -- Case where \x -> x x
-            | HS.member u (ftv t) = throwError $ "occurs check fails: " ++ u ++
-                                      " vs. " ++ show t
-            | otherwise            = return $ HM.singleton u t
+            | HS.member u (ftv t) = throwError [i|"occurs check fails: ${u} vs ${t}"|]
+            | otherwise           = return $ HM.singleton u t
 
 -- TODO: Figure out why s1 has precedence
 composeSubst :: Subst -> Subst -> Subst
@@ -130,7 +129,7 @@ tiBody env []  = throwError "Empty body"
 tiBody env [x] = ti env x
 tiBody env ((Exists (MExprAssignment _ lhs rhs):xs)) =
   tiLet env lhs rhs xs
-tiBody env (_:xs) = tiBody env xs
+tiBody env (x:xs) = tiBody env xs
 
 tiCondBlock :: TypeEnv -> CondBlock ExistsMExpr -> TI (Subst, MType)
 tiCondBlock env (CondBlock cond body) = do
@@ -171,13 +170,15 @@ ti env (Exists (MExprId _ name)) = do
   pure (nullSubst, t)
   where
     -- TODO: Don't throw away the result
+    -- A simple solution would be to just modify the global defs list right here
     globalInferLookup :: TI MType
     globalInferLookup = do
       glob <- use topLevelMExprs
 
       case HM.lookup name glob of
         Nothing -> throwError $ "Unbound variable: " ++ name
-        Just ex -> view _2 <$> ti env ex
+        Just ex -> do
+          view _2 <$> ti env ex
 
     localLookup :: TI MType
     localLookup = do
@@ -211,17 +212,15 @@ ti env (Exists (MExprDef _ args body)) = do
         _               -> foldr MFun tbody (substitute subBody <$> tvs)
 
   pure (subBody, tres)
-ti env (Exists (MExprCall _ fexpr params)) = do
-  (fsub, ftype) <- ti env fexpr
-  let env' = substitute fsub env
-
-  (resSub, resType) <- foldM (linkParamTypes env') (fsub, ftype) params
-  pure (resSub, resType)
+ti env (Exists (MExprCall _ fexpr params)) =
+  foldl (tiAppFolder env) (ti env fexpr) params
   where
-    linkParamTypes :: TypeEnv -> (Subst, MType) -> ExistsMExpr -> TI (Subst, MType)
-    linkParamTypes env (prevSub, prevType) paramExpr = do
-      (paramSub, paramType) <- ti env paramExpr
-      tv     <- newTyVar
+    tiAppFolder :: TypeEnv -> TI (Subst, MType) -> ExistsMExpr -> TI (Subst, MType)
+    tiAppFolder env acc e2 = do
+      (prevSub, prevType) <- acc
+      let env' = substitute prevSub env
+      (paramSub, paramType) <- ti env' e2
+      tv <- newTyVar
       retSub <- unify (substitute paramSub prevType) (MFun paramType tv)
       pure (retSub `composeSubst` paramSub `composeSubst` prevSub, substitute retSub tv)
 ti env (Exists (MExprIfElse _ ifCond [] elseBody)) = do
@@ -250,6 +249,7 @@ inferMExprs env exprs =
     feed :: (TypeEnv, [MType]) -> ExistsMExpr -> TI (TypeEnv, [MType])
     feed (env, prev) expr = do
       (s, t) <- ti env expr
+
       pure (env, substitute s t : prev)
 
 inferTopLevelDefs :: [ExistsMExpr] -> TI ()
@@ -257,6 +257,20 @@ inferTopLevelDefs exprs = do
   globalDefs     .= builtinTypes
   topLevelMExprs .= findAssignments exprs
   traverse_ wibble exprs
+  where
+    exprs' = fixAss <$> exprs
+
+    fixAss :: ExistsMExpr -> ExistsMExpr
+    fixAss (Exists ass@MExprAssignment {_lhs, _rhs}) =
+      Exists $ ass & rhs .~ fixExpr _lhs _rhs
+    fixAss expr = expr
+
+fixExpr :: Arg -> ExistsMExpr -> ExistsMExpr
+fixExpr lhs expr =
+  Exists $ MExprCall emptySp (Exists $ MExprId emptySp "fix") [innerFunc]
+  where
+    emptySp = SourcePos "" (mkPos maxBound) (mkPos maxBound)
+    innerFunc = Exists $ MExprDef emptySp [lhs] [expr]
 
 wibble :: ExistsMExpr -> TI ()
 wibble (Exists MExprAssignment {_lhs, _rhs}) = do

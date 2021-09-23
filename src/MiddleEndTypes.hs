@@ -100,6 +100,10 @@ mpos f expr@MExprChar{ _charMpos } =
 mpos f expr@MExprDef{ _defMpos } =
   (\mpos' -> expr {_defMpos = mpos'}) <$> f _defMpos
 
+rhs :: Lens' (MExpr a) ExistsMExpr
+rhs f expr@MExprAssignment { _rhs } =
+  (\rhs' -> expr {_rhs = rhs'}) <$> f _rhs
+
 indent :: String -> String
 indent = ("  " <>) . replace "\n" "\n  "
 

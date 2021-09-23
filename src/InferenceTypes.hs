@@ -48,7 +48,10 @@ runTI t = runState (runExceptT t) emptyTIState
 data Scheme = Scheme
   { schemaTypeVars :: [String]
   , schemaType :: MType }
-  deriving (Show)
+
+instance Show Scheme where
+  show (Scheme vars t) =
+    "scheme " <> intercalate "," vars <> ". " <> show t
 
 instance Types Scheme where
     ftv (Scheme vars t) = HS.difference (ftv t) (HS.fromList vars)
