@@ -194,11 +194,6 @@ spec = do
         [("f", "a")]
 
       hasTypes
-        ["def f():",
-         "  return f()"]
-        [("f", "() -> a")]
-
-      hasTypes
         ["def f(x):",
          "  return f(x)"]
         [("f", "a -> b")]

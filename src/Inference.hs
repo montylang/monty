@@ -97,7 +97,7 @@ unify (MVar u) t  = varBind u t
 unify t (MVar u)  = varBind u t
 unify MInt MInt   = return nullSubst
 unify MBool MBool = return nullSubst
-unify t1 t2       = throwError [i|"types do not unify: ${t1} vs ${t2}"|]
+unify t1 t2       = throwError [i|types do not unify: ${t1} vs ${t2}|]
 
 -- The function varBind attempts to bind a type variable
 -- to a type and return that binding as a subsitution,
@@ -106,7 +106,7 @@ unify t1 t2       = throwError [i|"types do not unify: ${t1} vs ${t2}"|]
 varBind :: String -> MType -> TI Subst
 varBind u t | t == MVar u          = return nullSubst
             -- Case where \x -> x x
-            | HS.member u (ftv t) = throwError [i|"occurs check fails: ${u} vs ${t}"|]
+            | HS.member u (ftv t) = throwError [i|occurs check fails: ${u} vs ${t}|]
             | otherwise           = return $ HM.singleton u t
 
 -- TODO: Figure out why s1 has precedence
@@ -256,20 +256,46 @@ inferTopLevelDefs :: [ExistsMExpr] -> TI ()
 inferTopLevelDefs exprs = do
   globalDefs     .= builtinTypes
   topLevelMExprs .= findAssignments exprs
-  traverse_ inferAssignment exprs
+  traverse_ inferAssignment fixedExprs
   where
-    exprs' = fixAss <$> exprs
+    fixedExprs = fixAss <$> exprs
 
     fixAss :: ExistsMExpr -> ExistsMExpr
     fixAss (Exists ass@MExprAssignment {_lhs, _rhs}) =
       Exists $ ass & rhs .~ fixExpr _lhs _rhs
     fixAss expr = expr
 
+-- Return Nothing when we should stop crawling (because we found a match!)
+fixHelper :: Id -> ExistsMExpr -> Maybe Bool
+fixHelper name e@(Exists MExprId { _id }) =
+  if _id == name then
+    Nothing
+  else
+    pure True
+fixHelper name (Exists MExprDef {}) = pure False
+fixHelper _ _                       = pure True
+
+needsFix' :: Id -> ExistsMExpr -> Bool
+needsFix' name mexpr =
+  case crawl (fixHelper name) mexpr of
+    Just _  -> False
+    Nothing -> True
+
+needsFix :: Id -> ExistsMExpr -> Bool
+needsFix name (Exists MExprDef { _defBody }) =
+  any (needsFix' name) _defBody
+needsFix name mexpr = needsFix' name mexpr
+
+-- "fix" an expression if necessary. This enables recursive inference
 fixExpr :: Arg -> ExistsMExpr -> ExistsMExpr
 fixExpr lhs expr =
-  Exists $ MExprCall emptySp (Exists $ MExprId emptySp "fix") [innerFunc]
+  if needsFix name expr then
+    Exists $ MExprCall emptySp (Exists $ MExprId emptySp "fix") [innerFunc]
+  else
+    expr
   where
-    emptySp = SourcePos "" (mkPos maxBound) (mkPos maxBound)
+    name      = unpackIdArg lhs
+    emptySp   = SourcePos "" (mkPos maxBound) (mkPos maxBound)
     innerFunc = Exists $ MExprDef emptySp [lhs] [expr]
 
 inferAssignment :: ExistsMExpr -> TI ()
@@ -284,20 +310,3 @@ inferAssignment (Exists MExprAssignment {_lhs, _rhs}) = do
     let newDefs = [(lhsId, simplifyType defType)]
     globalDefs %= HM.union (HM.fromList newDefs)
 inferAssignment _ = throwError "Top level exprs must be assignments"
-
-
--- Return Nothing when we should stop crawling (because we found a match!)
-fixHelper :: Id -> ExistsMExpr -> Maybe Bool
-fixHelper name e@(Exists MExprId { _id }) =
-  if _id == name then
-    Nothing
-  else
-    pure True
-fixHelper name (Exists MExprDef {}) = pure False
-fixHelper _ _                       = pure True
-
-needsFix :: Id -> ExistsMExpr -> Bool
-needsFix name mexpr =
-  case crawl (fixHelper name) mexpr of
-    Just _  -> False
-    Nothing -> True
