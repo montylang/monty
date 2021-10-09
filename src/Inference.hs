@@ -256,7 +256,7 @@ inferTopLevelDefs :: [ExistsMExpr] -> TI ()
 inferTopLevelDefs exprs = do
   globalDefs     .= builtinTypes
   topLevelMExprs .= findAssignments exprs
-  traverse_ wibble exprs
+  traverse_ inferAssignment exprs
   where
     exprs' = fixAss <$> exprs
 
@@ -272,8 +272,8 @@ fixExpr lhs expr =
     emptySp = SourcePos "" (mkPos maxBound) (mkPos maxBound)
     innerFunc = Exists $ MExprDef emptySp [lhs] [expr]
 
-wibble :: ExistsMExpr -> TI ()
-wibble (Exists MExprAssignment {_lhs, _rhs}) = do
+inferAssignment :: ExistsMExpr -> TI ()
+inferAssignment (Exists MExprAssignment {_lhs, _rhs}) = do
   let lhsId = unpackIdArg _lhs
   previousDefs <- use globalDefs
   unless (HM.member lhsId previousDefs) $ do
@@ -283,4 +283,21 @@ wibble (Exists MExprAssignment {_lhs, _rhs}) = do
   
     let newDefs = [(lhsId, simplifyType defType)]
     globalDefs %= HM.union (HM.fromList newDefs)
-wibble _ = throwError "Top level exprs must be assignments"
+inferAssignment _ = throwError "Top level exprs must be assignments"
+
+
+-- Return Nothing when we should stop crawling (because we found a match!)
+fixHelper :: Id -> ExistsMExpr -> Maybe Bool
+fixHelper name e@(Exists MExprId { _id }) =
+  if _id == name then
+    Nothing
+  else
+    pure True
+fixHelper name (Exists MExprDef {}) = pure False
+fixHelper _ _                       = pure True
+
+needsFix :: Id -> ExistsMExpr -> Bool
+needsFix name mexpr =
+  case crawl (fixHelper name) mexpr of
+    Just _  -> False
+    Nothing -> True

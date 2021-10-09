@@ -3,13 +3,11 @@
              FlexibleInstances #-}
 module MiddleEndTypes where
 
+import MyPrelude
 import qualified Data.HashMap.Strict as HM
 import Data.String.Interpolate
-import Control.Lens
 import ParserTypes (Id, Arg, CondBlock (CondBlock))
 import Text.Megaparsec (SourcePos)
-import Data.List (intercalate)
-import MorphUtils
 import Control.Monad.State (State)
 
 type ExistsMExpr = Exists @MExprType MExpr
@@ -129,3 +127,34 @@ instance Show (MExpr a) where
     where
       argsPrinted = intercalate ", " $ show <$> args
       bodyPrinted = intercalate "\n" $ show <$> body
+
+-- Crawls through an expression, optionally continuing depending on f
+-- Return True from f to continue crawling
+-- Used in a monadic context so you can use a Writer to accumulate, or whatever
+crawl :: Monad m => (ExistsMExpr -> m Bool) -> ExistsMExpr -> m ()
+crawl f e@(Exists MExprInt {})    = () <$ f e
+crawl f e@(Exists MExprDouble {}) = () <$ f e
+crawl f e@(Exists MExprChar {})   = () <$ f e
+crawl f e@(Exists MExprId {})     = () <$ f e
+crawl f e@(Exists MExprAssignment { _rhs }) = do
+  continue <- f e
+  when continue $ crawl f _rhs
+crawl f e@(Exists MExprBlock { _blockBody }) = do
+  continue <- f e
+  when continue $ traverse_ (crawl f) _blockBody
+crawl f e@(Exists MExprCall { _callee, _params }) = do
+  continue <- f e
+  when continue $ do
+    crawl f _callee
+    traverse_ (crawl f) _params
+crawl f e@(Exists MExprIfElse { _ifCond, _elifConds, _elseBody }) = do
+  continue <- f e
+  when continue $ do
+    traverse_ crawlCond (_ifCond:_elifConds)
+    traverse_ (crawl f) _elseBody
+  where
+    crawlCond (CondBlock condition body) =
+      traverse_ (crawl f) (condition:body)
+crawl f e@(Exists MExprDef { _defBody }) = do
+  continue <- f e
+  when continue $ traverse_ (crawl f) _defBody
