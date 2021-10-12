@@ -267,12 +267,16 @@ inferTopLevelDefs exprs = do
 
 -- Return Nothing when we should stop crawling (because we found a match!)
 fixHelper :: Id -> ExistsMExpr -> Maybe Bool
+fixHelper name e@(Exists MExprAssignment { _lhs }) =
+  if name == (unpackIdArg _lhs) then
+    pure False
+  else
+    pure True
 fixHelper name e@(Exists MExprId { _id }) =
   if _id == name then
     Nothing
   else
     pure True
-fixHelper name (Exists MExprDef {}) = pure False
 fixHelper _ _                       = pure True
 
 needsFix' :: Id -> ExistsMExpr -> Bool

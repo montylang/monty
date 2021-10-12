@@ -246,3 +246,18 @@ spec = do
          "  else:",
          "    until(func(initial), predicate, func)"]
         [("until", "a -> (a -> Bool) -> (a -> a) -> a")]
+
+    it "Infer type for a nested recursive function definition" $ do
+      hasTypes
+        ["def f(x, y):",
+         "  def g(z):",
+         "    return f(y, z)",
+         "  return g(x)"]
+        [("f", "a -> a -> b")]
+
+    it "NOT fix functions when their names are shadowed" $ do
+      hasTypes
+        ["def f(x, y):",
+         "  f = x",
+         "  return f"]
+        [("f", "a -> b -> a")]
