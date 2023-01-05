@@ -36,6 +36,14 @@ impl BinOp {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum Arg {
+    Int(i64),
+    Float(f64),
+    Symbol(String),
+    Tuple(Vec<Arg>),
+}
+
 // TODO: Move elsewhere eventually
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -44,6 +52,8 @@ pub enum Expr {
     BinOp(BinOp, Box<Expr>, Box<Expr>),
     Symbol(String),
     Call(Box<Expr>, Vec<Expr>),
+    Lambda(Vec<Arg>, Vec<Expr>),
+    Tuple(Vec<Expr>),
 }
 
 type ParseResult<T> = Result<T, String>;
@@ -121,15 +131,65 @@ fn parse_expr_unchained(ctx: &mut ParseContext) -> ParseResult<Expr> {
         Some(c) if is_symbol_char(c) => Ok(parse_symbol(ctx)),
         Some('(') => {
             ctx.pos += 1;
-            let result = parse_expr(ctx)?;
-            if !parse_char(ctx, ')') {
-                println!("{}", ctx.pos);
-                return Err("Expected `)`".to_owned());
+            let first_expr = parse_expr(ctx)?;
+            match ctx.peek() {
+                Some(',') => {
+                    ctx.pos += 1;
+                    let mut args = parse_arg_list(ctx)?;
+                    args.insert(0, first_expr);
+                    match maybe_parse_lambda(ctx, args.clone()) {
+                        Some(res) => Ok(res?),
+                        None => Ok(Expr::Tuple(args)),
+                    }
+                }
+                Some(')') => {
+                    ctx.pos += 1;
+                    match maybe_parse_lambda(ctx, vec![first_expr.clone()]) {
+                        Some(res) => Ok(res?),
+                        None => Ok(first_expr),
+                    }
+                }
+                _ => Err("Expected `)` or `,`".to_owned()),
             }
-            Ok(result)
         }
         Some(c) => Err(format!("Expected expr, found {c}")),
-        None => todo!(),
+        None => Err(format!("Expected expr, found EOF")),
+    }
+}
+
+fn maybe_parse_lambda(ctx: &mut ParseContext, args: Vec<Expr>) -> Option<ParseResult<Expr>> {
+    consume_hs(ctx);
+    match ctx.peek() {
+        Some(':') => {
+            ctx.pos += 1;
+            Some(parse_lambda(ctx, args))
+        }
+        _ => None,
+    }
+}
+
+fn parse_lambda(ctx: &mut ParseContext, expr_args: Vec<Expr>) -> ParseResult<Expr> {
+    let body_expr = parse_expr(ctx)?;
+    let args = expr_args
+        .into_iter()
+        .map(expr_to_arg)
+        .collect::<ParseResult<Vec<_>>>()?;
+    Ok(Expr::Lambda(args, vec![body_expr]))
+}
+
+fn expr_to_arg(expr: Expr) -> ParseResult<Arg> {
+    match expr {
+        Expr::Int(v) => Ok(Arg::Int(v)),
+        Expr::Float(v) => Ok(Arg::Float(v)),
+        Expr::Symbol(v) => Ok(Arg::Symbol(v)),
+        Expr::Tuple(values) => {
+            let tuple_args = values
+                .into_iter()
+                .map(expr_to_arg)
+                .collect::<ParseResult<Vec<_>>>()?;
+            Ok(Arg::Tuple(tuple_args))
+        }
+        expr => Err(format!("{expr:?} is not a valid arg format!")),
     }
 }
 
@@ -449,6 +509,37 @@ mod tests {
                 vec![Expr::Int(4), Expr::Symbol("henlo".to_owned()),],
             )),
             parse_expr(&mut ParseContext::new("(f + 3)(4, henlo)"))
+        );
+    }
+
+    #[test]
+    fn test_parse_tuple() {
+        assert_eq!(
+            Ok(Expr::Tuple(vec![Expr::Int(420), Expr::Int(96)],)),
+            parse_expr(&mut ParseContext::new("(420, 96)")) // plot twist
+        );
+        assert_eq!(
+            Ok(Expr::Tuple(vec![Expr::Int(420)],)),
+            parse_expr(&mut ParseContext::new("(420,)"))
+        );
+        assert_eq!(
+            Ok(Expr::Int(420)),
+            parse_expr(&mut ParseContext::new("(420)"))
+        );
+    }
+
+    #[test]
+    fn test_parse_lambda() {
+        assert_eq!(
+            Ok(Expr::Lambda(vec![Arg::Int(1337)], vec![Expr::Int(42)])),
+            parse_expr(&mut ParseContext::new("(1337): 42"))
+        );
+        assert_eq!(
+            Ok(Expr::Lambda(
+                vec![Arg::Int(1337), Arg::Symbol("b".to_owned())],
+                vec![Expr::Int(42)]
+            )),
+            parse_expr(&mut ParseContext::new("(1337, b): 42"))
         );
     }
 }
