@@ -54,6 +54,7 @@ pub enum Expr {
     Call(Box<Expr>, Vec<Expr>),
     Lambda(Vec<Arg>, Vec<Expr>),
     Tuple(Vec<Expr>),
+    Return(Box<Expr>),
 }
 
 type ParseResult<T> = Result<T, String>;
@@ -61,6 +62,7 @@ type ParseResult<T> = Result<T, String>;
 pub struct ParseContext {
     content: Vec<char>,
     pos: usize,
+    indent_stack: Vec<usize>,
 }
 
 impl ParseContext {
@@ -68,6 +70,7 @@ impl ParseContext {
         ParseContext {
             content: content.chars().collect::<Vec<_>>(),
             pos: 0,
+            indent_stack: vec![],
         }
     }
 
@@ -83,6 +86,10 @@ impl ParseContext {
             None
         }
     }
+
+    fn indent_len(&self) -> usize {
+        self.indent_stack.iter().sum()
+    }
 }
 
 fn is_digit_char(c: char) -> bool {
@@ -94,7 +101,93 @@ fn is_symbol_char(c: char) -> bool {
 }
 
 pub fn parse_expr(ctx: &mut ParseContext) -> ParseResult<Expr> {
-    parse_expr_prec(ctx, 0)
+    consume_hs(ctx);
+    match ctx.pop() {
+        Some('d') if parse_until_symbol_boundary(ctx, "ef") => parse_expr_def(ctx),
+        Some('r') if parse_until_symbol_boundary(ctx, "eturn") => parse_expr_return(ctx),
+        _ => {
+            ctx.pos -= 1;
+            parse_expr_prec(ctx, 0)
+        }
+    }
+}
+
+fn parse_expr_return(ctx: &mut ParseContext) -> ParseResult<Expr> {
+    consume_hs(ctx);
+    Ok(Expr::Return(Box::new(parse_expr(ctx)?)))
+}
+
+fn parse_expr_def(ctx: &mut ParseContext) -> ParseResult<Expr> {
+    consume_hs(ctx);
+    let name = ctx
+        .peek()
+        .filter(|&c| is_symbol_char(c))
+        .map(|_| parse_symbol(ctx));
+    if name.is_some() {
+        todo!("We don't support assignments yet!");
+    }
+    consume_hs(ctx);
+    parse_char(ctx, '(')?;
+    let args = parse_args(ctx)?;
+    consume_hs(ctx);
+    parse_char(ctx, ':')?;
+    consume_hs(ctx);
+    // We're finally here, BOYS
+    parse_char(ctx, '\n')?;
+    // TODO: Move this into parse_indent to avoid wasting precious time
+    consume_blank_lines(ctx);
+    parse_new_block_indent(ctx)?;
+
+    let mut body = vec![parse_expr(ctx)?];
+    let block_indent = ctx.indent_len();
+    loop {
+        consume_blank_lines(ctx);
+        let start_pos = ctx.pos;
+        let indent = parse_indent(ctx);
+        if indent == block_indent {
+            body.push(parse_expr(ctx)?);
+        } else if indent > block_indent {
+            ctx.pos = start_pos;
+            return Err("Too much indentation".to_owned());
+        } else {
+            ctx.pos = start_pos;
+            break;
+        }
+    }
+    match body.pop().unwrap() {
+        Expr::Return(ret_val) => {
+            body.push(*ret_val);
+        }
+        _ => return Err("The last statement in a def must be a return".to_owned()),
+    };
+    Ok(Expr::Lambda(args, body))
+}
+
+fn parse_indent(ctx: &mut ParseContext) -> usize {
+    let mut depth = 0;
+    loop {
+        match ctx.pop() {
+            Some(' ') => depth += 1,
+            Some('\t') => depth += 4,
+            _ => {
+                ctx.pos -= 1;
+                break;
+            }
+        }
+    }
+    depth
+}
+
+fn parse_new_block_indent(ctx: &mut ParseContext) -> ParseResult<()> {
+    let start_pos = ctx.pos;
+    let indent = parse_indent(ctx);
+    let previous_indent = ctx.indent_len();
+    if indent <= previous_indent {
+        ctx.pos = start_pos;
+        return Err("Expected a start of a new block".to_owned());
+    }
+    ctx.indent_stack.push(indent - previous_indent);
+    Ok(())
 }
 
 /*
@@ -135,17 +228,17 @@ fn parse_expr_unchained(ctx: &mut ParseContext) -> ParseResult<Expr> {
             match ctx.peek() {
                 Some(',') => {
                     ctx.pos += 1;
-                    let mut args = parse_arg_list(ctx)?;
+                    let mut args = parse_expr_args(ctx)?;
                     args.insert(0, first_expr);
                     match maybe_parse_lambda(ctx, args.clone()) {
-                        Some(res) => Ok(res?),
+                        Some(res) => res,
                         None => Ok(Expr::Tuple(args)),
                     }
                 }
                 Some(')') => {
                     ctx.pos += 1;
                     match maybe_parse_lambda(ctx, vec![first_expr.clone()]) {
-                        Some(res) => Ok(res?),
+                        Some(res) => res,
                         None => Ok(first_expr),
                     }
                 }
@@ -197,7 +290,7 @@ fn parse_calls(ctx: &mut ParseContext, base: Expr) -> ParseResult<Expr> {
     match ctx.peek() {
         Some('(') => {
             ctx.pos += 1;
-            let args = parse_arg_list(ctx)?;
+            let args = parse_expr_args(ctx)?;
             Ok(Expr::Call(Box::new(base), args))
         }
         _ => Ok(base),
@@ -205,22 +298,28 @@ fn parse_calls(ctx: &mut ParseContext, base: Expr) -> ParseResult<Expr> {
 }
 
 /// Expects opening `(` to have been parsed already
-fn parse_arg_list(ctx: &mut ParseContext) -> ParseResult<Vec<Expr>> {
+fn parse_expr_args(ctx: &mut ParseContext) -> ParseResult<Vec<Expr>> {
     let mut args = vec![];
     consume_hs(ctx);
     while ctx.peek() != Some(')') {
         args.push(parse_expr(ctx)?);
         consume_hs(ctx);
-        if !parse_char(ctx, ',') {
+        if parse_char(ctx, ',').is_err() {
             break;
         }
         consume_hs(ctx);
     }
-    if !parse_char(ctx, ')') {
-        Err(format!("Expected `)`, found {:?}", ctx.peek()))
-    } else {
-        Ok(args)
-    }
+    parse_char(ctx, ')')?;
+    Ok(args)
+}
+
+/// Expects opening `(` to have been parsed already
+fn parse_args(ctx: &mut ParseContext) -> ParseResult<Vec<Arg>> {
+    // Kinda sloppy but whatever (for now)
+    parse_expr_args(ctx)?
+        .into_iter()
+        .map(expr_to_arg)
+        .collect::<ParseResult<Vec<_>>>()
 }
 
 /// Assumes ctx is already at the start of a number
@@ -252,17 +351,19 @@ fn parse_symbol(ctx: &mut ParseContext) -> Expr {
     Expr::Symbol(result)
 }
 
-fn parse_char(ctx: &mut ParseContext, expected: char) -> bool {
+fn parse_char(ctx: &mut ParseContext, expected: char) -> ParseResult<()> {
     match ctx.peek() {
         Some(c) if c == expected => {
             ctx.pos += 1;
-            true
+            Ok(())
         }
-        _ => false,
+        Some(c) => Err(format!("Expected `{expected}`, found {c}")),
+        None => Err(format!("Expected `{expected}`, found EOF")),
     }
 }
 
 fn parse_until_symbol_boundary(ctx: &mut ParseContext, sym: &str) -> bool {
+    println!("Attempting to parse {sym} until boundary");
     let mut i = 0;
     for c in sym.chars() {
         // If it's legit
@@ -295,8 +396,8 @@ fn parse_binop(ctx: &mut ParseContext) -> Option<BinOp> {
         Some('&') => Some(BinOp::BitAnd),
         Some('|') => Some(BinOp::BitOr),
         Some('^') => Some(BinOp::BitXor),
-        Some('=') if parse_char(ctx, '=') => Some(BinOp::Eq),
-        Some('!') if parse_char(ctx, '=') => Some(BinOp::Ne),
+        Some('=') if parse_char(ctx, '=').is_ok() => Some(BinOp::Eq),
+        Some('!') if parse_char(ctx, '=').is_ok() => Some(BinOp::Ne),
         Some('<') => Some(match ctx.peek() {
             Some('<') => {
                 ctx.pos += 1;
@@ -343,6 +444,31 @@ fn consume_hs(ctx: &mut ParseContext) {
             }
             _ => return,
         }
+    }
+}
+
+fn consume_blank_lines(ctx: &mut ParseContext) {
+    while consume_blank_line(ctx) {}
+}
+
+fn consume_blank_line(ctx: &mut ParseContext) -> bool {
+    let start = ctx.pos;
+    loop {
+        match ctx.peek() {
+            Some(' ') => ctx.pos += 1,
+            Some('\t') => ctx.pos += 1,
+            Some('#') => {
+                consume_comment(ctx);
+                break;
+            }
+            _ => break,
+        }
+    }
+    if parse_char(ctx, '\n').is_ok() {
+        true
+    } else {
+        ctx.pos = start;
+        false
     }
 }
 
@@ -396,9 +522,9 @@ mod tests {
 
     #[test]
     fn test_parse_char() {
-        assert!(parse_char(&mut ParseContext::new("a"), 'a'));
-        assert!(!parse_char(&mut ParseContext::new("b"), 'a'));
-        assert!(!parse_char(&mut ParseContext::new(""), 'a'));
+        assert!(parse_char(&mut ParseContext::new("a"), 'a').is_ok());
+        assert!(parse_char(&mut ParseContext::new("b"), 'a').is_err());
+        assert!(parse_char(&mut ParseContext::new(""), 'a').is_err());
     }
 
     #[test]
@@ -541,5 +667,17 @@ mod tests {
             )),
             parse_expr(&mut ParseContext::new("(1337, b): 42"))
         );
+    }
+
+    #[test]
+    fn test_parse_def() {
+        assert_eq!(
+            Ok(Expr::Lambda(
+                vec![Arg::Int(1337)],
+                vec![Expr::Int(42), Expr::Int(69)]
+            )),
+            parse_expr(&mut ParseContext::new("def (1337):\n  42\n  return 69"))
+        );
+        assert!(parse_expr(&mut ParseContext::new("def (1337):\n  42\n  69")).is_err());
     }
 }
