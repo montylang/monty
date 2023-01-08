@@ -54,6 +54,7 @@ pub enum Expr {
     Call(Box<Expr>, Vec<Expr>),
     Lambda(Vec<Arg>, Vec<Expr>),
     Tuple(Vec<Expr>),
+    List(Vec<Expr>),
     Return(Box<Expr>),
 }
 
@@ -228,7 +229,7 @@ fn parse_expr_unchained(ctx: &mut ParseContext) -> ParseResult<Expr> {
             match ctx.peek() {
                 Some(',') => {
                     ctx.pos += 1;
-                    let mut args = parse_expr_args(ctx)?;
+                    let mut args = parse_expr_args(ctx, ')')?;
                     args.insert(0, first_expr);
                     match maybe_parse_lambda(ctx, args.clone()) {
                         Some(res) => res,
@@ -244,6 +245,10 @@ fn parse_expr_unchained(ctx: &mut ParseContext) -> ParseResult<Expr> {
                 }
                 _ => Err("Expected `)` or `,`".to_owned()),
             }
+        }
+        Some('[') => {
+            ctx.pos += 1;
+            Ok(Expr::List(parse_expr_args(ctx, ']')?))
         }
         Some(c) => Err(format!("Expected expr, found {c}")),
         None => Err(format!("Expected expr, found EOF")),
@@ -290,7 +295,7 @@ fn parse_calls(ctx: &mut ParseContext, base: Expr) -> ParseResult<Expr> {
     match ctx.peek() {
         Some('(') => {
             ctx.pos += 1;
-            let args = parse_expr_args(ctx)?;
+            let args = parse_expr_args(ctx, ')')?;
             Ok(Expr::Call(Box::new(base), args))
         }
         _ => Ok(base),
@@ -298,10 +303,10 @@ fn parse_calls(ctx: &mut ParseContext, base: Expr) -> ParseResult<Expr> {
 }
 
 /// Expects opening `(` to have been parsed already
-fn parse_expr_args(ctx: &mut ParseContext) -> ParseResult<Vec<Expr>> {
+fn parse_expr_args(ctx: &mut ParseContext, closing_char: char) -> ParseResult<Vec<Expr>> {
     let mut args = vec![];
     consume_hs(ctx);
-    while ctx.peek() != Some(')') {
+    while ctx.peek() != Some(closing_char) {
         args.push(parse_expr(ctx)?);
         consume_hs(ctx);
         if parse_char(ctx, ',').is_err() {
@@ -309,14 +314,14 @@ fn parse_expr_args(ctx: &mut ParseContext) -> ParseResult<Vec<Expr>> {
         }
         consume_hs(ctx);
     }
-    parse_char(ctx, ')')?;
+    parse_char(ctx, closing_char)?;
     Ok(args)
 }
 
 /// Expects opening `(` to have been parsed already
 fn parse_args(ctx: &mut ParseContext) -> ParseResult<Vec<Arg>> {
     // Kinda sloppy but whatever (for now)
-    parse_expr_args(ctx)?
+    parse_expr_args(ctx, ')')?
         .into_iter()
         .map(expr_to_arg)
         .collect::<ParseResult<Vec<_>>>()
@@ -679,5 +684,19 @@ mod tests {
             parse_expr(&mut ParseContext::new("def (1337):\n  42\n  return 69"))
         );
         assert!(parse_expr(&mut ParseContext::new("def (1337):\n  42\n  69")).is_err());
+    }
+
+    #[test]
+    fn test_parse_list() {
+        assert_eq!(
+            Ok(Expr::List(vec![
+                Expr::Int(1),
+                Expr::Int(1),
+                Expr::Int(2),
+                Expr::Int(3),
+                Expr::Int(5),
+            ])),
+            parse_expr(&mut ParseContext::new("[1, 1, 2, 3, 5]"))
+        );
     }
 }
