@@ -13,25 +13,23 @@ pub enum BinOp {
     Gt,
     ShiftRight,
     ShiftLeft,
-    BitAnd,
-    BitOr,
-    BitXor,
     And,
     Or,
+    Mappend,
+    Cons,
 }
 
 impl BinOp {
     fn precedence(&self) -> u8 {
         match self {
+            BinOp::Cons => 13,
+            BinOp::Mappend => 12,
             BinOp::And | BinOp::Or => 11,
             BinOp::Div | BinOp::Mod | BinOp::Mul => 10,
             BinOp::Add | BinOp::Sub => 9,
             BinOp::ShiftLeft | BinOp::ShiftRight => 8,
             BinOp::Gt | BinOp::Lt | BinOp::Ge | BinOp::Le => 7,
             BinOp::Eq | BinOp::Ne => 6,
-            BinOp::BitAnd => 5,
-            BinOp::BitXor => 4,
-            BinOp::BitOr => 3,
         }
     }
 }
@@ -49,6 +47,7 @@ pub enum Arg {
 pub enum Expr {
     Int(i64),
     Float(f64),
+    Char(char),
     BinOp(BinOp, Box<Expr>, Box<Expr>),
     Symbol(String),
     Call(Box<Expr>, Vec<Expr>),
@@ -250,8 +249,72 @@ fn parse_expr_unchained(ctx: &mut ParseContext) -> ParseResult<Expr> {
             ctx.pos += 1;
             Ok(Expr::List(parse_expr_args(ctx, ']')?))
         }
+        Some('\'') => {
+            ctx.pos += 1;
+            Ok(Expr::Char(parse_maybe_escaped_char(ctx, '\'')?))
+        }
+        Some('\"') => {
+            ctx.pos += 1;
+            let chars = parse_escaped_body(ctx, '\"')?
+                .iter()
+                .copied()
+                .map(Expr::Char)
+                .collect();
+            Ok(Expr::List(chars))
+        }
         Some(c) => Err(format!("Expected expr, found {c}")),
         None => Err(format!("Expected expr, found EOF")),
+    }
+}
+
+/// Expects the first opening char e.g. " or ' to have been parsed and eaten
+fn parse_escaped_body(ctx: &mut ParseContext, terminal_char: char) -> ParseResult<Vec<char>> {
+    let mut chars = vec![];
+    loop {
+        match ctx.peek() {
+            Some(c) if c == terminal_char => break,
+            _ => chars.push(parse_maybe_escaped_char(ctx, terminal_char)?),
+        }
+    }
+    Ok(chars)
+}
+
+fn parse_maybe_escaped_char(ctx: &mut ParseContext, terminal_char: char) -> ParseResult<char> {
+    match ctx.pop() {
+        Some('\\') => parse_escaped_char(ctx),
+        Some(c) if c == terminal_char => Err(format!(
+            "Expected a char between `{terminal_char}` boundaries"
+        )),
+        Some(c) => Ok(c),
+        None => Err(format!("Expected closing `{terminal_char}`, found EOF")),
+    }
+}
+
+/// Expects the opening `\` to have been parsed
+fn parse_escaped_char(ctx: &mut ParseContext) -> ParseResult<char> {
+    match ctx.pop() {
+        Some('t') => Ok('\t'),
+        Some('0') => Ok('\0'),
+        Some('n') => Ok('\n'),
+        Some('r') => Ok('\r'),
+        Some('"') => Ok('"'),
+        Some('\'') => Ok('\''),
+        Some('\\') => Ok('\\'),
+        Some('x') => {
+            let res = (parse_hex_char(ctx)? << 4) | parse_hex_char(ctx)?;
+            Ok(res as char)
+        }
+        Some(c) => Err(format!("Invalid escape sequence: `\\{c}`")),
+        None => Err("Expected escape character but hit EOF".to_owned()),
+    }
+}
+
+fn parse_hex_char(ctx: &mut ParseContext) -> ParseResult<u8> {
+    match ctx.pop().map(|c| c.to_ascii_lowercase()) {
+        Some(c) if c.is_ascii_digit() => Ok(c as u8 - b'0'),
+        Some(c @ 'a'..='f') => Ok(c as u8 - b'a' + 10),
+        Some(c) => Err(format!("Invalid hex digit: {c}")),
+        None => Err("Expected hex digit, found EOF".to_owned()),
     }
 }
 
@@ -292,14 +355,27 @@ fn expr_to_arg(expr: Expr) -> ParseResult<Arg> {
 }
 
 fn parse_calls(ctx: &mut ParseContext, base: Expr) -> ParseResult<Expr> {
-    match ctx.peek() {
-        Some('(') => {
-            ctx.pos += 1;
-            let args = parse_expr_args(ctx, ')')?;
-            Ok(Expr::Call(Box::new(base), args))
+    let mut res = base;
+    loop {
+        match ctx.peek() {
+            Some('(') => {
+                ctx.pos += 1;
+                let args = parse_expr_args(ctx, ')')?;
+                res = Expr::Call(Box::new(res), args)
+            }
+            Some('.') => {
+                ctx.pos += 1;
+                let sym = parse_symbol(ctx);
+                consume_hs(ctx);
+                parse_char(ctx, '(')?;
+                let mut args = parse_expr_args(ctx, ')')?;
+                args.insert(0, res);
+                res = Expr::Call(Box::new(sym), args)
+            }
+            _ => break,
         }
-        _ => Ok(base),
     }
+    Ok(res)
 }
 
 /// Expects opening `(` to have been parsed already
@@ -338,6 +414,7 @@ fn parse_num(ctx: &mut ParseContext) -> ParseResult<Expr> {
     if let Ok(value) = s.parse::<i64>() {
         Ok(Expr::Int(value))
     } else if let Ok(value) = s.parse::<f64>() {
+        println!("{s}");
         Ok(Expr::Float(value))
     } else {
         ctx.pos = start;
@@ -398,9 +475,7 @@ fn parse_binop(ctx: &mut ParseContext) -> Option<BinOp> {
         Some('/') => Some(BinOp::Div),
         Some('%') => Some(BinOp::Mod),
         Some('*') => Some(BinOp::Mul),
-        Some('&') => Some(BinOp::BitAnd),
-        Some('|') => Some(BinOp::BitOr),
-        Some('^') => Some(BinOp::BitXor),
+        Some('|') => Some(BinOp::Cons),
         Some('=') if parse_char(ctx, '=').is_ok() => Some(BinOp::Eq),
         Some('!') if parse_char(ctx, '=').is_ok() => Some(BinOp::Ne),
         Some('<') => Some(match ctx.peek() {
@@ -413,7 +488,8 @@ fn parse_binop(ctx: &mut ParseContext) -> Option<BinOp> {
                 BinOp::Le
             }
             Some('>') => {
-                panic!("What the hell is the `<>` operator?");
+                ctx.pos += 1;
+                BinOp::Mappend
             }
             _ => BinOp::Lt,
         }),
@@ -421,6 +497,9 @@ fn parse_binop(ctx: &mut ParseContext) -> Option<BinOp> {
             Some('>') => {
                 ctx.pos += 1;
                 BinOp::ShiftRight
+            }
+            Some('<') => {
+                panic!("What the hell is the `><` operator? Is that how you feel rn?")
             }
             Some('=') => {
                 ctx.pos += 1;
@@ -514,7 +593,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_symbol() {
+    fn test_parse_expr_symbol() {
         assert_eq!(
             Expr::Symbol("abcd".to_owned()),
             parse_symbol(&mut ParseContext::new("abcd"))
@@ -557,15 +636,6 @@ mod tests {
         assert_eq!(
             Some(BinOp::ShiftLeft),
             parse_binop(&mut ParseContext::new("<<"))
-        );
-        assert_eq!(
-            Some(BinOp::BitAnd),
-            parse_binop(&mut ParseContext::new("&"))
-        );
-        assert_eq!(Some(BinOp::BitOr), parse_binop(&mut ParseContext::new("|")));
-        assert_eq!(
-            Some(BinOp::BitXor),
-            parse_binop(&mut ParseContext::new("^"))
         );
         assert_eq!(Some(BinOp::And), parse_binop(&mut ParseContext::new("and")));
         assert_eq!(Some(BinOp::Or), parse_binop(&mut ParseContext::new("or")));
@@ -641,6 +711,36 @@ mod tests {
             )),
             parse_expr(&mut ParseContext::new("(f + 3)(4, henlo)"))
         );
+        assert_eq!(
+            Ok(Expr::Call(
+                Box::new(Expr::Symbol("f".to_owned())),
+                vec![Expr::Int(4), Expr::Symbol("henlo".to_owned()),],
+            )),
+            parse_expr(&mut ParseContext::new("(4).f(henlo)"))
+        );
+        assert_eq!(
+            Ok(Expr::Call(
+                Box::new(Expr::Call(
+                    Box::new(Expr::Symbol("f".to_owned())),
+                    vec![Expr::Int(3)]
+                )),
+                vec![Expr::Int(4)]
+            )),
+            parse_expr(&mut ParseContext::new("f(3)(4)"))
+        );
+        assert_eq!(
+            Ok(Expr::Call(
+                Box::new(Expr::Symbol("c".to_owned())),
+                vec![
+                    Expr::Call(
+                        Box::new(Expr::Symbol("b".to_owned())),
+                        vec![Expr::Symbol("a".to_owned()), Expr::Int(4)]
+                    ),
+                    Expr::Int(7),
+                ]
+            )),
+            parse_expr(&mut ParseContext::new("a.b(4).c(7)"))
+        );
     }
 
     #[test]
@@ -697,6 +797,51 @@ mod tests {
                 Expr::Int(5),
             ])),
             parse_expr(&mut ParseContext::new("[1, 1, 2, 3, 5]"))
+        );
+    }
+
+    #[test]
+    fn test_parse_expr_char() {
+        assert_eq!(
+            Ok(Expr::Char('a')),
+            parse_expr(&mut ParseContext::new("'a'"))
+        );
+        assert_eq!(
+            Ok(Expr::Char('\'')),
+            parse_expr(&mut ParseContext::new(r#"'\''"#))
+        );
+        assert_eq!(
+            Ok(Expr::Char('\x7a')),
+            parse_expr(&mut ParseContext::new(r#"'\x7a'"#))
+        );
+        assert_eq!(
+            Ok(Expr::Char(0xff as char)),
+            parse_expr(&mut ParseContext::new(r#"'\xff'"#))
+        );
+        assert!(parse_expr(&mut ParseContext::new(r#"'\8'"#)).is_err());
+    }
+
+    #[test]
+    fn test_parse_expr_stringo() {
+        assert_eq!(
+            Ok(Expr::List(vec![])),
+            parse_expr(&mut ParseContext::new(r#""""#))
+        );
+        assert_eq!(
+            Ok(Expr::List(vec![Expr::Char('\n')])),
+            parse_expr(&mut ParseContext::new(r#""\n""#))
+        );
+        assert_eq!(
+            Ok(Expr::List(vec![
+                Expr::Char('a'),
+                Expr::Char('b'),
+                Expr::Char('c'),
+                Expr::Char('d'),
+                Expr::Char('e'),
+                Expr::Char('f'),
+                Expr::Char('g'),
+            ])),
+            parse_expr(&mut ParseContext::new(r#""abcdefg""#))
         );
     }
 }
