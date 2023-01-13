@@ -104,6 +104,8 @@ instance PrettyPrint Arg where
   prettyPrint SelfArg                = "self"
   prettyPrint (PatternArg name args) =
     name <> "(" <> intercalate "," (prettyPrint <$> args) <> ")"
+  prettyPrint (IntArg int)           = show int
+  prettyPrint (CharArg char)         = show char
 
 type PExpr = Pos Expr
 
