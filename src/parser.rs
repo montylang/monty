@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, io::{stdout, Write}};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BinOp {
@@ -51,13 +51,13 @@ pub enum Num {
     Float(f64),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct TypeFunSig {
     name: String,
     args: Vec<String>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ClassVariant {
     name: String,
     fields: Vec<String>,
@@ -136,6 +136,50 @@ impl ParseContext {
     }
 }
 
+fn stdout_formatting_bold_red() {
+    stdout().write_all(&[0x1b, 0x5b, 0x31, 0x3b, 0x33, 0x31, 0x6d]).unwrap();
+}
+
+fn stdout_formatting_bold() {
+    stdout().write_all(&[0x1b, 0x5b, 0x31, 0x6d]).unwrap();
+}
+
+fn stdout_formatting_clear() {
+    stdout().write_all(&[0x1b, 0x5b, 0x30, 0x6d]).unwrap();
+}
+
+pub fn pretty_print_error(ctx: &ParseContext, message: &str) {
+    let mut start = ctx.pos.min(ctx.content.len() - 1);
+    let mut end = start;
+    for i in start..ctx.content.len() {
+        if ctx.content[i] == '\n' {
+            break;
+        }
+        end = i;
+    }
+    for i in (0..=start).rev() {
+        if ctx.content[i] == '\n' {
+            break;
+        }
+        start = i;
+    }
+    let line_num = 1 + ctx.content.iter()
+        .take(ctx.pos)
+        .filter(|c| **c == '\n')
+        .count();
+    let column_num = ctx.pos - start;
+    let line_num_str = format!("{line_num}: ");
+    stdout_formatting_bold_red();
+    println!("Parse error:\n");
+    stdout_formatting_clear();
+    println!("{line_num_str}{}", ctx.content[start..=end].iter().collect::<String>());
+    println!("{}^", str::repeat(" ", column_num + line_num_str.len()));
+    stdout_formatting_bold();
+    println!("{message}");
+    stdout_formatting_clear();
+    println!();
+}
+
 fn is_digit_char(c: char) -> bool {
     c == '.' || c.is_ascii_digit()
 }
@@ -146,13 +190,21 @@ fn is_symbol_char(c: char) -> bool {
 
 pub fn parse_file_string(content: &str) -> ParseResult<Vec<Statement>> {
     let mut ctx = ParseContext::new(content);
+    let res = begin_parsing(&mut ctx);
+    if let Err(message) = &res {
+        pretty_print_error(&ctx, message);
+    }
+    res
+}
+
+fn begin_parsing(ctx: &mut ParseContext) -> ParseResult<Vec<Statement>> {
     let mut statements = vec![];
     loop {
-        consume_blank_lines(&mut ctx);
+        consume_blank_lines(ctx);
         if ctx.at_eof() {
             break;
         }
-        statements.push(parse_statement(&mut ctx)?);
+        statements.push(parse_statement(ctx)?);
     }
     Ok(statements)
 }
@@ -197,8 +249,8 @@ fn parse_indented_items<T>(
     let mut items = vec![item_parser(ctx)?];
     let block_indent = ctx.indent_len();
     loop {
-        consume_blank_lines(ctx);
         let start_pos = ctx.pos;
+        consume_blank_lines(ctx);
         match parse_indent(ctx).cmp(&block_indent) {
             Ordering::Equal => items.push(item_parser(ctx)?),
             Ordering::Greater => {
@@ -207,6 +259,7 @@ fn parse_indented_items<T>(
             }
             Ordering::Less => {
                 ctx.pos = start_pos;
+                ctx.indent_stack.pop();
                 break;
             }
         }
@@ -274,7 +327,7 @@ fn parse_cap_ident(ctx: &mut ParseContext) -> ParseResult<String> {
     match ctx.peek() {
         Some(c) if c.is_ascii_uppercase() => Ok(parse_symbol_name(ctx)),
         Some(c) => Err(format!("Expected capitalized identifier, found {c}")),
-        None => Err(format!("Expected capitalized identifier, found EOF")),
+        None => Err("Expected capitalized identifier, found EOF".to_owned()),
     }
 }
 
@@ -292,9 +345,13 @@ fn parse_statement_class(ctx: &mut ParseContext) -> ParseResult<Statement> {
 
 fn parse_class_variant(ctx: &mut ParseContext) -> ParseResult<ClassVariant> {
     let name = parse_cap_ident(ctx)?;
+
     consume_hs(ctx);
-    parse_char(ctx, '(')?;
-    let fields = parse_delimited_in_parens(ctx, ')', |ctx| Ok(parse_symbol_name(ctx)))?;
+    let fields = if parse_char(ctx, '(').is_ok() {
+        parse_delimited_in_parens(ctx, ')', |ctx| Ok(parse_symbol_name(ctx)))?
+    } else {
+        vec![]
+    };
     Ok(ClassVariant { name, fields })
 }
 
@@ -310,7 +367,6 @@ fn parse_statement_instance(ctx: &mut ParseContext) -> ParseResult<Statement> {
     parse_char(ctx, ':')?;
     consume_hs(ctx);
     parse_char(ctx, '\n')?;
-    println!("{}, {:?}", ctx.pos, &ctx.content[ctx.pos..]);
     let implementations = parse_indented_items(ctx, |ctx| {
         parse_expected_symbol(ctx, "def")?;
         parse_expr_def(ctx)
@@ -334,12 +390,9 @@ fn parse_expr_def(ctx: &mut ParseContext) -> ParseResult<Expr> {
         .peek()
         .filter(|&c| is_symbol_char(c))
         .map(|_| parse_symbol_name(ctx));
-    println!("func name: {name:?}");
     consume_hs(ctx);
     parse_char(ctx, '(')?;
-    println!("Parsed opening paren");
     let args = parse_args(ctx)?;
-    println!("Done parsing args");
     consume_hs(ctx);
     parse_char(ctx, ':')?;
     consume_hs(ctx);
@@ -363,6 +416,7 @@ fn parse_expr_def(ctx: &mut ParseContext) -> ParseResult<Expr> {
 }
 
 fn parse_indent(ctx: &mut ParseContext) -> usize {
+    assert!(ctx.pos == 0 || ctx.content[ctx.pos - 1] == '\n' || ctx.at_eof());
     let mut depth = 0;
     loop {
         match ctx.pop() {
@@ -389,6 +443,17 @@ fn parse_new_block_indent(ctx: &mut ParseContext) -> ParseResult<()> {
     Ok(())
 }
 
+fn try_parse_assign_op(ctx: &mut ParseContext) -> bool {
+    if ctx.pos + 2 >= ctx.content.len() {
+        false
+    } else if ctx.content[ctx.pos] == '=' && ctx.content[ctx.pos + 1] != '=' {
+        ctx.pos += 2;
+        true
+    } else {
+        false
+    }
+}
+
 /*
  * Tries parsing operators until the precedence value doesn't meet requirement.
  * In other words, it recurses, but doesn't consume lower priority ops.
@@ -399,6 +464,11 @@ fn parse_expr_prec(ctx: &mut ParseContext, precedence: u8) -> ParseResult<Expr> 
     consume_hs(ctx);
     let mut expr = parse_calls(ctx, unchained)?;
     consume_hs(ctx);
+    if try_parse_assign_op(ctx) {
+        let arg = expr_to_arg(expr)?;
+        let expr = parse_expr(ctx)?;
+        return Ok(Expr::Assignment(arg, Box::new(expr)));
+    }
     loop {
         let start = ctx.pos;
         match parse_binop(ctx) {
@@ -453,7 +523,9 @@ fn parse_expr_unchained(ctx: &mut ParseContext) -> ParseResult<Expr> {
         }
         Some('\'') => {
             ctx.pos += 1;
-            Ok(Expr::Char(parse_maybe_escaped_char(ctx, '\'')?))
+            let res = parse_maybe_escaped_char(ctx, '\'')?;
+            parse_char(ctx, '\'')?;
+            Ok(Expr::Char(res))
         }
         Some('\"') => {
             ctx.pos += 1;
@@ -478,6 +550,7 @@ fn parse_escaped_body(ctx: &mut ParseContext, terminal_char: char) -> ParseResul
             _ => chars.push(parse_maybe_escaped_char(ctx, terminal_char)?),
         }
     }
+    ctx.pos += 1;
     Ok(chars)
 }
 
@@ -616,11 +689,10 @@ fn parse_arg(ctx: &mut ParseContext) -> ParseResult<Arg> {
             Num::Int(value) => Arg::Int(value),
             Num::Float(value) => Arg::Float(value),
         }),
-        Some(c) if c.is_lowercase() => Ok(Arg::Symbol(parse_symbol_name(ctx))),
+        Some(c) if c.is_lowercase() || c == '_' => Ok(Arg::Symbol(parse_symbol_name(ctx))),
         // Pattern matched class type
         Some(c) if c.is_uppercase() => {
             let name = parse_symbol_name(ctx);
-            println!("Parsed arg: {name:?}");
             consume_hs(ctx);
 
             Ok(Arg::ClassPattern(
@@ -678,8 +750,8 @@ fn parse_char(ctx: &mut ParseContext, expected: char) -> ParseResult<()> {
             ctx.pos += 1;
             Ok(())
         }
-        Some(c) => Err(format!("Expected `{expected}`, found `{c}`")),
-        None => Err(format!("Expected `{expected}`, found EOF")),
+        Some(c) => Err(format!("Expected {expected:#?} found {c:#?}")),
+        None => Err(format!("Expected {expected:#?} found EOF")),
     }
 }
 
@@ -747,10 +819,11 @@ fn parse_binop(ctx: &mut ParseContext) -> Option<BinOp> {
         }),
         Some('a') if parse_until_symbol_boundary(ctx, "nd") => Some(BinOp::And),
         Some('o') if parse_until_symbol_boundary(ctx, "r") => Some(BinOp::Or),
-        _ => {
+        Some(_) => {
             ctx.pos -= 1;
             None
-        }
+        },
+        None => None,
     }
 }
 
@@ -1112,6 +1185,7 @@ mod tests {
             Ok(Expr::List(vec![Expr::Char('\n')])),
             parse_expr(&mut ParseContext::new(r#""\n""#))
         );
+        let mut ctx = ParseContext::new(r#""abcdefg""#);
         assert_eq!(
             Ok(Expr::List(vec![
                 Expr::Char('a'),
@@ -1122,8 +1196,9 @@ mod tests {
                 Expr::Char('f'),
                 Expr::Char('g'),
             ])),
-            parse_expr(&mut ParseContext::new(r#""abcdefg""#))
+            parse_expr(&mut ctx)
         );
+        assert!(ctx.at_eof());
     }
 
     #[test]
