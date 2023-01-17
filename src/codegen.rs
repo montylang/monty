@@ -18,7 +18,7 @@ pub fn codegen() {
     let module = context.create_module("pickles");
     let bob = context.create_builder();
 
-    let rust_llvm_ir = MemoryBuffer::create_from_file(Path::new("runtime.ll")).unwrap();
+    let rust_llvm_ir = MemoryBuffer::create_from_file(Path::new("./target/runtime.ll")).unwrap();
     let rust_module = context.create_module_from_ir(rust_llvm_ir).unwrap();
     module.link_in_module(rust_module).unwrap();
 
